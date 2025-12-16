@@ -143,7 +143,7 @@ export function startYourEngines({
 
     let roomWidth = 14
     let roomLength = 18
-    let roomHeight = 3
+    let roomHeight = 4
 
     if (mode !== 'entryway') {
       const seed = hashStringToUint32(String(seedTitle))

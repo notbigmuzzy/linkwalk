@@ -7,15 +7,38 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
   const disposables = []
 
-  const ambient = new THREE.AmbientLight(0xffffff, 0.95)
+  const palette =
+    mode === 'entryway'
+      ? {
+          floor: 0x1c221f,
+          ceiling: 0xa7c9b6,
+          wall: 0x5f786c,
+          keyLight: 0x78ffb1,
+          keyLightIntensity: 1.9,
+          ambientIntensity: 0.9,
+          ceilingLightColor: 0xf4fff8,
+          ceilingLightIntensity: 1.5,
+        }
+      : {
+          floor: 0x2a2a2f,
+          ceiling: 0x3a3a41,
+          wall: 0x4a4a52,
+          keyLight: 0xff66cc,
+          keyLightIntensity: 1.6,
+          ambientIntensity: 0.95,
+          ceilingLightColor: 0xffffff,
+          ceilingLightIntensity: 0.9,
+        }
+
+  const ambient = new THREE.AmbientLight(0xffffff, palette.ambientIntensity)
   group.add(ambient)
 
-  const keyLight = new THREE.DirectionalLight(0xff66cc, 1.6)
+  const keyLight = new THREE.DirectionalLight(palette.keyLight, palette.keyLightIntensity)
   keyLight.position.set(4, height + 2.5, 3)
   group.add(keyLight)
 
-  const ceilingLightColor = 0xffffff
-  const ceilingLightIntensity = 0.9
+  const ceilingLightColor = palette.ceilingLightColor
+  const ceilingLightIntensity = palette.ceilingLightIntensity
   const ceilingLightDistance = Math.max(width, length) * 2.2
   const ceilingLightDecay = 1.6
 
@@ -40,7 +63,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
   group.add(lightBR)
 
   const floorGeo = new THREE.PlaneGeometry(width, length)
-  const floorMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2f, roughness: 0.95, metalness: 0.0 })
+  const floorMat = new THREE.MeshStandardMaterial({ color: palette.floor, roughness: 0.92, metalness: 0.0 })
   const floor = new THREE.Mesh(floorGeo, floorMat)
   floor.rotation.x = -Math.PI / 2
   floor.position.y = 0
@@ -48,14 +71,14 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
   disposables.push(floorGeo, floorMat)
 
   const ceilingGeo = new THREE.PlaneGeometry(width, length)
-  const ceilingMat = new THREE.MeshStandardMaterial({ color: 0x3a3a41, roughness: 1.0, metalness: 0.0 })
+  const ceilingMat = new THREE.MeshStandardMaterial({ color: palette.ceiling, roughness: 0.98, metalness: 0.0 })
   const ceiling = new THREE.Mesh(ceilingGeo, ceilingMat)
   ceiling.rotation.x = Math.PI / 2
   ceiling.position.y = height
   group.add(ceiling)
   disposables.push(ceilingGeo, ceilingMat)
 
-  const wallMat = new THREE.MeshStandardMaterial({ color: 0x4a4a52, roughness: 0.95, metalness: 0.0 })
+  const wallMat = new THREE.MeshStandardMaterial({ color: palette.wall, roughness: 0.9, metalness: 0.0 })
   const wallNSGeo = new THREE.BoxGeometry(width, height, wallThickness)
   const wallEWGeo = new THREE.BoxGeometry(wallThickness, height, length)
 
