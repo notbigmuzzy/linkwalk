@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 
-export function startEngine({ canvas, onFps }) {
+export function startEngine({ canvas, onFps, onPointerLockChange }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio ?? 1, 2))
 
@@ -8,7 +8,9 @@ export function startEngine({ canvas, onFps }) {
   scene.background = new THREE.Color(0x05030a)
 
   const camera = new THREE.PerspectiveCamera(70, 1, 0.1, 200)
-  camera.position.set(0, 1.4, 3)
+  const eyeHeight = 1.4
+  camera.position.set(0, eyeHeight, 3)
+  camera.rotation.order = 'YXZ'
 
   const ambient = new THREE.AmbientLight(0xffffff, 0.6)
   scene.add(ambient)
@@ -17,18 +19,173 @@ export function startEngine({ canvas, onFps }) {
   keyLight.position.set(3, 4, 2)
   scene.add(keyLight)
 
-  const floorGeo = new THREE.PlaneGeometry(20, 20)
+  const disposables = []
+
+  const roomSize = 20
+  const roomHeight = 4
+  const wallThickness = 0.2
+  const roomHalf = roomSize / 2
+
+  const floorGeo = new THREE.PlaneGeometry(roomSize, roomSize)
   const floorMat = new THREE.MeshStandardMaterial({ color: 0x141019, roughness: 0.9 })
   const floor = new THREE.Mesh(floorGeo, floorMat)
   floor.rotation.x = -Math.PI / 2
   floor.position.y = 0
   scene.add(floor)
+  disposables.push(floorGeo, floorMat)
+
+  const ceilingGeo = new THREE.PlaneGeometry(roomSize, roomSize)
+  const ceilingMat = new THREE.MeshStandardMaterial({ color: 0x0d0a10, roughness: 1.0 })
+  const ceiling = new THREE.Mesh(ceilingGeo, ceilingMat)
+  ceiling.rotation.x = Math.PI / 2
+  ceiling.position.y = roomHeight
+  scene.add(ceiling)
+  disposables.push(ceilingGeo, ceilingMat)
+
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x1c1221, roughness: 0.85, metalness: 0.05 })
+  const wallNSGeo = new THREE.BoxGeometry(roomSize, roomHeight, wallThickness)
+  const wallEWGeo = new THREE.BoxGeometry(wallThickness, roomHeight, roomSize)
+
+  const northWall = new THREE.Mesh(wallNSGeo, wallMat)
+  northWall.position.set(0, roomHeight / 2, -roomHalf)
+  scene.add(northWall)
+
+  const southWall = new THREE.Mesh(wallNSGeo, wallMat)
+  southWall.position.set(0, roomHeight / 2, roomHalf)
+  scene.add(southWall)
+
+  const eastWall = new THREE.Mesh(wallEWGeo, wallMat)
+  eastWall.position.set(roomHalf, roomHeight / 2, 0)
+  scene.add(eastWall)
+
+  const westWall = new THREE.Mesh(wallEWGeo, wallMat)
+  westWall.position.set(-roomHalf, roomHeight / 2, 0)
+  scene.add(westWall)
+
+  disposables.push(wallMat, wallNSGeo, wallEWGeo)
 
   const cubeGeo = new THREE.BoxGeometry(1, 1, 1)
   const cubeMat = new THREE.MeshStandardMaterial({ color: 0x66ccff, roughness: 0.25, metalness: 0.1 })
   const cube = new THREE.Mesh(cubeGeo, cubeMat)
   cube.position.set(0, 0.5, 0)
   scene.add(cube)
+  disposables.push(cubeGeo, cubeMat)
+
+  // --- Input + controls (Milestone 1)
+  const keysDown = new Set()
+  let jumpRequested = false
+
+  function onKeyDown(e) {
+    keysDown.add(e.code)
+    if (e.code === 'Space') jumpRequested = true
+  }
+
+  function onKeyUp(e) {
+    keysDown.delete(e.code)
+  }
+
+  window.addEventListener('keydown', onKeyDown)
+  window.addEventListener('keyup', onKeyUp)
+
+  let yaw = 0
+  let pitch = 0
+  const mouseSensitivity = 0.0022
+
+  function isPointerLocked() {
+    return document.pointerLockElement === canvas
+  }
+
+  function onMouseMove(e) {
+    if (!isPointerLocked()) return
+
+    yaw -= e.movementX * mouseSensitivity
+    pitch -= e.movementY * mouseSensitivity
+
+    const limit = Math.PI / 2 - 0.01
+    pitch = Math.max(-limit, Math.min(limit, pitch))
+
+    camera.rotation.y = yaw
+    camera.rotation.x = pitch
+  }
+
+  window.addEventListener('mousemove', onMouseMove)
+
+  function handlePointerLockChange() {
+    if (typeof onPointerLockChange === 'function') {
+      onPointerLockChange(isPointerLocked())
+    }
+  }
+
+  document.addEventListener('pointerlockchange', handlePointerLockChange)
+  handlePointerLockChange()
+
+  const velocity = new THREE.Vector3(0, 0, 0)
+  const gravity = -18
+  const jumpSpeed = 6.2
+  const moveSpeed = 4.2
+  const sprintMultiplier = 1.75
+  let grounded = false
+
+  function clamp(v, min, max) {
+    return Math.max(min, Math.min(max, v))
+  }
+
+  function updatePlayer(dt) {
+    if (!isPointerLocked()) {
+      jumpRequested = false
+      return
+    }
+
+    const inputX = (keysDown.has('KeyD') ? 1 : 0) - (keysDown.has('KeyA') ? 1 : 0)
+    const inputZ = (keysDown.has('KeyW') ? 1 : 0) - (keysDown.has('KeyS') ? 1 : 0)
+
+    let moveX = 0
+    let moveZ = 0
+
+    if (inputX !== 0 || inputZ !== 0) {
+      const len = Math.hypot(inputX, inputZ)
+      const nx = inputX / len
+      const nz = inputZ / len
+
+      const isSprinting = keysDown.has('ShiftLeft') || keysDown.has('ShiftRight')
+      const speed = moveSpeed * (isSprinting ? sprintMultiplier : 1)
+
+      const sin = Math.sin(yaw)
+      const cos = Math.cos(yaw)
+
+      // With Three.js default camera forward = -Z at yaw=0
+      // right = (cos, 0, -sin)
+      // forward = (-sin, 0, -cos)
+      moveX = (cos * nx + -sin * nz) * speed
+      moveZ = (-sin * nx + -cos * nz) * speed
+    }
+
+    camera.position.x += moveX * dt
+    camera.position.z += moveZ * dt
+
+    // Vertical physics
+    velocity.y += gravity * dt
+    if (jumpRequested && grounded) {
+      velocity.y = jumpSpeed
+      grounded = false
+    }
+    jumpRequested = false
+
+    camera.position.y += velocity.y * dt
+
+    // Floor collision
+    if (camera.position.y <= eyeHeight) {
+      camera.position.y = eyeHeight
+      velocity.y = 0
+      grounded = true
+    }
+
+    // Room bounds collision (MVP): clamp x/z inside walls
+    const margin = 0.35
+    const maxXZ = roomHalf - margin
+    camera.position.x = clamp(camera.position.x, -maxXZ, maxXZ)
+    camera.position.z = clamp(camera.position.z, -maxXZ, maxXZ)
+  }
 
   function resize() {
     const width = canvas.clientWidth
@@ -64,6 +221,8 @@ export function startEngine({ canvas, onFps }) {
       }
     }
 
+    updatePlayer(dt)
+
     cube.rotation.y += dt * 0.6
     cube.rotation.x += dt * 0.2
 
@@ -81,10 +240,14 @@ export function startEngine({ canvas, onFps }) {
       window.cancelAnimationFrame(rafId)
       window.removeEventListener('resize', resize)
 
-      cubeGeo.dispose()
-      cubeMat.dispose()
-      floorGeo.dispose()
-      floorMat.dispose()
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('pointerlockchange', handlePointerLockChange)
+
+      for (const d of disposables) {
+        if (typeof d.dispose === 'function') d.dispose()
+      }
       renderer.dispose()
     },
   }
