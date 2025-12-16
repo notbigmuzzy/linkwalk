@@ -1,50 +1,50 @@
-# Virtual Museum — TODO (2-week build)
+# Virtual Museum — TODO
 
 Goal: Desktop-only web app (Three.js) where each “room” is generated from a Wikipedia article. FPS controls (WASD + mouse look + SPACE jump). Vaporwave vibes via materials + lighting. Entrance lobby with doors for different “shows” (Geography, History, Art, etc.).
 
 <!-- ---
 
  ## Milestone 0 — Project Skeleton (Day 0–1)
-- [ ] Choose tooling: Vite + vanilla JS (recommended) OR plain `index.html` + local server
-- [ ] Initialize project scaffold
-  - [ ] `index.html` + JS entry
-  - [ ] Dev server (`npm run dev`) and build (`npm run build`) if using Vite
-- [ ] Add dependencies
-  - [ ] `three`
-- [ ] Create base file structure (keep simple)
-  - [ ] `src/main.js` (boot)
-  - [ ] `src/engine/` (scene/camera/renderer loop)
-  - [ ] `src/game/` (player, rooms, navigation)
-  - [ ] `src/wiki/` (fetch + normalize)
-  - [ ] `src/ui/` (HUD/overlays/credits)
-- [ ] Basic full-screen canvas render
-  - [ ] Scene + camera + renderer
-  - [ ] Resize handling
-  - [ ] Animation loop w/ delta time
+- [x] Choose tooling: Vite + vanilla JS (recommended) OR plain `index.html` + local server
+- [x] Initialize project scaffold
+  - [x] `index.html` + JS entry
+  - [x] Dev server (`npm run dev`) and build (`npm run build`) if using Vite
+- [x] Add dependencies
+  - [x] `three`
+- [x] Create base file structure (keep simple)
+  - [x] `src/main.js` (boot)
+  - [x] `src/engine/` (scene/camera/renderer loop)
+  - [x] `src/game/` (player, rooms, navigation)
+  - [x] `src/wiki/` (fetch + normalize)
+  - [x] `src/ui/` (HUD/overlays/credits)
+- [x] Basic full-screen canvas render
+  - [x] Scene + camera + renderer
+  - [x] Resize handling
+  - [x] Animation loop w/ delta time
 
 **Definition of done:** Opening the dev server shows a full-screen rendered scene. 
 
---- -->
+--- 
 
 ## Milestone 1 — FPS Controls (Day 1–2)
-- [ ] Pointer lock flow
-  - [ ] Click to lock pointer (mouse look)
-  - [ ] `Esc` unlock (browser default) + show “Click to play” overlay
-- [ ] Keyboard input
-  - [ ] WASD movement
-  - [ ] SPACE jump (required)
-  - [ ] Optional: Shift sprint (only if trivial)
-- [ ] Movement model
-  - [ ] Player velocity (x/z) + gravity (y)
-  - [ ] Grounded check + `canJump`
-- [ ] Collisions (MVP-simple)
-  - [ ] Floor collision (don’t fall through)
-  - [ ] Room bounds collision (don’t pass through walls)
-  - [ ] Keep everything axis-aligned initially
+- [x] Pointer lock flow
+  - [x] Click to lock pointer (mouse look)
+  - [x] `Esc` unlock (browser default) + show “Click to play” overlay
+- [x] Keyboard input
+  - [x] WASD movement
+  - [x] SPACE jump (required)
+  - [x] Optional: Shift sprint (only if trivial)
+- [x] Movement model
+  - [x] Player velocity (x/z) + gravity (y)
+  - [x] Grounded check + `canJump`
+- [x] Collisions (MVP-simple)
+  - [x] Floor collision (don’t fall through)
+  - [x] Room bounds collision (don’t pass through walls)
+  - [x] Keep everything axis-aligned initially
 
 **Definition of done:** You can walk around a box room, look around, and jump.
 
----
+--- -->
 
 ## Milestone 2 — Room Generator (Geometry + Layout) (Day 2–3)
 - [ ] Procedural room dimensions
