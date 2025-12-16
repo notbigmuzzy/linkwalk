@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { clamp, makeOutlineRect, roundTo } from './helper.js'
 
-export function buildRoom({ width, length, height, wallThickness = 0.2 }) {
+export function buildRoom({ width, length, height, wallThickness = 0.2, mode = 'gallery', entryway = {} }) {
   const group = new THREE.Group()
   group.name = 'room'
 
@@ -128,6 +128,142 @@ export function buildRoom({ width, length, height, wallThickness = 0.2 }) {
       right: wallRight,
       up: wallUp,
     })
+  }
+
+  function addDoor({ id, wall, w, h, y = 0, u = 0, color = 0x22ffee, meta = {} }) {
+    const wallInfo = walls[wall]
+    const wallNormal = wallInfo.normal.clone().normalize()
+    const wallUp = new THREE.Vector3(0, 1, 0)
+    const wallRight = wall === 'east' || wall === 'west' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0)
+
+    const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), wallNormal)
+    const baseCenter = wallInfo.center
+      .clone()
+      .add(wallRight.clone().multiplyScalar(u))
+      .add(wallUp.clone().multiplyScalar(y - height / 2))
+      .add(wallNormal.clone().multiplyScalar(wallThickness / 2 + 0.03))
+
+    const doorFrameGroup = new THREE.Group()
+    doorFrameGroup.name = `door-frame-${id}`
+
+    const doorMat = new THREE.MeshStandardMaterial({
+      color,
+      roughness: 0.35,
+      metalness: 0.0,
+      emissive: 0x112244,
+      emissiveIntensity: 0.75,
+    })
+    disposables.push(doorMat)
+
+    const frameW = 0.08
+    const frameDepth = 0.08
+
+    const jambGeo = new THREE.BoxGeometry(frameW, h, frameDepth)
+    const headerGeo = new THREE.BoxGeometry(w + frameW * 2, frameW, frameDepth)
+    disposables.push(jambGeo, headerGeo)
+
+    const leftJamb = new THREE.Mesh(jambGeo, doorMat)
+    leftJamb.position.set(-(w / 2 + frameW / 2), h / 2, 0)
+    doorFrameGroup.add(leftJamb)
+
+    const rightJamb = new THREE.Mesh(jambGeo, doorMat)
+    rightJamb.position.set(w / 2 + frameW / 2, h / 2, 0)
+    doorFrameGroup.add(rightJamb)
+
+    const header = new THREE.Mesh(headerGeo, doorMat)
+    header.position.set(0, h - frameW / 2, 0)
+    doorFrameGroup.add(header)
+
+    doorFrameGroup.quaternion.copy(quat)
+    doorFrameGroup.position.copy(baseCenter)
+    group.add(doorFrameGroup)
+
+    const hitGeo = new THREE.PlaneGeometry(w, h)
+    const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.0, depthWrite: false })
+    const hitMesh = new THREE.Mesh(hitGeo, hitMat)
+    hitMesh.name = 'door-hit'
+    hitMesh.userData.doorId = id
+    hitMesh.quaternion.copy(quat)
+    hitMesh.position.copy(baseCenter.clone().add(wallUp.clone().multiplyScalar(h / 2)).add(wallNormal.clone().multiplyScalar(0.02)))
+    group.add(hitMesh)
+    doorHitMeshes.push(hitMesh)
+    disposables.push(hitGeo, hitMat)
+
+    doors.push({
+      id,
+      wall,
+      normal: wallNormal,
+      right: wallRight,
+      up: wallUp,
+      ...meta,
+    })
+
+    const { object, disposables: outlineDisposables } = makeOutlineRect({
+      width: w,
+      height: h,
+      center: baseCenter.clone().add(wallUp.clone().multiplyScalar(h / 2)).add(wallNormal.clone().multiplyScalar(0.01)),
+      normal: wallNormal,
+      color,
+    })
+    markers.add(object)
+    disposables.push(...outlineDisposables)
+  }
+
+  if (mode === 'entryway') {
+    const categories = Array.isArray(entryway.categories) && entryway.categories.length > 0
+      ? entryway.categories
+      : ['Category 1', 'Category 2', 'Category 3', 'Category 4', 'Category 5', 'Category 6', 'Category 7', 'Category 8']
+
+    const panelW = roundTo(clamp(width * 0.72, 2.4, 6.2), 0.05)
+    const panelH = roundTo(clamp(height * 0.58, 1.2, 2.0), 0.05)
+    addSlot({ id: 'entry-panel', wall: 'north', kind: 'panel', w: panelW, h: panelH, y: height * 0.62, color: 0xffffff })
+
+    const doorW = 1.25
+    const doorH = 2.25
+    const gapU = 0.55
+    const totalSpan = 4 * doorW + 3 * gapU
+    const span = Math.min(totalSpan, length - 2.0)
+    const actualGap = 4 > 1 ? (span - 4 * doorW) / 3 : 0
+    const uStart = -span / 2 + doorW / 2
+
+    for (let i = 0; i < 4; i += 1) {
+      const u = uStart + i * (doorW + actualGap)
+      const eastId = `entry-east-${i}`
+      const westId = `entry-west-${i}`
+
+      addDoor({
+        id: eastId,
+        wall: 'east',
+        w: doorW,
+        h: doorH,
+        u,
+        meta: { category: categories[i] ?? `Category ${i + 1}` },
+      })
+
+      addDoor({
+        id: westId,
+        wall: 'west',
+        w: doorW,
+        h: doorH,
+        u,
+        meta: { category: categories[i + 4] ?? `Category ${i + 5}` },
+      })
+    }
+
+    group.add(markers)
+
+    return {
+      group,
+      disposables,
+      slots,
+      doors,
+      doorHitMeshes,
+      bounds: {
+        halfW,
+        halfL,
+        height,
+      },
+    }
   }
 
   const heroWall = 'north'

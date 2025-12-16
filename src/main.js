@@ -50,9 +50,15 @@ overlayEl.addEventListener('keydown', (e) => {
   if (e.code === 'Enter' || e.code === 'Space') requestPlay()
 })
 
-startYourEngines({
+const params = new URLSearchParams(window.location.search)
+const initialTitle = params.get('title')
+let engineApi = null
+
+engineApi = startYourEngines({
   canvas,
-  roomSeedTitle: new URLSearchParams(window.location.search).get('title') ?? 'Lobby',
+  roomSeedTitle: initialTitle ?? 'Lobby',
+  roomMode: initialTitle ? 'gallery' : 'entryway',
+  entrywayCategories: ['History', 'Science', 'Art', 'Technology', 'Nature', 'Space', 'Cities', 'People'],
   onFps(fps) {
     fpsEl.textContent = `${fps.toFixed(0)} FPS`
   },
@@ -62,5 +68,21 @@ startYourEngines({
   onPointerLockChange(locked) {
     overlayEl.hidden = locked
     document.body.classList.toggle('locked', locked)
+  },
+  onDoorTrigger(door) {
+    if (door && typeof door.category === 'string' && door.category.length > 0) {
+      const nextParams = new URLSearchParams(window.location.search)
+      nextParams.set('title', door.category)
+      window.history.replaceState(null, '', `${window.location.pathname}?${nextParams.toString()}`)
+
+      if (engineApi && typeof engineApi.setRoom === 'function') {
+        engineApi.setRoom({ roomMode: 'gallery', roomSeedTitle: door.category })
+      }
+      return
+    }
+
+    if (door && typeof door.id === 'string') {
+      console.info(`[linkwalk] Door clicked: ${door.id}`)
+    }
   },
 })

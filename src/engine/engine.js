@@ -29,7 +29,7 @@ function randRange(rand, min, max) {
   return min + (max - min) * rand()
 }
 
-export function startYourEngines({ canvas, onFps, onPointerLockChange, onHeading, onDoorTrigger, roomSeedTitle = 'Lobby' }) {
+export function startYourEngines({ canvas, onFps, onPointerLockChange, onHeading, onDoorTrigger, roomSeedTitle = 'Lobby', roomMode = 'gallery', entrywayCategories }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio ?? 1, 2))
 
@@ -61,29 +61,64 @@ export function startYourEngines({ canvas, onFps, onPointerLockChange, onHeading
   flashlight.visible = false
   let flashlightTimeoutId = 0
 
-  const disposables = []
+  const staticDisposables = []
 
-  const seed = hashStringToUint32(String(roomSeedTitle))
-  const rand = mulberry32(seed)
+  let currentRoom = null
+  let halfW = 6
+  let halfL = 6
+  let doorById = new Map()
+  let doorHitMeshes = []
 
-  const roomWidth = roundTo(randRange(rand, 10, 18), 0.25)
-  const roomLength = roundTo(randRange(rand, 10, 18), 0.25)
-  const roomHeight = roundTo(randRange(rand, 3, 3), 0.1)
+  function disposeMany(items) {
+    for (const d of items) {
+      if (d && typeof d.dispose === 'function') d.dispose()
+    }
+  }
 
-  const wallThickness = 0.2
-  const room = buildRoom({
-    width: roomWidth,
-    length: roomLength,
-    height: roomHeight,
-    wallThickness,
-  })
-  scene.add(room.group)
-  disposables.push(...room.disposables)
+  function loadRoom({ mode, seedTitle, categories }) {
+    const wallThickness = 0.2
 
-  const { halfW, halfL } = room.bounds
-  const doors = Array.isArray(room.doors) ? room.doors : []
-  const doorById = new Map(doors.map((d) => [d.id, d]))
-  const doorHitMeshes = Array.isArray(room.doorHitMeshes) ? room.doorHitMeshes : []
+    let roomWidth = 14
+    let roomLength = 18
+    let roomHeight = 3
+
+    if (mode !== 'entryway') {
+      const seed = hashStringToUint32(String(seedTitle))
+      const rand = mulberry32(seed)
+
+      roomWidth = roundTo(randRange(rand, 10, 18), 0.25)
+      roomLength = roundTo(randRange(rand, 10, 18), 0.25)
+      roomHeight = roundTo(randRange(rand, 4, 4), 0.1)
+    }
+
+    const nextRoom = buildRoom({
+      width: roomWidth,
+      length: roomLength,
+      height: roomHeight,
+      wallThickness,
+      mode,
+      entryway: {
+        categories,
+      },
+    })
+
+    if (currentRoom) {
+      scene.remove(currentRoom.group)
+      disposeMany(currentRoom.disposables)
+    }
+
+    currentRoom = nextRoom
+    scene.add(currentRoom.group)
+
+    halfW = currentRoom.bounds?.halfW ?? halfW
+    halfL = currentRoom.bounds?.halfL ?? halfL
+
+    const doors = Array.isArray(currentRoom.doors) ? currentRoom.doors : []
+    doorById = new Map(doors.map((d) => [d.id, d]))
+    doorHitMeshes = Array.isArray(currentRoom.doorHitMeshes) ? currentRoom.doorHitMeshes : []
+  }
+
+  loadRoom({ mode: roomMode, seedTitle: roomSeedTitle, categories: entrywayCategories })
   const raycaster = new THREE.Raycaster()
   const rayNdc = new THREE.Vector2(0, 0)
 
@@ -298,6 +333,13 @@ export function startYourEngines({ canvas, onFps, onPointerLockChange, onHeading
   rafId = window.requestAnimationFrame(frame)
 
   return {
+    setRoom({ roomMode: nextMode, roomSeedTitle: nextSeedTitle, entrywayCategories: nextCategories } = {}) {
+      loadRoom({
+        mode: typeof nextMode === 'string' ? nextMode : roomMode,
+        seedTitle: typeof nextSeedTitle === 'string' ? nextSeedTitle : roomSeedTitle,
+        categories: Array.isArray(nextCategories) ? nextCategories : entrywayCategories,
+      })
+    },
     stop() {
       window.cancelAnimationFrame(rafId)
       window.removeEventListener('resize', resize)
@@ -310,9 +352,13 @@ export function startYourEngines({ canvas, onFps, onPointerLockChange, onHeading
 
       if (flashlightTimeoutId) window.clearTimeout(flashlightTimeoutId)
 
-      for (const d of disposables) {
-        if (typeof d.dispose === 'function') d.dispose()
+      if (currentRoom) {
+        scene.remove(currentRoom.group)
+        disposeMany(currentRoom.disposables)
+        currentRoom = null
       }
+
+      disposeMany(staticDisposables)
       renderer.dispose()
     },
   }
