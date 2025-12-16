@@ -58,6 +58,7 @@ engineApi = startYourEngines({
   canvas,
   roomSeedTitle: initialTitle ?? 'Lobby',
   roomMode: initialTitle ? 'gallery' : 'entryway',
+  roomSpawn: initialTitle ? undefined : { type: 'fromWall', wall: 'south' },
   entrywayCategories: ['History', 'Science', 'Art', 'Technology', 'Nature', 'Space', 'Cities', 'People'],
   onFps(fps) {
     fpsEl.textContent = `${fps.toFixed(0)} FPS`
@@ -76,7 +77,24 @@ engineApi = startYourEngines({
       window.history.replaceState(null, '', `${window.location.pathname}?${nextParams.toString()}`)
 
       if (engineApi && typeof engineApi.setRoom === 'function') {
-        engineApi.setRoom({ roomMode: 'gallery', roomSeedTitle: door.category })
+        engineApi.setRoom({
+          roomMode: 'gallery',
+          roomSeedTitle: door.category,
+          galleryEntryWall: 'south',
+          spawn: { type: 'fromWall', wall: 'south' },
+        })
+      }
+      return
+    }
+
+    if (door && door.target === 'entryway') {
+      const nextParams = new URLSearchParams(window.location.search)
+      nextParams.delete('title')
+      const q = nextParams.toString()
+      window.history.replaceState(null, '', q ? `${window.location.pathname}?${q}` : window.location.pathname)
+
+      if (engineApi && typeof engineApi.setRoom === 'function') {
+        engineApi.setRoom({ roomMode: 'entryway', spawn: { type: 'fromWall', wall: 'south' } })
       }
       return
     }

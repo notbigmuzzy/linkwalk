@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { clamp, makeOutlineRect, roundTo } from './helper.js'
 
-export function buildRoom({ width, length, height, wallThickness = 0.2, mode = 'gallery', entryway = {} }) {
+export function buildRoom({ width, length, height, wallThickness = 0.2, mode = 'gallery', entryway = {}, gallery = {} }) {
   const group = new THREE.Group()
   group.name = 'room'
 
@@ -266,6 +266,8 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     }
   }
 
+  addDoor({ id: 'entry-door', wall: 'south', w: 1.25, h: 2.25, u: 0, meta: { target: 'entryway' } })
+
   const heroWall = 'north'
   const heroFrameH = roundTo(clamp(height * 0.46, 1.25, 1.6), 0.05)
   const heroFrameW = roundTo(heroFrameH * 0.707, 0.05)
@@ -282,12 +284,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
   const stdPlaqueH = 0.2
   const stdPlaqueY = height * 0.24
   const stdPlaqueW = roundTo(clamp(stdFrameW, 0.5, 1.05), 0.05)
-
-  {
-    const wall = 'south'
-    addSlot({ id: `${wall}-frame`, wall, kind: 'frame', w: stdFrameW, h: stdFrameH, y: stdFrameY, color: 0xffffff })
-    addSlot({ id: `${wall}-plaque`, wall, kind: 'plaque', w: stdPlaqueW, h: stdPlaqueH, y: stdPlaqueY, color: 0xffff88 })
-  }
 
   function addGridWallSlots(wall) {
     const cols = 4
@@ -315,81 +311,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
   addGridWallSlots('west')
 
   group.add(markers)
-  {
-    const wall = 'north'
-    const wallInfo = walls[wall]
-    const wallNormal = wallInfo.normal.clone().normalize()
-    const wallRight = new THREE.Vector3(1, 0, 0)
-    const wallUp = new THREE.Vector3(0, 1, 0)
-
-    const doorW = 1.4
-    const doorH = 2.25
-    const frameW = 0.08
-    const frameDepth = 0.08
-
-    const sideMargin = 0.9
-    const doorCenterX = clamp(halfW - sideMargin - doorW / 2, -halfW + sideMargin + doorW / 2, halfW - sideMargin - doorW / 2)
-    const doorBase = new THREE.Vector3(doorCenterX, 0, -halfL).add(wallNormal.clone().multiplyScalar(wallThickness / 2 + 0.03))
-
-    const doorFrameGroup = new THREE.Group()
-    doorFrameGroup.name = 'door-frame-north'
-
-    const doorMat = new THREE.MeshStandardMaterial({ color: 0x22ffee, roughness: 0.35, metalness: 0.0, emissive: 0x112244, emissiveIntensity: 0.75 })
-    disposables.push(doorMat)
-
-    const jambGeo = new THREE.BoxGeometry(frameW, doorH, frameDepth)
-    const headerGeo = new THREE.BoxGeometry(doorW + frameW * 2, frameW, frameDepth)
-    disposables.push(jambGeo, headerGeo)
-
-    const leftJamb = new THREE.Mesh(jambGeo, doorMat)
-    leftJamb.position.set(-(doorW / 2 + frameW / 2), doorH / 2, 0)
-    doorFrameGroup.add(leftJamb)
-
-    const rightJamb = new THREE.Mesh(jambGeo, doorMat)
-    rightJamb.position.set(doorW / 2 + frameW / 2, doorH / 2, 0)
-    doorFrameGroup.add(rightJamb)
-
-    const header = new THREE.Mesh(headerGeo, doorMat)
-    header.position.set(0, doorH - frameW / 2, 0)
-    doorFrameGroup.add(header)
-
-    const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), wallNormal)
-    doorFrameGroup.quaternion.copy(quat)
-    doorFrameGroup.position.copy(doorBase)
-
-    group.add(doorFrameGroup)
-
-    const hitGeo = new THREE.PlaneGeometry(doorW, doorH)
-    const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.0, depthWrite: false })
-    const hitMesh = new THREE.Mesh(hitGeo, hitMat)
-    hitMesh.name = 'door-hit'
-    hitMesh.userData.doorId = 'north-door'
-    hitMesh.quaternion.copy(quat)
-    hitMesh.position.copy(doorBase.clone().add(wallUp.clone().multiplyScalar(doorH / 2)).add(wallNormal.clone().multiplyScalar(0.02)))
-    group.add(hitMesh)
-    doorHitMeshes.push(hitMesh)
-    disposables.push(hitGeo, hitMat)
-    const triggerCenter = new THREE.Vector3(doorCenterX, doorH / 2, -halfL + 0.45)
-    const triggerHalfExtents = new THREE.Vector3(doorW / 2 + 0.25, doorH / 2, 0.3)
-    doors.push({
-      id: 'north-door',
-      wall,
-      triggerCenter,
-      triggerHalfExtents,
-      normal: wallNormal,
-      right: wallRight,
-      up: wallUp,
-    })
-    const { object, disposables: outlineDisposables } = makeOutlineRect({
-      width: doorW,
-      height: doorH,
-      center: doorBase.clone().add(wallUp.clone().multiplyScalar(doorH / 2)).add(wallNormal.clone().multiplyScalar(0.01)),
-      normal: wallNormal,
-      color: 0x22ffee,
-    })
-    markers.add(object)
-    disposables.push(...outlineDisposables)
-  }
 
   return {
     group,

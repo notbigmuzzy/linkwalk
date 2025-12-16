@@ -29,7 +29,17 @@ function randRange(rand, min, max) {
   return min + (max - min) * rand()
 }
 
-export function startYourEngines({ canvas, onFps, onPointerLockChange, onHeading, onDoorTrigger, roomSeedTitle = 'Lobby', roomMode = 'gallery', entrywayCategories }) {
+export function startYourEngines({
+  canvas,
+  onFps,
+  onPointerLockChange,
+  onHeading,
+  onDoorTrigger,
+  roomSeedTitle = 'Lobby',
+  roomMode = 'gallery',
+  entrywayCategories,
+  roomSpawn,
+}) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio ?? 1, 2))
 
@@ -69,13 +79,66 @@ export function startYourEngines({ canvas, onFps, onPointerLockChange, onHeading
   let doorById = new Map()
   let doorHitMeshes = []
 
+  let yaw = 0
+  let pitch = 0
+
+  const velocity = new THREE.Vector3(0, 0, 0)
+  const gravity = -18
+  const jumpSpeed = 6.2
+  const moveSpeed = 4.2
+  const sprintMultiplier = 1.75
+  let grounded = false
+
   function disposeMany(items) {
     for (const d of items) {
       if (d && typeof d.dispose === 'function') d.dispose()
     }
   }
 
-  function loadRoom({ mode, seedTitle, categories }) {
+  function yawForFacingWall(wall) {
+    if (wall === 'south') return 0
+    if (wall === 'north') return Math.PI
+    if (wall === 'west') return Math.PI / 2
+    if (wall === 'east') return -Math.PI / 2
+    return 0
+  }
+
+  function applySpawn(spawn) {
+    if (!spawn) return
+
+    if (spawn.type === 'center') {
+      camera.position.set(0, eyeHeight, 0)
+      yaw = typeof spawn.yaw === 'number' ? spawn.yaw : 0
+      pitch = typeof spawn.pitch === 'number' ? spawn.pitch : 0
+      camera.rotation.y = yaw
+      camera.rotation.x = pitch
+      velocity.set(0, 0, 0)
+      grounded = true
+      return
+    }
+
+    if (spawn.type === 'fromWall') {
+      const wall = spawn.wall
+      const margin = 1.25
+
+      let x = 0
+      let z = 0
+      if (wall === 'west') x = -halfW + margin
+      else if (wall === 'east') x = halfW - margin
+      else if (wall === 'north') z = -halfL + margin
+      else if (wall === 'south') z = halfL - margin
+
+      camera.position.set(x, eyeHeight, z)
+      yaw = yawForFacingWall(wall)
+      pitch = 0
+      camera.rotation.y = yaw
+      camera.rotation.x = pitch
+      velocity.set(0, 0, 0)
+      grounded = true
+    }
+  }
+
+  function loadRoom({ mode, seedTitle, categories, galleryEntryWall, spawn }) {
     const wallThickness = 0.2
 
     let roomWidth = 14
@@ -100,6 +163,9 @@ export function startYourEngines({ canvas, onFps, onPointerLockChange, onHeading
       entryway: {
         categories,
       },
+      gallery: {
+        entryWall: galleryEntryWall,
+      },
     })
 
     if (currentRoom) {
@@ -116,9 +182,11 @@ export function startYourEngines({ canvas, onFps, onPointerLockChange, onHeading
     const doors = Array.isArray(currentRoom.doors) ? currentRoom.doors : []
     doorById = new Map(doors.map((d) => [d.id, d]))
     doorHitMeshes = Array.isArray(currentRoom.doorHitMeshes) ? currentRoom.doorHitMeshes : []
+
+    applySpawn(spawn)
   }
 
-  loadRoom({ mode: roomMode, seedTitle: roomSeedTitle, categories: entrywayCategories })
+  loadRoom({ mode: roomMode, seedTitle: roomSeedTitle, categories: entrywayCategories, spawn: roomSpawn })
   const raycaster = new THREE.Raycaster()
   const rayNdc = new THREE.Vector2(0, 0)
 
@@ -137,8 +205,6 @@ export function startYourEngines({ canvas, onFps, onPointerLockChange, onHeading
   window.addEventListener('keydown', onKeyDown)
   window.addEventListener('keyup', onKeyUp)
 
-  let yaw = 0
-  let pitch = 0
   const mouseSensitivity = 0.0022
 
   function headingFromYaw(yawRad) {
@@ -215,13 +281,6 @@ export function startYourEngines({ canvas, onFps, onPointerLockChange, onHeading
   }
 
   window.addEventListener('mousedown', onMouseDown)
-
-  const velocity = new THREE.Vector3(0, 0, 0)
-  const gravity = -18
-  const jumpSpeed = 6.2
-  const moveSpeed = 4.2
-  const sprintMultiplier = 1.75
-  let grounded = false
 
   function clamp(v, min, max) {
     return Math.max(min, Math.min(max, v))
@@ -333,11 +392,13 @@ export function startYourEngines({ canvas, onFps, onPointerLockChange, onHeading
   rafId = window.requestAnimationFrame(frame)
 
   return {
-    setRoom({ roomMode: nextMode, roomSeedTitle: nextSeedTitle, entrywayCategories: nextCategories } = {}) {
+    setRoom({ roomMode: nextMode, roomSeedTitle: nextSeedTitle, entrywayCategories: nextCategories, galleryEntryWall, spawn } = {}) {
       loadRoom({
         mode: typeof nextMode === 'string' ? nextMode : roomMode,
         seedTitle: typeof nextSeedTitle === 'string' ? nextSeedTitle : roomSeedTitle,
         categories: Array.isArray(nextCategories) ? nextCategories : entrywayCategories,
+        galleryEntryWall,
+        spawn,
       })
     },
     stop() {
