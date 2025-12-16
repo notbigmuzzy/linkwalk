@@ -2,6 +2,7 @@
   "name": "linkwalk",
   "private": true,
   "version": "0.0.0",
+  "license": "GPL-2.0-only",
   "type": "module",
   "scripts": {
     "dev": "vite",
