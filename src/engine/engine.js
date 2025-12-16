@@ -1,7 +1,8 @@
 import * as THREE from 'three'
+import { buildRoom } from '../game/room.js'
 
 function hashStringToUint32(str) {
-  // FNV-1a 32-bit
+  // FNV-1a 32-bit - lets go with a simple, fast hash for now
   let h = 2166136261
   for (let i = 0; i < str.length; i += 1) {
     h ^= str.charCodeAt(i)
@@ -33,6 +34,16 @@ export function startEngine({ canvas, onFps, onPointerLockChange, roomSeedTitle 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio ?? 1, 2))
 
+  // Make lighting/colors read better on a dark scene.
+  // Guarded so it doesn't explode across Three.js minor changes.
+  if ('outputColorSpace' in renderer) {
+    renderer.outputColorSpace = THREE.SRGBColorSpace
+  }
+  if ('toneMapping' in renderer) {
+    renderer.toneMapping = THREE.ACESFilmicToneMapping
+    renderer.toneMappingExposure = 1.35
+  }
+
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(0x05030a)
 
@@ -41,73 +52,27 @@ export function startEngine({ canvas, onFps, onPointerLockChange, roomSeedTitle 
   camera.position.set(0, eyeHeight, 3)
   camera.rotation.order = 'YXZ'
 
-  const ambient = new THREE.AmbientLight(0xffffff, 0.6)
-  scene.add(ambient)
-
-  const keyLight = new THREE.DirectionalLight(0xff66cc, 1.0)
-  keyLight.position.set(3, 4, 2)
-  scene.add(keyLight)
-
   const disposables = []
 
-  // --- Milestone 2 (part 1): procedurally seeded room dimensions
   const seed = hashStringToUint32(String(roomSeedTitle))
   const rand = mulberry32(seed)
 
   const roomWidth = roundTo(randRange(rand, 10, 18), 0.25)
   const roomLength = roundTo(randRange(rand, 10, 18), 0.25)
-  const roomHeight = roundTo(randRange(rand, 2.8, 4.6), 0.1)
+  const roomHeight = roundTo(randRange(rand, 3, 3), 0.1)
 
   const wallThickness = 0.2
-  const halfW = roomWidth / 2
-  const halfL = roomLength / 2
+  const room = buildRoom({
+    width: roomWidth,
+    length: roomLength,
+    height: roomHeight,
+    wallThickness,
+  })
+  scene.add(room.group)
+  disposables.push(...room.disposables)
 
-  const floorGeo = new THREE.PlaneGeometry(roomWidth, roomLength)
-  const floorMat = new THREE.MeshStandardMaterial({ color: 0x141019, roughness: 0.9 })
-  const floor = new THREE.Mesh(floorGeo, floorMat)
-  floor.rotation.x = -Math.PI / 2
-  floor.position.y = 0
-  scene.add(floor)
-  disposables.push(floorGeo, floorMat)
+  const { halfW, halfL } = room.bounds
 
-  const ceilingGeo = new THREE.PlaneGeometry(roomWidth, roomLength)
-  const ceilingMat = new THREE.MeshStandardMaterial({ color: 0x0d0a10, roughness: 1.0 })
-  const ceiling = new THREE.Mesh(ceilingGeo, ceilingMat)
-  ceiling.rotation.x = Math.PI / 2
-  ceiling.position.y = roomHeight
-  scene.add(ceiling)
-  disposables.push(ceilingGeo, ceilingMat)
-
-  const wallMat = new THREE.MeshStandardMaterial({ color: 0x1c1221, roughness: 0.85, metalness: 0.05 })
-  const wallNSGeo = new THREE.BoxGeometry(roomWidth, roomHeight, wallThickness)
-  const wallEWGeo = new THREE.BoxGeometry(wallThickness, roomHeight, roomLength)
-
-  const northWall = new THREE.Mesh(wallNSGeo, wallMat)
-  northWall.position.set(0, roomHeight / 2, -halfL)
-  scene.add(northWall)
-
-  const southWall = new THREE.Mesh(wallNSGeo, wallMat)
-  southWall.position.set(0, roomHeight / 2, halfL)
-  scene.add(southWall)
-
-  const eastWall = new THREE.Mesh(wallEWGeo, wallMat)
-  eastWall.position.set(halfW, roomHeight / 2, 0)
-  scene.add(eastWall)
-
-  const westWall = new THREE.Mesh(wallEWGeo, wallMat)
-  westWall.position.set(-halfW, roomHeight / 2, 0)
-  scene.add(westWall)
-
-  disposables.push(wallMat, wallNSGeo, wallEWGeo)
-
-  const cubeGeo = new THREE.BoxGeometry(1, 1, 1)
-  const cubeMat = new THREE.MeshStandardMaterial({ color: 0x66ccff, roughness: 0.25, metalness: 0.1 })
-  const cube = new THREE.Mesh(cubeGeo, cubeMat)
-  cube.position.set(0, 0.5, 0)
-  scene.add(cube)
-  disposables.push(cubeGeo, cubeMat)
-
-  // --- Input + controls (Milestone 1)
   const keysDown = new Set()
   let jumpRequested = false
 
@@ -199,7 +164,6 @@ export function startEngine({ canvas, onFps, onPointerLockChange, roomSeedTitle 
     camera.position.x += moveX * dt
     camera.position.z += moveZ * dt
 
-    // Vertical physics
     velocity.y += gravity * dt
     if (jumpRequested && grounded) {
       velocity.y = jumpSpeed
@@ -209,14 +173,12 @@ export function startEngine({ canvas, onFps, onPointerLockChange, roomSeedTitle 
 
     camera.position.y += velocity.y * dt
 
-    // Floor collision
     if (camera.position.y <= eyeHeight) {
       camera.position.y = eyeHeight
       velocity.y = 0
       grounded = true
     }
 
-    // Room bounds collision (MVP): clamp x/z inside walls
     const margin = 0.35
     const maxX = halfW - margin
     const maxZ = halfL - margin
@@ -259,9 +221,6 @@ export function startEngine({ canvas, onFps, onPointerLockChange, roomSeedTitle 
     }
 
     updatePlayer(dt)
-
-    cube.rotation.y += dt * 0.6
-    cube.rotation.x += dt * 0.2
 
     resize()
     renderer.render(scene, camera)
