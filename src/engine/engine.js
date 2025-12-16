@@ -2,7 +2,6 @@ import * as THREE from 'three'
 import { buildRoom } from '../game/room.js'
 
 function hashStringToUint32(str) {
-  // FNV-1a 32-bit - lets go with a simple, fast hash for now
   let h = 2166136261
   for (let i = 0; i < str.length; i += 1) {
     h ^= str.charCodeAt(i)
@@ -30,12 +29,10 @@ function randRange(rand, min, max) {
   return min + (max - min) * rand()
 }
 
-export function startEngine({ canvas, onFps, onPointerLockChange, onHeading, roomSeedTitle = 'Lobby' }) {
+export function startYourEngines({ canvas, onFps, onPointerLockChange, onHeading, onDoorTrigger, roomSeedTitle = 'Lobby' }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio ?? 1, 2))
 
-  // Make lighting/colors read better on a dark scene.
-  // Guarded so it doesn't explode across Three.js minor changes.
   if ('outputColorSpace' in renderer) {
     renderer.outputColorSpace = THREE.SRGBColorSpace
   }
@@ -51,6 +48,18 @@ export function startEngine({ canvas, onFps, onPointerLockChange, onHeading, roo
   const eyeHeight = 1.4
   camera.position.set(0, eyeHeight, 3)
   camera.rotation.order = 'YXZ'
+  scene.add(camera)
+
+  const flashlightTarget = new THREE.Object3D()
+  flashlightTarget.position.set(0, 0, -1)
+  camera.add(flashlightTarget)
+
+  const flashlight = new THREE.SpotLight(0xffffff, 3.0, 7, Math.PI / 80, 0.2, 1.6)
+  flashlight.position.set(0, 0, 0)
+  flashlight.target = flashlightTarget
+  camera.add(flashlight)
+  flashlight.visible = false
+  let flashlightTimeoutId = 0
 
   const disposables = []
 
@@ -72,6 +81,11 @@ export function startEngine({ canvas, onFps, onPointerLockChange, onHeading, roo
   disposables.push(...room.disposables)
 
   const { halfW, halfL } = room.bounds
+  const doors = Array.isArray(room.doors) ? room.doors : []
+  const doorById = new Map(doors.map((d) => [d.id, d]))
+  const doorHitMeshes = Array.isArray(room.doorHitMeshes) ? room.doorHitMeshes : []
+  const raycaster = new THREE.Raycaster()
+  const rayNdc = new THREE.Vector2(0, 0)
 
   const keysDown = new Set()
   let jumpRequested = false
@@ -93,13 +107,11 @@ export function startEngine({ canvas, onFps, onPointerLockChange, onHeading, roo
   const mouseSensitivity = 0.0022
 
   function headingFromYaw(yawRad) {
-    // yaw=0 => facing -Z (North). mouse-right makes yaw negative (clockwise), which should increase heading.
     let deg = ((-yawRad * 180) / Math.PI) % 360
     if (deg < 0) deg += 360
-
     const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
     const idx = Math.round(deg / 45) % 8
-    return { degrees: deg, cardinal: dirs[idx] }
+    return { cardinal: dirs[idx] }
   }
 
   function isPointerLocked() {
@@ -129,6 +141,45 @@ export function startEngine({ canvas, onFps, onPointerLockChange, onHeading, roo
 
   document.addEventListener('pointerlockchange', handlePointerLockChange)
   handlePointerLockChange()
+
+  function findDoorId(obj) {
+    let cur = obj
+    while (cur) {
+      if (cur.userData && typeof cur.userData.doorId === 'string') return cur.userData.doorId
+      cur = cur.parent
+    }
+    return null
+  }
+
+  function onMouseDown(e) {
+    if (e.button !== 0) return
+    if (!isPointerLocked()) return
+
+    flashlight.visible = true
+    if (flashlightTimeoutId) window.clearTimeout(flashlightTimeoutId)
+    flashlightTimeoutId = window.setTimeout(() => {
+      flashlight.visible = false
+      flashlightTimeoutId = 0
+    }, 120)
+
+    if (doorHitMeshes.length === 0) return
+
+    raycaster.setFromCamera(rayNdc, camera)
+    const hits = raycaster.intersectObjects(doorHitMeshes, true)
+    if (hits.length === 0) return
+
+    const doorId = findDoorId(hits[0].object)
+    if (!doorId) return
+
+    const door = doorById.get(doorId) ?? { id: doorId }
+    if (typeof onDoorTrigger === 'function') {
+      onDoorTrigger(door)
+    } else {
+      console.info(`[linkwalk] Door clicked: ${doorId}`)
+    }
+  }
+
+  window.addEventListener('mousedown', onMouseDown)
 
   const velocity = new THREE.Vector3(0, 0, 0)
   const gravity = -18
@@ -163,10 +214,6 @@ export function startEngine({ canvas, onFps, onPointerLockChange, onHeading, roo
 
       const sin = Math.sin(yaw)
       const cos = Math.cos(yaw)
-
-      // With Three.js default camera forward = -Z at yaw=0
-      // right = (cos, 0, -sin)
-      // forward = (-sin, 0, -cos)
       moveX = (cos * nx + -sin * nz) * speed
       moveZ = (-sin * nx + -cos * nz) * speed
     }
@@ -258,7 +305,10 @@ export function startEngine({ canvas, onFps, onPointerLockChange, onHeading, roo
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
       window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mousedown', onMouseDown)
       document.removeEventListener('pointerlockchange', handlePointerLockChange)
+
+      if (flashlightTimeoutId) window.clearTimeout(flashlightTimeoutId)
 
       for (const d of disposables) {
         if (typeof d.dispose === 'function') d.dispose()

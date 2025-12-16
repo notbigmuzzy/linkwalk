@@ -44,7 +44,7 @@ Goal: Desktop-only web app (Three.js) where each “room” is generated from a 
 
 **Definition of done:** You can walk around a box room, look around, and jump.
 
---- -->
+--- 
 
 ## Milestone 2 — Room Generator (Geometry + Layout) (Day 2–3)
 - [x] Procedural room dimensions
@@ -56,13 +56,13 @@ Goal: Desktop-only web app (Three.js) where each “room” is generated from a 
 - [X] Wall “display slots”
   - [X] Reserve 1 “hero wall” for title + main frame
   - [X] Reserve remaining walls for frames/plaques/doors
-- [ ] Door/portal placeholders
-  - [ ] Visual door frame objects (no real wall cutouts required)
-  - [ ] Trigger volume to activate door
+- [x] Door/portal placeholders
+  - [x] Visual door frame objects (no real wall cutouts required)
+  - [x] Trigger volume to activate door
 
 **Definition of done:** Rooms spawn with consistent layout and reserved spaces.
 
----
+--- -->
 
 ## Milestone 3 — Wikipedia Data (Day 3–4)
 - [ ] Implement Wikipedia fetch (REST summary)

@@ -1,5 +1,5 @@
 import './style.css'
-import { startEngine } from './engine/engine.js'
+import { startYourEngines } from './engine/engine.js'
 
 const app = document.querySelector('#app')
 if (!app) {
@@ -50,14 +50,14 @@ overlayEl.addEventListener('keydown', (e) => {
   if (e.code === 'Enter' || e.code === 'Space') requestPlay()
 })
 
-startEngine({
+startYourEngines({
   canvas,
   roomSeedTitle: new URLSearchParams(window.location.search).get('title') ?? 'Lobby',
   onFps(fps) {
     fpsEl.textContent = `${fps.toFixed(0)} FPS`
   },
-  onHeading({ degrees, cardinal }) {
-    compassEl.textContent = `${cardinal} ${degrees.toFixed(0)}°`
+  onHeading({ cardinal }) {
+    compassEl.textContent = `${cardinal}`
   },
   onPointerLockChange(locked) {
     overlayEl.hidden = locked

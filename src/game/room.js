@@ -1,28 +1,5 @@
 import * as THREE from 'three'
-
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value))
-}
-
-function roundTo(value, step) {
-  return Math.round(value / step) * step
-}
-
-function makeOutlineRect({ width, height, center, normal, color = 0xffffff }) {
-  const geo = new THREE.PlaneGeometry(width, height)
-  const edges = new THREE.EdgesGeometry(geo)
-  geo.dispose()
-
-  const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.65 })
-  const lines = new THREE.LineSegments(edges, mat)
-
-  // Orient plane so its +Z points along the provided normal
-  const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal.clone().normalize())
-  lines.quaternion.copy(quat)
-  lines.position.copy(center)
-
-  return { object: lines, disposables: [edges, mat] }
-}
+import { clamp, makeOutlineRect, roundTo } from './helper.js'
 
 export function buildRoom({ width, length, height, wallThickness = 0.2 }) {
   const group = new THREE.Group()
@@ -30,7 +7,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2 }) {
 
   const disposables = []
 
-  // Lights (simple MVP)
   const ambient = new THREE.AmbientLight(0xffffff, 0.95)
   group.add(ambient)
 
@@ -47,7 +23,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2 }) {
   const x = width * 0.35
   const z = length * 0.35
 
-  // Four ceiling corner lights: TL, TR, BL, BR
   const lightTL = new THREE.PointLight(ceilingLightColor, ceilingLightIntensity, ceilingLightDistance, ceilingLightDecay)
   lightTL.position.set(-x, y, -z)
   group.add(lightTL)
@@ -64,7 +39,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2 }) {
   lightBR.position.set(x, y, z)
   group.add(lightBR)
 
-  // Room shell
   const floorGeo = new THREE.PlaneGeometry(width, length)
   const floorMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2f, roughness: 0.95, metalness: 0.0 })
   const floor = new THREE.Mesh(floorGeo, floorMat)
@@ -107,6 +81,8 @@ export function buildRoom({ width, length, height, wallThickness = 0.2 }) {
   disposables.push(wallMat, wallNSGeo, wallEWGeo)
 
   const slots = []
+  const doors = []
+  const doorHitMeshes = []
   const markers = new THREE.Group()
   markers.name = 'display-slots'
 
@@ -121,8 +97,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2 }) {
 
   function addSlot({ id, wall, kind, w, h, y, u = 0, color }) {
     const wallInfo = walls[wall]
-
-    // Map wall local X axis: for north/south it's world X; for east/west it's world Z.
     const wallRight = wall === 'east' || wall === 'west' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0)
     const wallUp = new THREE.Vector3(0, 1, 0)
 
@@ -156,9 +130,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2 }) {
     })
   }
 
-  // Hero wall: title + main frame
   const heroWall = 'north'
-  // A4-ish portrait ratio (W/H ≈ 0.707)
   const heroFrameH = roundTo(clamp(height * 0.46, 1.25, 1.6), 0.05)
   const heroFrameW = roundTo(heroFrameH * 0.707, 0.05)
   addSlot({ id: 'hero-frame', wall: heroWall, kind: 'frame', w: heroFrameW, h: heroFrameH, y: height * 0.62, color: 0xffffff })
@@ -167,7 +139,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2 }) {
   const heroPlaqueH = 0.22
   addSlot({ id: 'hero-plaque', wall: heroWall, kind: 'plaque', w: heroPlaqueW, h: heroPlaqueH, y: height * 0.25, color: 0xffff88 })
 
-  // Standard (non-hero) exhibit sizing: identical across all walls.
   const stdFrameH = roundTo(clamp(height * 0.36, 1.05, 1.35), 0.05)
   const stdFrameW = roundTo(stdFrameH * 0.707, 0.05)
   const stdFrameY = height * 0.6
@@ -176,19 +147,15 @@ export function buildRoom({ width, length, height, wallThickness = 0.2 }) {
   const stdPlaqueY = height * 0.24
   const stdPlaqueW = roundTo(clamp(stdFrameW, 0.5, 1.05), 0.05)
 
-  // Remaining walls: reserve a medium frame area + a plaque area each.
-  // South wall: keep a single “secondary” slot for now.
   {
     const wall = 'south'
     addSlot({ id: `${wall}-frame`, wall, kind: 'frame', w: stdFrameW, h: stdFrameH, y: stdFrameY, color: 0xffffff })
     addSlot({ id: `${wall}-plaque`, wall, kind: 'plaque', w: stdPlaqueW, h: stdPlaqueH, y: stdPlaqueY, color: 0xffff88 })
   }
 
-  // East + West walls: 4 slots each, side-by-side, each with its own plaque.
   function addGridWallSlots(wall) {
     const cols = 4
     const rows = 1
-    // Fixed spacing so the frames themselves remain identical.
     const gapU = 0.2
     const totalW = cols * stdFrameW + (cols - 1) * gapU
     const uStart = -totalW / 2 + stdFrameW / 2
@@ -212,11 +179,88 @@ export function buildRoom({ width, length, height, wallThickness = 0.2 }) {
   addGridWallSlots('west')
 
   group.add(markers)
+  {
+    const wall = 'north'
+    const wallInfo = walls[wall]
+    const wallNormal = wallInfo.normal.clone().normalize()
+    const wallRight = new THREE.Vector3(1, 0, 0)
+    const wallUp = new THREE.Vector3(0, 1, 0)
+
+    const doorW = 1.4
+    const doorH = 2.25
+    const frameW = 0.08
+    const frameDepth = 0.08
+
+    const sideMargin = 0.9
+    const doorCenterX = clamp(halfW - sideMargin - doorW / 2, -halfW + sideMargin + doorW / 2, halfW - sideMargin - doorW / 2)
+    const doorBase = new THREE.Vector3(doorCenterX, 0, -halfL).add(wallNormal.clone().multiplyScalar(wallThickness / 2 + 0.03))
+
+    const doorFrameGroup = new THREE.Group()
+    doorFrameGroup.name = 'door-frame-north'
+
+    const doorMat = new THREE.MeshStandardMaterial({ color: 0x22ffee, roughness: 0.35, metalness: 0.0, emissive: 0x112244, emissiveIntensity: 0.75 })
+    disposables.push(doorMat)
+
+    const jambGeo = new THREE.BoxGeometry(frameW, doorH, frameDepth)
+    const headerGeo = new THREE.BoxGeometry(doorW + frameW * 2, frameW, frameDepth)
+    disposables.push(jambGeo, headerGeo)
+
+    const leftJamb = new THREE.Mesh(jambGeo, doorMat)
+    leftJamb.position.set(-(doorW / 2 + frameW / 2), doorH / 2, 0)
+    doorFrameGroup.add(leftJamb)
+
+    const rightJamb = new THREE.Mesh(jambGeo, doorMat)
+    rightJamb.position.set(doorW / 2 + frameW / 2, doorH / 2, 0)
+    doorFrameGroup.add(rightJamb)
+
+    const header = new THREE.Mesh(headerGeo, doorMat)
+    header.position.set(0, doorH - frameW / 2, 0)
+    doorFrameGroup.add(header)
+
+    const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), wallNormal)
+    doorFrameGroup.quaternion.copy(quat)
+    doorFrameGroup.position.copy(doorBase)
+
+    group.add(doorFrameGroup)
+
+    const hitGeo = new THREE.PlaneGeometry(doorW, doorH)
+    const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.0, depthWrite: false })
+    const hitMesh = new THREE.Mesh(hitGeo, hitMat)
+    hitMesh.name = 'door-hit'
+    hitMesh.userData.doorId = 'north-door'
+    hitMesh.quaternion.copy(quat)
+    hitMesh.position.copy(doorBase.clone().add(wallUp.clone().multiplyScalar(doorH / 2)).add(wallNormal.clone().multiplyScalar(0.02)))
+    group.add(hitMesh)
+    doorHitMeshes.push(hitMesh)
+    disposables.push(hitGeo, hitMat)
+    const triggerCenter = new THREE.Vector3(doorCenterX, doorH / 2, -halfL + 0.45)
+    const triggerHalfExtents = new THREE.Vector3(doorW / 2 + 0.25, doorH / 2, 0.3)
+    doors.push({
+      id: 'north-door',
+      wall,
+      triggerCenter,
+      triggerHalfExtents,
+      normal: wallNormal,
+      right: wallRight,
+      up: wallUp,
+    })
+    const { object, disposables: outlineDisposables } = makeOutlineRect({
+      width: doorW,
+      height: doorH,
+      center: doorBase.clone().add(wallUp.clone().multiplyScalar(doorH / 2)).add(wallNormal.clone().multiplyScalar(0.01)),
+      normal: wallNormal,
+      color: 0x22ffee,
+    })
+    markers.add(object)
+    disposables.push(...outlineDisposables)
+  }
 
   return {
     group,
     disposables,
     slots,
+    doors,
+    doorHitMeshes,
     bounds: {
       halfW,
       halfL,
