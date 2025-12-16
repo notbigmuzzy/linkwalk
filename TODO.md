@@ -50,9 +50,9 @@ Goal: Desktop-only web app (Three.js) where each “room” is generated from a 
 - [x] Procedural room dimensions
   - [x] Width/length/height randomized within sane ranges
   - [x] Seeded by article title (stable per article)
-- [ ] Room construction from primitives
-  - [ ] Floor + ceiling + 4 walls (planes or thin boxes)
-  - [ ] Simple lights (ambient + directional/point)
+- [x] Room construction from primitives
+  - [x] Floor + ceiling + 4 walls (planes or thin boxes)
+  - [x] Simple lights (ambient + directional/point)
 - [ ] Wall “display slots”
   - [ ] Reserve 1 “hero wall” for title + main frame
   - [ ] Reserve remaining walls for frames/plaques/doors
