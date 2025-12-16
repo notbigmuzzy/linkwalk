@@ -2,9 +2,9 @@
 
 Goal: Desktop-only web app (Three.js) where each “room” is generated from a Wikipedia article. FPS controls (WASD + mouse look + SPACE jump). Vaporwave vibes via materials + lighting. Entrance lobby with doors for different “shows” (Geography, History, Art, etc.).
 
----
+<!-- ---
 
-## Milestone 0 — Project Skeleton (Day 0–1)
+ ## Milestone 0 — Project Skeleton (Day 0–1)
 - [ ] Choose tooling: Vite + vanilla JS (recommended) OR plain `index.html` + local server
 - [ ] Initialize project scaffold
   - [ ] `index.html` + JS entry
@@ -22,9 +22,9 @@ Goal: Desktop-only web app (Three.js) where each “room” is generated from a 
   - [ ] Resize handling
   - [ ] Animation loop w/ delta time
 
-**Definition of done:** Opening the dev server shows a full-screen rendered scene.
+**Definition of done:** Opening the dev server shows a full-screen rendered scene. 
 
----
+--- -->
 
 ## Milestone 1 — FPS Controls (Day 1–2)
 - [ ] Pointer lock flow
