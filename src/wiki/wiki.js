@@ -232,7 +232,31 @@ function dedupeByTitle(pages) {
   return out
 }
 
-export async function fetchWikipediaRelatedBetter(title, { signal, limit = 5 } = {}) {
+function randInt(maxExclusive) {
+  const max = Math.floor(maxExclusive)
+  if (!(max > 0)) return 0
+
+  const cryptoObj = typeof window !== 'undefined' ? window.crypto : null
+  if (cryptoObj && typeof cryptoObj.getRandomValues === 'function') {
+    const buf = new Uint32Array(1)
+    cryptoObj.getRandomValues(buf)
+    return buf[0] % max
+  }
+
+  return Math.floor(Math.random() * max)
+}
+
+function shuffleInPlace(arr) {
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = randInt(i + 1)
+    const tmp = arr[i]
+    arr[i] = arr[j]
+    arr[j] = tmp
+  }
+  return arr
+}
+
+export async function fetchWikipediaRelatedBetter(title, { signal, limit } = {}) {
   const normalizedTitle = toWikiTitle(title)
   if (!normalizedTitle) {
     throw makeWikiError('Missing Wikipedia title', { code: 'bad_title' })
@@ -253,36 +277,76 @@ export async function fetchWikipediaRelatedBetter(title, { signal, limit = 5 } =
   const [backlinksRaw, outgoingRaw] = await Promise.all([
     fetchActionQuery(
       {
-        generator: 'linkshere',
-        titles: normalizedTitle,
-        glhnamespace: '0',
-        glhlimit: '12',
+        generator: 'search',
+        gsrsearch: `morelike:${normalizedTitle}`,
+        gsrnamespace: '0',
+        gsrlimit: '20',
         ...commonProps,
       },
       { signal }
     ),
     fetchActionQuery(
       {
-        generator: 'links',
+        generator: 'linkshere',
         titles: normalizedTitle,
-        gplnamespace: '0',
-        gpllimit: '12',
+        glhnamespace: '0',
+        glhlimit: '20',
         ...commonProps,
       },
       { signal }
     ),
   ])
 
-  const backlinks = normalizeWikipediaRelated(backlinksRaw)
+  const moreLike = normalizeWikipediaRelated(backlinksRaw)
     .filter((p) => p.title !== normalizedTitle)
     .filter((p) => !isLowSignalRelatedTitle(p.title))
 
-  const outgoing = normalizeWikipediaRelated(outgoingRaw)
+  const backlinks = normalizeWikipediaRelated(outgoingRaw)
     .filter((p) => p.title !== normalizedTitle)
     .filter((p) => !isLowSignalRelatedTitle(p.title))
 
-  const merged = dedupeByTitle([...backlinks, ...outgoing])
-  return merged.slice(0, hardLimit)
+  const merged = dedupeByTitle([...moreLike, ...backlinks])
+
+  const withExtract = []
+  const withoutExtract = []
+  for (const p of merged) {
+    const extract = typeof p.extract === 'string' ? p.extract.trim() : ''
+    if (extract) withExtract.push(p)
+    else withoutExtract.push(p)
+  }
+
+  shuffleInPlace(withExtract)
+  shuffleInPlace(withoutExtract)
+
+  const picked = [...withExtract, ...withoutExtract].slice(0, hardLimit)
+  if (picked.length >= hardLimit) return picked
+
+  const fallbackOutgoingRaw = await fetchActionQuery(
+    {
+      generator: 'links',
+      titles: normalizedTitle,
+      gplnamespace: '0',
+      gpllimit: '40',
+      ...commonProps,
+    },
+    { signal }
+  )
+
+  const outgoing = normalizeWikipediaRelated(fallbackOutgoingRaw)
+    .filter((p) => p.title !== normalizedTitle)
+    .filter((p) => !isLowSignalRelatedTitle(p.title))
+
+  const merged2 = dedupeByTitle([...picked, ...outgoing])
+  const withExtract2 = []
+  const withoutExtract2 = []
+  for (const p of merged2) {
+    const extract = typeof p.extract === 'string' ? p.extract.trim() : ''
+    if (extract) withExtract2.push(p)
+    else withoutExtract2.push(p)
+  }
+  shuffleInPlace(withExtract2)
+  shuffleInPlace(withoutExtract2)
+  return [...withExtract2, ...withoutExtract2].slice(0, hardLimit)
 }
 
 export async function fetchWikipediaPhotos(title, { signal, maxImages = 4 } = {}) {
@@ -343,7 +407,7 @@ export async function fetchGalleryRoomData(title, opts = {}) {
   const [summaryRaw, photos, relatedBetter] = await Promise.all([
     fetchWikipediaSummary(title, opts),
     fetchWikipediaPhotos(title, { ...opts, maxImages: 4 }),
-    fetchWikipediaRelatedBetter(title, { ...opts, limit: 5 }),
+    fetchWikipediaRelatedBetter(title, { ...opts, limit: 7 }),
   ])
 
   const room = normalizeWikipediaSummary(summaryRaw)
