@@ -16,6 +16,7 @@ app.innerHTML = `
   <div id="hud">
     <div id="fps" aria-label="Frames per second"></div>
     <div id="crosshair" aria-hidden="true"></div>
+    <div id="compass" aria-label="Compass heading"></div>
   </div>
   <canvas id="scene" aria-label="3D scene"></canvas>
 `
@@ -35,6 +36,11 @@ if (!(overlayEl instanceof HTMLElement)) {
   throw new Error('Missing #overlay element')
 }
 
+const compassEl = document.querySelector('#compass')
+if (!(compassEl instanceof HTMLElement)) {
+  throw new Error('Missing #compass element')
+}
+
 function requestPlay() {
   canvas.requestPointerLock()
 }
@@ -49,6 +55,9 @@ startEngine({
   roomSeedTitle: new URLSearchParams(window.location.search).get('title') ?? 'Lobby',
   onFps(fps) {
     fpsEl.textContent = `${fps.toFixed(0)} FPS`
+  },
+  onHeading({ degrees, cardinal }) {
+    compassEl.textContent = `${cardinal} ${degrees.toFixed(0)}°`
   },
   onPointerLockChange(locked) {
     overlayEl.hidden = locked

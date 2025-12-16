@@ -53,9 +53,9 @@ Goal: Desktop-only web app (Three.js) where each “room” is generated from a 
 - [x] Room construction from primitives
   - [x] Floor + ceiling + 4 walls (planes or thin boxes)
   - [x] Simple lights (ambient + directional/point)
-- [ ] Wall “display slots”
-  - [ ] Reserve 1 “hero wall” for title + main frame
-  - [ ] Reserve remaining walls for frames/plaques/doors
+- [X] Wall “display slots”
+  - [X] Reserve 1 “hero wall” for title + main frame
+  - [X] Reserve remaining walls for frames/plaques/doors
 - [ ] Door/portal placeholders
   - [ ] Visual door frame objects (no real wall cutouts required)
   - [ ] Trigger volume to activate door

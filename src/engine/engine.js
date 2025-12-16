@@ -30,7 +30,7 @@ function randRange(rand, min, max) {
   return min + (max - min) * rand()
 }
 
-export function startEngine({ canvas, onFps, onPointerLockChange, roomSeedTitle = 'Lobby' }) {
+export function startEngine({ canvas, onFps, onPointerLockChange, onHeading, roomSeedTitle = 'Lobby' }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio ?? 1, 2))
 
@@ -91,6 +91,16 @@ export function startEngine({ canvas, onFps, onPointerLockChange, roomSeedTitle 
   let yaw = 0
   let pitch = 0
   const mouseSensitivity = 0.0022
+
+  function headingFromYaw(yawRad) {
+    // yaw=0 => facing -Z (North). mouse-right makes yaw negative (clockwise), which should increase heading.
+    let deg = ((-yawRad * 180) / Math.PI) % 360
+    if (deg < 0) deg += 360
+
+    const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+    const idx = Math.round(deg / 45) % 8
+    return { degrees: deg, cardinal: dirs[idx] }
+  }
 
   function isPointerLocked() {
     return document.pointerLockElement === canvas
@@ -202,6 +212,7 @@ export function startEngine({ canvas, onFps, onPointerLockChange, roomSeedTitle 
   let fpsFrames = 0
   let fpsTime = 0
   let lastFpsReport = 0
+  let lastHeadingReport = 0
 
   function frame() {
     const dt = clock.getDelta()
@@ -217,6 +228,14 @@ export function startEngine({ canvas, onFps, onPointerLockChange, roomSeedTitle 
         fpsFrames = 0
         fpsTime = 0
         lastFpsReport = now
+      }
+    }
+
+    if (typeof onHeading === 'function' && document.pointerLockElement === canvas) {
+      const now = clock.elapsedTime
+      if (now - lastHeadingReport >= 0.1) {
+        onHeading(headingFromYaw(yaw))
+        lastHeadingReport = now
       }
     }
 
