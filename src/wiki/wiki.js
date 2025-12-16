@@ -203,6 +203,88 @@ export async function fetchWikipediaSeeAlso(title, { signal } = {}) {
   )
 }
 
+function isLowSignalRelatedTitle(t) {
+  const title = String(t || '').trim()
+  if (!title) return true
+
+  const lowered = title.toLowerCase()
+  if (lowered.startsWith('list of ')) return true
+  if (lowered.startsWith('outline of ')) return true
+  if (lowered.startsWith('index of ')) return true
+  if (lowered.startsWith('timeline of ')) return true
+  if (/^\d{3,4}$/.test(title)) return true
+
+  return false
+}
+
+function dedupeByTitle(pages) {
+  const out = []
+  const seen = new Set()
+
+  for (const p of pages) {
+    const title = typeof p?.title === 'string' ? p.title.trim() : ''
+    if (!title) continue
+    if (seen.has(title)) continue
+    seen.add(title)
+    out.push(p)
+  }
+
+  return out
+}
+
+export async function fetchWikipediaRelatedBetter(title, { signal, limit = 5 } = {}) {
+  const normalizedTitle = toWikiTitle(title)
+  if (!normalizedTitle) {
+    throw makeWikiError('Missing Wikipedia title', { code: 'bad_title' })
+  }
+
+  const hardLimit = typeof limit === 'number' && Number.isFinite(limit) ? Math.max(1, Math.min(10, Math.floor(limit))) : 5
+
+  const commonProps = {
+    prop: 'extracts|pageimages|info',
+    exintro: '1',
+    explaintext: '1',
+    exsentences: '2',
+    piprop: 'thumbnail',
+    pithumbsize: '320',
+    inprop: 'url',
+  }
+
+  const [backlinksRaw, outgoingRaw] = await Promise.all([
+    fetchActionQuery(
+      {
+        generator: 'linkshere',
+        titles: normalizedTitle,
+        glhnamespace: '0',
+        glhlimit: '12',
+        ...commonProps,
+      },
+      { signal }
+    ),
+    fetchActionQuery(
+      {
+        generator: 'links',
+        titles: normalizedTitle,
+        gplnamespace: '0',
+        gpllimit: '12',
+        ...commonProps,
+      },
+      { signal }
+    ),
+  ])
+
+  const backlinks = normalizeWikipediaRelated(backlinksRaw)
+    .filter((p) => p.title !== normalizedTitle)
+    .filter((p) => !isLowSignalRelatedTitle(p.title))
+
+  const outgoing = normalizeWikipediaRelated(outgoingRaw)
+    .filter((p) => p.title !== normalizedTitle)
+    .filter((p) => !isLowSignalRelatedTitle(p.title))
+
+  const merged = dedupeByTitle([...backlinks, ...outgoing])
+  return merged.slice(0, hardLimit)
+}
+
 export async function fetchWikipediaPhotos(title, { signal, maxImages = 4 } = {}) {
   const normalizedTitle = toWikiTitle(title)
   if (!normalizedTitle) {
@@ -258,10 +340,10 @@ export async function fetchRoomData(title, opts = {}) {
 }
 
 export async function fetchGalleryRoomData(title, opts = {}) {
-  const [summaryRaw, photos, relatedRaw] = await Promise.all([
+  const [summaryRaw, photos, relatedBetter] = await Promise.all([
     fetchWikipediaSummary(title, opts),
     fetchWikipediaPhotos(title, { ...opts, maxImages: 4 }),
-    fetchWikipediaSeeAlso(title, opts),
+    fetchWikipediaRelatedBetter(title, { ...opts, limit: 5 }),
   ])
 
   const room = normalizeWikipediaSummary(summaryRaw)
@@ -276,7 +358,7 @@ export async function fetchGalleryRoomData(title, opts = {}) {
     })
   }
 
-  const seeAlso = normalizeWikipediaRelated(relatedRaw)
+  const seeAlso = relatedBetter
 
   return {
     room,

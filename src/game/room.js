@@ -211,14 +211,87 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       canvas.height = 128
       const ctx = canvas.getContext('2d')
       if (ctx) {
+        function wrapLines(text, maxWidth, maxLines) {
+          const words = String(text).trim().split(/\s+/g)
+          const lines = []
+          let cur = ''
+
+          function pushLine(line) {
+            if (line.trim()) lines.push(line.trim())
+          }
+
+          for (const word of words) {
+            const next = cur ? `${cur} ${word}` : word
+            if (ctx.measureText(next).width <= maxWidth) {
+              cur = next
+              continue
+            }
+
+            if (cur) pushLine(cur)
+            cur = word
+
+            if (ctx.measureText(cur).width > maxWidth) {
+              let chunk = ''
+              for (const ch of cur) {
+                const nextChunk = chunk + ch
+                if (ctx.measureText(nextChunk).width <= maxWidth) {
+                  chunk = nextChunk
+                } else {
+                  pushLine(chunk)
+                  chunk = ch
+                }
+              }
+              cur = chunk
+            }
+
+            if (lines.length >= maxLines) break
+          }
+
+          if (lines.length < maxLines && cur) pushLine(cur)
+
+          if (lines.length > maxLines) lines.length = maxLines
+          if (lines.length === maxLines) {
+            const lastIdx = maxLines - 1
+            let last = lines[lastIdx] ?? ''
+            const ell = '…'
+            while (last && ctx.measureText(last + ell).width > maxWidth) {
+              last = last.slice(0, -1)
+            }
+            lines[lastIdx] = last ? last + ell : ell
+          }
+
+          return lines
+        }
+
         ctx.clearRect(0, 0, canvas.width, canvas.height)
         ctx.fillStyle = '#171c22'
         ctx.fillRect(0, 0, canvas.width, canvas.height)
-        ctx.font = '700 56px system-ui, -apple-system, Segoe UI, Roboto, Arial'
+
+        const padX = 18
+        const maxLines = 3
+        let fontPx = 56
+        ctx.font = `700 ${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
         ctx.fillStyle = '#dfffe9'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
-        ctx.fillText(labelText, canvas.width / 2, canvas.height / 2)
+
+        const maxWidth = canvas.width - padX * 2
+        let lines = wrapLines(labelText, maxWidth, maxLines)
+
+        if (lines.length >= 3) fontPx = 28
+        else if (lines.length === 2) fontPx = 38
+        else fontPx = 56
+
+        ctx.font = `700 ${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
+        lines = wrapLines(labelText, maxWidth, maxLines)
+
+        const lineHeight = Math.round(fontPx * 1.1)
+        const totalH = lines.length * lineHeight
+        const startY = canvas.height / 2 - totalH / 2 + lineHeight / 2
+
+        for (let i = 0; i < lines.length; i += 1) {
+          ctx.fillText(lines[i], canvas.width / 2, startY + i * lineHeight)
+        }
       }
 
       const tex = new THREE.CanvasTexture(canvas)

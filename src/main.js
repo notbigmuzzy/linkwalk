@@ -42,6 +42,11 @@ if (!(compassEl instanceof HTMLElement)) {
   throw new Error('Missing #compass element')
 }
 
+const crosshairEl = document.querySelector('#crosshair')
+if (!(crosshairEl instanceof HTMLElement)) {
+  throw new Error('Missing #crosshair element')
+}
+
 function requestPlay() {
   canvas.requestPointerLock()
 }
@@ -56,6 +61,11 @@ const initialTitle = params.get('title')
 let engineApi = null
 
 let wikiAbortController = null
+let activeNavId = 0
+
+function setLoading(loading) {
+  crosshairEl.classList.toggle('loading', Boolean(loading))
+}
 
 let historyIndex = 0
 
@@ -77,28 +87,19 @@ function setUrlAndState(title, { push = false } = {}) {
   }
 }
 
-function enterGallery(title, { spawn } = {}) {
-  if (!title) return
-  setUrlAndState(title, { push: true })
-
-  if (engineApi && typeof engineApi.setRoom === 'function') {
-    engineApi.setRoom({
-      roomMode: 'gallery',
-      roomSeedTitle: title,
-      galleryEntryWall: 'south',
-      spawn,
-    })
-  }
-}
-
-function hydrateGalleryDoorsFromSeeAlso(title) {
+function loadAndEnterGallery(title, { pushHistory = false, spawn, updateUrlState = true } = {}) {
   if (!title) return
 
   if (wikiAbortController) wikiAbortController.abort()
   wikiAbortController = new AbortController()
+  const navId = (activeNavId += 1)
+
+  setLoading(true)
 
   fetchGalleryRoomData(title, { signal: wikiAbortController.signal })
     .then((data) => {
+      if (navId !== activeNavId) return
+
       console.log('[linkwalk] GalleryData', data)
 
       const relatedTitles = Array.isArray(data?.seeAlso)
@@ -108,19 +109,27 @@ function hydrateGalleryDoorsFromSeeAlso(title) {
             .filter(Boolean)
         : []
 
+      if (updateUrlState) {
+        setUrlAndState(title, { push: Boolean(pushHistory) })
+      }
+
       if (engineApi && typeof engineApi.setRoom === 'function') {
         engineApi.setRoom({
           roomMode: 'gallery',
           roomSeedTitle: title,
           galleryEntryWall: 'south',
           galleryRelatedTitles: relatedTitles,
-          spawn: undefined,
+          spawn,
         })
       }
     })
     .catch((err) => {
       if (err && err.code === 'aborted') return
       console.warn('[linkwalk] Wiki fetch failed', err)
+    })
+    .finally(() => {
+      if (navId !== activeNavId) return
+      setLoading(false)
     })
 }
 
@@ -132,11 +141,13 @@ function enterEntryway({ push = false } = {}) {
 }
 
 function goBackInApp() {
+  setLoading(true)
   if (historyIndex > 0) {
     window.history.back()
     return
   }
   enterEntryway({ push: false })
+  setLoading(false)
 }
 
 engineApi = startYourEngines({
@@ -157,15 +168,19 @@ engineApi = startYourEngines({
   },
   onDoorTrigger(door) {
     if (door && typeof door.category === 'string' && door.category.length > 0) {
-      enterGallery(door.category, { spawn: { type: 'fromWall', wall: 'south' } })
-      hydrateGalleryDoorsFromSeeAlso(door.category)
+      loadAndEnterGallery(door.category, {
+        pushHistory: true,
+        spawn: { type: 'fromWall', wall: 'south' },
+      })
       return
     }
 
     if (door && typeof door.articleTitle === 'string' && door.articleTitle.trim().length > 0) {
       const title = door.articleTitle.trim()
-      enterGallery(title, { spawn: { type: 'fromWall', wall: 'south' } })
-      hydrateGalleryDoorsFromSeeAlso(title)
+      loadAndEnterGallery(title, {
+        pushHistory: true,
+        spawn: { type: 'fromWall', wall: 'south' },
+      })
       return
     }
 
@@ -197,15 +212,11 @@ window.addEventListener('popstate', (e) => {
   const title = p.get('title')
 
   if (title) {
-    if (engineApi && typeof engineApi.setRoom === 'function') {
-      engineApi.setRoom({
-        roomMode: 'gallery',
-        roomSeedTitle: title,
-        galleryEntryWall: 'south',
-        spawn: { type: 'fromWall', wall: 'south' },
-      })
-    }
-    hydrateGalleryDoorsFromSeeAlso(title)
+    loadAndEnterGallery(title, {
+      pushHistory: false,
+      updateUrlState: false,
+      spawn: { type: 'fromWall', wall: 'south' },
+    })
     return
   }
 
@@ -213,5 +224,5 @@ window.addEventListener('popstate', (e) => {
 })
 
 if (initialTitle) {
-  hydrateGalleryDoorsFromSeeAlso(initialTitle)
+  loadAndEnterGallery(initialTitle, { pushHistory: false, updateUrlState: false })
 }
