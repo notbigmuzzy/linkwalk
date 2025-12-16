@@ -46,6 +46,7 @@ overlayEl.addEventListener('keydown', (e) => {
 
 startEngine({
   canvas,
+  roomSeedTitle: new URLSearchParams(window.location.search).get('title') ?? 'Lobby',
   onFps(fps) {
     fpsEl.textContent = `${fps.toFixed(0)} FPS`
   },

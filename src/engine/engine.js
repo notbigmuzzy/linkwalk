@@ -1,6 +1,35 @@
 import * as THREE from 'three'
 
-export function startEngine({ canvas, onFps, onPointerLockChange }) {
+function hashStringToUint32(str) {
+  // FNV-1a 32-bit
+  let h = 2166136261
+  for (let i = 0; i < str.length; i += 1) {
+    h ^= str.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return h >>> 0
+}
+
+function mulberry32(seed) {
+  let a = seed >>> 0
+  return function rand() {
+    a |= 0
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function roundTo(value, step) {
+  return Math.round(value / step) * step
+}
+
+function randRange(rand, min, max) {
+  return min + (max - min) * rand()
+}
+
+export function startEngine({ canvas, onFps, onPointerLockChange, roomSeedTitle = 'Lobby' }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio ?? 1, 2))
 
@@ -21,12 +50,19 @@ export function startEngine({ canvas, onFps, onPointerLockChange }) {
 
   const disposables = []
 
-  const roomSize = 20
-  const roomHeight = 4
-  const wallThickness = 0.2
-  const roomHalf = roomSize / 2
+  // --- Milestone 2 (part 1): procedurally seeded room dimensions
+  const seed = hashStringToUint32(String(roomSeedTitle))
+  const rand = mulberry32(seed)
 
-  const floorGeo = new THREE.PlaneGeometry(roomSize, roomSize)
+  const roomWidth = roundTo(randRange(rand, 10, 18), 0.25)
+  const roomLength = roundTo(randRange(rand, 10, 18), 0.25)
+  const roomHeight = roundTo(randRange(rand, 2.8, 4.6), 0.1)
+
+  const wallThickness = 0.2
+  const halfW = roomWidth / 2
+  const halfL = roomLength / 2
+
+  const floorGeo = new THREE.PlaneGeometry(roomWidth, roomLength)
   const floorMat = new THREE.MeshStandardMaterial({ color: 0x141019, roughness: 0.9 })
   const floor = new THREE.Mesh(floorGeo, floorMat)
   floor.rotation.x = -Math.PI / 2
@@ -34,7 +70,7 @@ export function startEngine({ canvas, onFps, onPointerLockChange }) {
   scene.add(floor)
   disposables.push(floorGeo, floorMat)
 
-  const ceilingGeo = new THREE.PlaneGeometry(roomSize, roomSize)
+  const ceilingGeo = new THREE.PlaneGeometry(roomWidth, roomLength)
   const ceilingMat = new THREE.MeshStandardMaterial({ color: 0x0d0a10, roughness: 1.0 })
   const ceiling = new THREE.Mesh(ceilingGeo, ceilingMat)
   ceiling.rotation.x = Math.PI / 2
@@ -43,23 +79,23 @@ export function startEngine({ canvas, onFps, onPointerLockChange }) {
   disposables.push(ceilingGeo, ceilingMat)
 
   const wallMat = new THREE.MeshStandardMaterial({ color: 0x1c1221, roughness: 0.85, metalness: 0.05 })
-  const wallNSGeo = new THREE.BoxGeometry(roomSize, roomHeight, wallThickness)
-  const wallEWGeo = new THREE.BoxGeometry(wallThickness, roomHeight, roomSize)
+  const wallNSGeo = new THREE.BoxGeometry(roomWidth, roomHeight, wallThickness)
+  const wallEWGeo = new THREE.BoxGeometry(wallThickness, roomHeight, roomLength)
 
   const northWall = new THREE.Mesh(wallNSGeo, wallMat)
-  northWall.position.set(0, roomHeight / 2, -roomHalf)
+  northWall.position.set(0, roomHeight / 2, -halfL)
   scene.add(northWall)
 
   const southWall = new THREE.Mesh(wallNSGeo, wallMat)
-  southWall.position.set(0, roomHeight / 2, roomHalf)
+  southWall.position.set(0, roomHeight / 2, halfL)
   scene.add(southWall)
 
   const eastWall = new THREE.Mesh(wallEWGeo, wallMat)
-  eastWall.position.set(roomHalf, roomHeight / 2, 0)
+  eastWall.position.set(halfW, roomHeight / 2, 0)
   scene.add(eastWall)
 
   const westWall = new THREE.Mesh(wallEWGeo, wallMat)
-  westWall.position.set(-roomHalf, roomHeight / 2, 0)
+  westWall.position.set(-halfW, roomHeight / 2, 0)
   scene.add(westWall)
 
   disposables.push(wallMat, wallNSGeo, wallEWGeo)
@@ -182,9 +218,10 @@ export function startEngine({ canvas, onFps, onPointerLockChange }) {
 
     // Room bounds collision (MVP): clamp x/z inside walls
     const margin = 0.35
-    const maxXZ = roomHalf - margin
-    camera.position.x = clamp(camera.position.x, -maxXZ, maxXZ)
-    camera.position.z = clamp(camera.position.z, -maxXZ, maxXZ)
+    const maxX = halfW - margin
+    const maxZ = halfL - margin
+    camera.position.x = clamp(camera.position.x, -maxX, maxX)
+    camera.position.z = clamp(camera.position.z, -maxZ, maxZ)
   }
 
   function resize() {

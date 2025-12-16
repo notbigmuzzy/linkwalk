@@ -47,9 +47,9 @@ Goal: Desktop-only web app (Three.js) where each “room” is generated from a 
 --- -->
 
 ## Milestone 2 — Room Generator (Geometry + Layout) (Day 2–3)
-- [ ] Procedural room dimensions
-  - [ ] Width/length/height randomized within sane ranges
-  - [ ] Seeded by article title (stable per article)
+- [x] Procedural room dimensions
+  - [x] Width/length/height randomized within sane ranges
+  - [x] Seeded by article title (stable per article)
 - [ ] Room construction from primitives
   - [ ] Floor + ceiling + 4 walls (planes or thin boxes)
   - [ ] Simple lights (ambient + directional/point)
