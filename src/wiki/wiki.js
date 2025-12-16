@@ -424,9 +424,11 @@ export async function fetchGalleryRoomData(title, opts = {}) {
 
   const seeAlso = relatedBetter
 
+  const mainThumbnailUrl = room.thumbnailUrl || (Array.isArray(photos) && typeof photos[0] === 'string' ? photos[0] : null)
+
   return {
     room,
-    mainThumbnailUrl: room.thumbnailUrl,
+    mainThumbnailUrl,
     photos,
     seeAlso,
   }

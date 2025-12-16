@@ -40,6 +40,9 @@ export function startYourEngines({
   entrywayCategories,
   roomSpawn,
   galleryRelatedTitles,
+  galleryTitle,
+  galleryDescription,
+  galleryMainThumbnailUrl,
 }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio ?? 1, 2))
@@ -79,6 +82,7 @@ export function startYourEngines({
   let halfL = 6
   let doorById = new Map()
   let doorHitMeshes = []
+  let roomObstacles = []
 
   let yaw = 0
   let pitch = 0
@@ -139,7 +143,17 @@ export function startYourEngines({
     }
   }
 
-  function loadRoom({ mode, seedTitle, categories, galleryEntryWall, galleryRelatedTitles: relatedTitles, spawn }) {
+  function loadRoom({
+    mode,
+    seedTitle,
+    categories,
+    galleryEntryWall,
+    galleryRelatedTitles: relatedTitles,
+    galleryTitle: nextGalleryTitle,
+    galleryDescription: nextGalleryDescription,
+    galleryMainThumbnailUrl: nextGalleryMainThumbnailUrl,
+    spawn,
+  }) {
     const wallThickness = 0.2
 
     let roomWidth = 14
@@ -151,7 +165,7 @@ export function startYourEngines({
       const rand = mulberry32(seed)
 
       roomWidth = roundTo(randRange(rand, 10, 18), 0.25)
-      roomLength = roundTo(randRange(rand, 10, 18), 0.25)
+      roomLength = roundTo(randRange(rand, 10, 18), 0.25) + 2
       roomHeight = roundTo(randRange(rand, 4, 4), 0.1)
     }
 
@@ -167,6 +181,9 @@ export function startYourEngines({
       gallery: {
         entryWall: galleryEntryWall,
         relatedTitles,
+        title: nextGalleryTitle,
+        description: nextGalleryDescription,
+        mainThumbnailUrl: nextGalleryMainThumbnailUrl,
       },
     })
 
@@ -184,6 +201,7 @@ export function startYourEngines({
     const doors = Array.isArray(currentRoom.doors) ? currentRoom.doors : []
     doorById = new Map(doors.map((d) => [d.id, d]))
     doorHitMeshes = Array.isArray(currentRoom.doorHitMeshes) ? currentRoom.doorHitMeshes : []
+    roomObstacles = Array.isArray(currentRoom.obstacles) ? currentRoom.obstacles : []
 
     applySpawn(spawn)
   }
@@ -193,6 +211,9 @@ export function startYourEngines({
     seedTitle: roomSeedTitle,
     categories: entrywayCategories,
     galleryRelatedTitles,
+    galleryTitle,
+    galleryDescription,
+    galleryMainThumbnailUrl,
     spawn: roomSpawn,
   })
   const raycaster = new THREE.Raycaster()
@@ -277,6 +298,13 @@ export function startYourEngines({
     const hits = raycaster.intersectObjects(doorHitMeshes, true)
     if (hits.length === 0) return
 
+    const interactMaxDistance = 2.25
+    const hitPoint = hits[0]?.point
+    if (hitPoint && typeof hitPoint.distanceTo === 'function') {
+      const d = hitPoint.distanceTo(camera.position)
+      if (d > interactMaxDistance) return
+    }
+
     const doorId = findDoorId(hits[0].object)
     if (!doorId) return
 
@@ -341,6 +369,37 @@ export function startYourEngines({
     const margin = 0.35
     const maxX = halfW - margin
     const maxZ = halfL - margin
+
+    {
+      const playerRadius = 0.35
+      const px = camera.position.x
+      const pz = camera.position.z
+      let x = px
+      let z = pz
+
+      for (const o of roomObstacles) {
+        if (!o || o.type !== 'cylinder') continue
+        const ox = typeof o.x === 'number' ? o.x : 0
+        const oz = typeof o.z === 'number' ? o.z : 0
+        const r = typeof o.radius === 'number' ? o.radius : 0
+        const minDist = playerRadius + r + 0.05
+
+        const dx = x - ox
+        const dz = z - oz
+        const dist = Math.hypot(dx, dz)
+        if (dist > 0 && dist < minDist) {
+          const push = minDist - dist
+          x += (dx / dist) * push
+          z += (dz / dist) * push
+        } else if (dist === 0 && minDist > 0) {
+          x += minDist
+        }
+      }
+
+      camera.position.x = x
+      camera.position.z = z
+    }
+
     camera.position.x = clamp(camera.position.x, -maxX, maxX)
     camera.position.z = clamp(camera.position.z, -maxZ, maxZ)
   }
@@ -406,14 +465,31 @@ export function startYourEngines({
       entrywayCategories: nextCategories,
       galleryEntryWall,
       galleryRelatedTitles: nextRelatedTitles,
+      galleryTitle: nextGalleryTitle,
+      galleryDescription: nextGalleryDescription,
+      galleryMainThumbnailUrl: nextGalleryMainThumbnailUrl,
       spawn,
     } = {}) {
+      const hasGalleryTitle = Object.prototype.hasOwnProperty.call(arguments.length ? arguments[0] ?? {} : {}, 'galleryTitle')
+      const hasGalleryDescription = Object.prototype.hasOwnProperty.call(arguments.length ? arguments[0] ?? {} : {}, 'galleryDescription')
+      const hasGalleryMainThumbnailUrl = Object.prototype.hasOwnProperty.call(
+        arguments.length ? arguments[0] ?? {} : {},
+        'galleryMainThumbnailUrl'
+      )
+
       loadRoom({
         mode: typeof nextMode === 'string' ? nextMode : roomMode,
         seedTitle: typeof nextSeedTitle === 'string' ? nextSeedTitle : roomSeedTitle,
         categories: Array.isArray(nextCategories) ? nextCategories : entrywayCategories,
         galleryEntryWall,
         galleryRelatedTitles: Array.isArray(nextRelatedTitles) ? nextRelatedTitles : galleryRelatedTitles,
+        galleryTitle: hasGalleryTitle ? (typeof nextGalleryTitle === 'string' ? nextGalleryTitle : null) : galleryTitle,
+        galleryDescription: hasGalleryDescription ? (typeof nextGalleryDescription === 'string' ? nextGalleryDescription : null) : galleryDescription,
+        galleryMainThumbnailUrl: hasGalleryMainThumbnailUrl
+          ? typeof nextGalleryMainThumbnailUrl === 'string'
+            ? nextGalleryMainThumbnailUrl
+            : null
+          : galleryMainThumbnailUrl,
         spawn,
       })
     },

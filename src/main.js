@@ -119,6 +119,9 @@ function loadAndEnterGallery(title, { pushHistory = false, spawn, updateUrlState
           roomSeedTitle: title,
           galleryEntryWall: 'south',
           galleryRelatedTitles: relatedTitles,
+          galleryTitle: typeof data?.room?.title === 'string' ? data.room.title : title,
+          galleryDescription: typeof data?.room?.extract === 'string' ? data.room.extract : '',
+          galleryMainThumbnailUrl: typeof data?.mainThumbnailUrl === 'string' ? data.mainThumbnailUrl : null,
           spawn,
         })
       }

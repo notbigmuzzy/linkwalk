@@ -106,6 +106,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
   const slots = []
   const doors = []
   const doorHitMeshes = []
+  const obstacles = []
   const markers = new THREE.Group()
   markers.name = 'display-slots'
 
@@ -423,6 +424,198 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
   addDoor({ id: 'entry-door', wall: 'south', w: 1.25, h: 2.25, u: 0, color: 0xff4455, meta: { target: 'back', label: 'Back' } })
 
   {
+    const colRadius = 0.65
+    const colHeight = height
+    const colGeo = new THREE.CylinderGeometry(colRadius, colRadius, colHeight, 18, 1)
+    const colMat = new THREE.MeshStandardMaterial({ color: palette.wall, roughness: 0.85, metalness: 0.0 })
+    disposables.push(colGeo, colMat)
+
+    function addColumn({ id, x, z }) {
+      const col = new THREE.Mesh(colGeo, colMat)
+      col.name = id
+      col.position.set(x, colHeight / 2, z)
+      group.add(col)
+
+      obstacles.push({ type: 'cylinder', x, z, radius: colRadius })
+      return col
+    }
+
+    const colOffsetX = Math.min(1.55, Math.max(1.05, width * 0.11))
+    const leftCol = addColumn({ id: 'column-left', x: -colOffsetX, z: 0 })
+    const rightCol = addColumn({ id: 'column-right', x: colOffsetX, z: 0 })
+
+    const title = typeof gallery.title === 'string' ? gallery.title.trim() : ''
+    const description = typeof gallery.description === 'string' ? gallery.description.trim() : ''
+    const mainThumbnailUrl = typeof gallery.mainThumbnailUrl === 'string' ? gallery.mainThumbnailUrl.trim() : ''
+
+    const imageOnLeft = Math.random() < 0.5
+    const imageCol = imageOnLeft ? leftCol : rightCol
+    const textCol = imageOnLeft ? rightCol : leftCol
+
+    const panelW = 1.55
+    const panelH = 1.55
+    const panelY = Math.min(height * 0.47, 1.9)
+    const panelZ = colRadius + 0.08
+
+    const panelDepth = 0.06
+    const panelBackGeo = new THREE.BoxGeometry(panelW, panelH, panelDepth)
+    const panelBackMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.95, metalness: 0.0 })
+    disposables.push(panelBackGeo, panelBackMat)
+
+    const imgBack = new THREE.Mesh(panelBackGeo, panelBackMat)
+    imgBack.position.set(imageCol.position.x, panelY, panelZ)
+    group.add(imgBack)
+
+    const imgGeo = new THREE.PlaneGeometry(panelW, panelH)
+    const imgMat = new THREE.MeshBasicMaterial({ color: 0xffffff })
+    const img = new THREE.Mesh(imgGeo, imgMat)
+    img.position.set(imageCol.position.x, panelY, panelZ + panelDepth / 2 + 0.002)
+    group.add(img)
+    disposables.push(imgGeo, imgMat)
+
+    function applyNoPhoto() {
+      const canvas = document.createElement('canvas')
+      canvas.width = 1024
+      canvas.height = 1024
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        ctx.fillStyle = '#0d1015'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+        ctx.strokeStyle = 'rgba(255,255,255,0.18)'
+        ctx.lineWidth = 10
+        ctx.strokeRect(24, 24, canvas.width - 48, canvas.height - 48)
+
+        ctx.fillStyle = 'rgba(255,255,255,0.9)'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.font = '800 110px system-ui, -apple-system, Segoe UI, Roboto, Arial'
+        ctx.fillText('NO PHOTO', canvas.width / 2, canvas.height / 2 - 10)
+
+        ctx.font = '600 44px system-ui, -apple-system, Segoe UI, Roboto, Arial'
+        ctx.fillStyle = 'rgba(156, 144, 30, 0.74)'
+        ctx.fillText('No image available', canvas.width / 2, canvas.height / 2 + 90)
+      }
+
+      const tex = new THREE.CanvasTexture(canvas)
+      tex.colorSpace = THREE.SRGBColorSpace
+      tex.needsUpdate = true
+      imgMat.map = tex
+      imgMat.color.setHex(0xffffff)
+      imgMat.needsUpdate = true
+      disposables.push(tex)
+    }
+
+    if (mainThumbnailUrl) {
+      const loader = new THREE.TextureLoader()
+      if (typeof loader.setCrossOrigin === 'function') loader.setCrossOrigin('anonymous')
+      loader.load(
+        mainThumbnailUrl,
+        (tex) => {
+          tex.colorSpace = THREE.SRGBColorSpace
+          tex.needsUpdate = true
+          imgMat.map = tex
+          imgMat.color.setHex(0xffffff)
+          imgMat.needsUpdate = true
+          disposables.push(tex)
+        },
+        undefined,
+        (err) => {
+          console.warn('[linkwalk] Failed to load gallery image', mainThumbnailUrl, err)
+          applyNoPhoto()
+        }
+      )
+    } else {
+      applyNoPhoto()
+    }
+
+    const descW = 1.55
+    const descH = 1.2
+    const descGeo = new THREE.PlaneGeometry(descW, descH)
+    const descCanvas = document.createElement('canvas')
+    descCanvas.width = 1024
+    descCanvas.height = 768
+    const descCtx = descCanvas.getContext('2d')
+
+    function wrapText(ctx, text, maxWidth, maxLines) {
+      const words = String(text).trim().split(/\s+/g)
+      const lines = []
+      let cur = ''
+
+      for (const word of words) {
+        const next = cur ? `${cur} ${word}` : word
+        if (ctx.measureText(next).width <= maxWidth) {
+          cur = next
+          continue
+        }
+        if (cur) lines.push(cur)
+        cur = word
+        if (lines.length >= maxLines) break
+      }
+      if (lines.length < maxLines && cur) lines.push(cur)
+
+      if (lines.length === maxLines) {
+        let last = lines[maxLines - 1] ?? ''
+        const ell = '…'
+        while (last && ctx.measureText(last + ell).width > maxWidth) last = last.slice(0, -1)
+        lines[maxLines - 1] = last ? last + ell : ell
+      }
+      return lines
+    }
+
+    if (descCtx) {
+      descCtx.clearRect(0, 0, descCanvas.width, descCanvas.height)
+      descCtx.fillStyle = 'rgba(0,0,0,0.68)'
+      descCtx.fillRect(0, 0, descCanvas.width, descCanvas.height)
+
+      const padX = 34
+      let y = 84
+
+      const safeTitle = title || 'Wikipedia'
+      descCtx.font = '700 56px system-ui, -apple-system, Segoe UI, Roboto, Arial'
+      descCtx.fillStyle = 'rgba(223,255,233,0.98)'
+      descCtx.textAlign = 'left'
+      descCtx.textBaseline = 'alphabetic'
+
+      const titleLines = wrapText(descCtx, safeTitle, descCanvas.width - padX * 2, 2)
+      for (const line of titleLines) {
+        descCtx.fillText(line, padX, y)
+        y += 64
+      }
+
+      if (description) {
+        y += 18
+        descCtx.font = '500 38px system-ui, -apple-system, Segoe UI, Roboto, Arial'
+        descCtx.fillStyle = 'rgba(255,255,255,0.92)'
+        const descLines = wrapText(descCtx, description, descCanvas.width - padX * 2, 6)
+        for (const line of descLines) {
+          descCtx.fillText(line, padX, y)
+          y += 48
+        }
+      }
+    }
+
+    const descTex = new THREE.CanvasTexture(descCanvas)
+    descTex.colorSpace = THREE.SRGBColorSpace
+    descTex.needsUpdate = true
+    const descMat = new THREE.MeshBasicMaterial({ map: descTex, transparent: true })
+    const descPanel = new THREE.Mesh(descGeo, descMat)
+
+    const descY = Math.min(height * 0.44, 1.8)
+    const descBackGeo = new THREE.BoxGeometry(descW, descH, panelDepth)
+    const descBackMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.95, metalness: 0.0 })
+    const descBack = new THREE.Mesh(descBackGeo, descBackMat)
+    descBack.position.set(textCol.position.x, descY, panelZ)
+    group.add(descBack)
+    disposables.push(descBackGeo, descBackMat)
+
+    descPanel.position.set(textCol.position.x, descY, panelZ + panelDepth / 2 + 0.002)
+    group.add(descPanel)
+    disposables.push(descGeo, descTex, descMat)
+  }
+
+  {
     const relatedTitles = Array.isArray(gallery.relatedTitles) ? gallery.relatedTitles.filter(Boolean) : []
     const n = relatedTitles.length
     if (n > 0) {
@@ -451,10 +644,10 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
   const stdFrameH = roundTo(clamp(height * 0.36, 1.05, 1.35), 0.05)
   const stdFrameW = roundTo(stdFrameH * 0.707, 0.05)
-  const stdFrameY = height * 0.6
+  const stdFrameY = height * 0.5
 
   const stdPlaqueH = 0.2
-  const stdPlaqueY = height * 0.24
+  const stdPlaqueY = height * 0.17
   const stdPlaqueW = roundTo(clamp(stdFrameW, 0.5, 1.05), 0.05)
 
   function addGridWallSlots(wall) {
@@ -490,6 +683,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     slots,
     doors,
     doorHitMeshes,
+    obstacles,
     bounds: {
       halfW,
       halfL,
