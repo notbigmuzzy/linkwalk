@@ -1,5 +1,6 @@
 import './style.css'
 import { startYourEngines } from './engine/engine.js'
+import { fetchGalleryRoomData } from './wiki/wiki.js'
 
 const app = document.querySelector('#app')
 if (!app) {
@@ -54,12 +55,96 @@ const params = new URLSearchParams(window.location.search)
 const initialTitle = params.get('title')
 let engineApi = null
 
+let wikiAbortController = null
+
+let historyIndex = 0
+
+function setUrlAndState(title, { push = false } = {}) {
+  const nextParams = new URLSearchParams(window.location.search)
+  if (title) nextParams.set('title', title)
+  else nextParams.delete('title')
+
+  const q = nextParams.toString()
+  const url = q ? `${window.location.pathname}?${q}` : window.location.pathname
+  const nextState = { linkwalk: true, idx: historyIndex, title: title || null }
+
+  if (push) {
+    historyIndex += 1
+    nextState.idx = historyIndex
+    window.history.pushState(nextState, '', url)
+  } else {
+    window.history.replaceState(nextState, '', url)
+  }
+}
+
+function enterGallery(title, { spawn } = {}) {
+  if (!title) return
+  setUrlAndState(title, { push: true })
+
+  if (engineApi && typeof engineApi.setRoom === 'function') {
+    engineApi.setRoom({
+      roomMode: 'gallery',
+      roomSeedTitle: title,
+      galleryEntryWall: 'south',
+      spawn,
+    })
+  }
+}
+
+function hydrateGalleryDoorsFromSeeAlso(title) {
+  if (!title) return
+
+  if (wikiAbortController) wikiAbortController.abort()
+  wikiAbortController = new AbortController()
+
+  fetchGalleryRoomData(title, { signal: wikiAbortController.signal })
+    .then((data) => {
+      console.log('[linkwalk] GalleryData', data)
+
+      const relatedTitles = Array.isArray(data?.seeAlso)
+        ? data.seeAlso
+            .map((p) => (p && typeof p.title === 'string' ? p.title : ''))
+            .map((t) => t.trim())
+            .filter(Boolean)
+        : []
+
+      if (engineApi && typeof engineApi.setRoom === 'function') {
+        engineApi.setRoom({
+          roomMode: 'gallery',
+          roomSeedTitle: title,
+          galleryEntryWall: 'south',
+          galleryRelatedTitles: relatedTitles,
+          spawn: undefined,
+        })
+      }
+    })
+    .catch((err) => {
+      if (err && err.code === 'aborted') return
+      console.warn('[linkwalk] Wiki fetch failed', err)
+    })
+}
+
+function enterEntryway({ push = false } = {}) {
+  setUrlAndState(null, { push })
+  if (engineApi && typeof engineApi.setRoom === 'function') {
+    engineApi.setRoom({ roomMode: 'entryway', spawn: { type: 'fromWall', wall: 'south' } })
+  }
+}
+
+function goBackInApp() {
+  if (historyIndex > 0) {
+    window.history.back()
+    return
+  }
+  enterEntryway({ push: false })
+}
+
 engineApi = startYourEngines({
   canvas,
   roomSeedTitle: initialTitle ?? 'Lobby',
   roomMode: initialTitle ? 'gallery' : 'entryway',
   roomSpawn: initialTitle ? undefined : { type: 'fromWall', wall: 'south' },
-  entrywayCategories: ['History', 'Science', 'Art', 'Technology', 'Nature', 'Space', 'Cities', 'People'],
+  entrywayCategories: ['Culture', 'Geography', 'Health', 'History', 'Nature', 'People', 'Philosophy', 'Religion', 'Society', 'Technology'],
   onFps(fps) {
     fpsEl.textContent = `${fps.toFixed(0)} FPS`
   },
@@ -72,30 +157,25 @@ engineApi = startYourEngines({
   },
   onDoorTrigger(door) {
     if (door && typeof door.category === 'string' && door.category.length > 0) {
-      const nextParams = new URLSearchParams(window.location.search)
-      nextParams.set('title', door.category)
-      window.history.replaceState(null, '', `${window.location.pathname}?${nextParams.toString()}`)
+      enterGallery(door.category, { spawn: { type: 'fromWall', wall: 'south' } })
+      hydrateGalleryDoorsFromSeeAlso(door.category)
+      return
+    }
 
-      if (engineApi && typeof engineApi.setRoom === 'function') {
-        engineApi.setRoom({
-          roomMode: 'gallery',
-          roomSeedTitle: door.category,
-          galleryEntryWall: 'south',
-          spawn: { type: 'fromWall', wall: 'south' },
-        })
-      }
+    if (door && typeof door.articleTitle === 'string' && door.articleTitle.trim().length > 0) {
+      const title = door.articleTitle.trim()
+      enterGallery(title, { spawn: { type: 'fromWall', wall: 'south' } })
+      hydrateGalleryDoorsFromSeeAlso(title)
+      return
+    }
+
+    if (door && door.target === 'back') {
+      goBackInApp()
       return
     }
 
     if (door && door.target === 'entryway') {
-      const nextParams = new URLSearchParams(window.location.search)
-      nextParams.delete('title')
-      const q = nextParams.toString()
-      window.history.replaceState(null, '', q ? `${window.location.pathname}?${q}` : window.location.pathname)
-
-      if (engineApi && typeof engineApi.setRoom === 'function') {
-        engineApi.setRoom({ roomMode: 'entryway', spawn: { type: 'fromWall', wall: 'south' } })
-      }
+      enterEntryway({ push: true })
       return
     }
 
@@ -104,3 +184,34 @@ engineApi = startYourEngines({
     }
   },
 })
+
+setUrlAndState(initialTitle ? initialTitle : null, { push: false })
+
+window.addEventListener('popstate', (e) => {
+  const st = e?.state
+  if (st && st.linkwalk && typeof st.idx === 'number') {
+    historyIndex = st.idx
+  }
+
+  const p = new URLSearchParams(window.location.search)
+  const title = p.get('title')
+
+  if (title) {
+    if (engineApi && typeof engineApi.setRoom === 'function') {
+      engineApi.setRoom({
+        roomMode: 'gallery',
+        roomSeedTitle: title,
+        galleryEntryWall: 'south',
+        spawn: { type: 'fromWall', wall: 'south' },
+      })
+    }
+    hydrateGalleryDoorsFromSeeAlso(title)
+    return
+  }
+
+  enterEntryway({ push: false })
+})
+
+if (initialTitle) {
+  hydrateGalleryDoorsFromSeeAlso(initialTitle)
+}

@@ -39,6 +39,7 @@ export function startYourEngines({
   roomMode = 'gallery',
   entrywayCategories,
   roomSpawn,
+  galleryRelatedTitles,
 }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio ?? 1, 2))
@@ -138,7 +139,7 @@ export function startYourEngines({
     }
   }
 
-  function loadRoom({ mode, seedTitle, categories, galleryEntryWall, spawn }) {
+  function loadRoom({ mode, seedTitle, categories, galleryEntryWall, galleryRelatedTitles: relatedTitles, spawn }) {
     const wallThickness = 0.2
 
     let roomWidth = 14
@@ -165,6 +166,7 @@ export function startYourEngines({
       },
       gallery: {
         entryWall: galleryEntryWall,
+        relatedTitles,
       },
     })
 
@@ -186,7 +188,13 @@ export function startYourEngines({
     applySpawn(spawn)
   }
 
-  loadRoom({ mode: roomMode, seedTitle: roomSeedTitle, categories: entrywayCategories, spawn: roomSpawn })
+  loadRoom({
+    mode: roomMode,
+    seedTitle: roomSeedTitle,
+    categories: entrywayCategories,
+    galleryRelatedTitles,
+    spawn: roomSpawn,
+  })
   const raycaster = new THREE.Raycaster()
   const rayNdc = new THREE.Vector2(0, 0)
 
@@ -392,12 +400,20 @@ export function startYourEngines({
   rafId = window.requestAnimationFrame(frame)
 
   return {
-    setRoom({ roomMode: nextMode, roomSeedTitle: nextSeedTitle, entrywayCategories: nextCategories, galleryEntryWall, spawn } = {}) {
+    setRoom({
+      roomMode: nextMode,
+      roomSeedTitle: nextSeedTitle,
+      entrywayCategories: nextCategories,
+      galleryEntryWall,
+      galleryRelatedTitles: nextRelatedTitles,
+      spawn,
+    } = {}) {
       loadRoom({
         mode: typeof nextMode === 'string' ? nextMode : roomMode,
         seedTitle: typeof nextSeedTitle === 'string' ? nextSeedTitle : roomSeedTitle,
         categories: Array.isArray(nextCategories) ? nextCategories : entrywayCategories,
         galleryEntryWall,
+        galleryRelatedTitles: Array.isArray(nextRelatedTitles) ? nextRelatedTitles : galleryRelatedTitles,
         spawn,
       })
     },

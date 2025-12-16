@@ -1,0 +1,287 @@
+const WIKI_REST_BASE = 'https://en.wikipedia.org/api/rest_v1'
+const WIKI_SUMMARY_ENDPOINT = `${WIKI_REST_BASE}/page/summary/`
+
+const WIKI_ACTION_API = 'https://en.wikipedia.org/w/api.php'
+
+const DEFAULT_TIMEOUT_MS = 8000
+
+function makeWikiError(message, extras = {}) {
+  const err = new Error(message)
+  Object.assign(err, extras)
+  return err
+}
+
+function attachAbortSignal(sourceSignal, targetController) {
+  if (!sourceSignal) return () => {}
+
+  if (sourceSignal.aborted) {
+    targetController.abort(sourceSignal.reason)
+    return () => {}
+  }
+
+  const onAbort = () => targetController.abort(sourceSignal.reason)
+  sourceSignal.addEventListener('abort', onAbort, { once: true })
+  return () => sourceSignal.removeEventListener('abort', onAbort)
+}
+
+function toWikiTitle(title) {
+  return String(title ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+}
+
+async function fetchJsonWithTimeout(url, { signal } = {}) {
+  const controller = new AbortController()
+  const detach = attachAbortSignal(signal, controller)
+  const timeoutId = window.setTimeout(() => controller.abort(new Error('timeout')), DEFAULT_TIMEOUT_MS)
+
+  let res
+  try {
+    res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        accept: 'application/json',
+        'Api-User-Agent': 'linkwalk (local dev)',
+      },
+      signal: controller.signal,
+    })
+  } catch (e) {
+    if (controller.signal.aborted) {
+      throw makeWikiError('Wikipedia request aborted', {
+        code: 'aborted',
+        url,
+        cause: e,
+      })
+    }
+    throw makeWikiError('Wikipedia request failed', {
+      code: 'network',
+      url,
+      cause: e,
+    })
+  } finally {
+    window.clearTimeout(timeoutId)
+    detach()
+  }
+
+  if (!res.ok) {
+    const contentType = res.headers.get('content-type') ?? ''
+    let body = null
+    try {
+      body = contentType.includes('application/json') ? await res.json() : await res.text()
+    } catch {
+      body = null
+    }
+
+    const maybeMessage = typeof body === 'object' && body && typeof body.detail === 'string' ? body.detail : null
+
+    throw makeWikiError(`Wikipedia fetch failed (${res.status})${maybeMessage ? `: ${maybeMessage}` : ''}`, {
+      code: res.status === 404 ? 'not_found' : 'http',
+      status: res.status,
+      url,
+      body,
+    })
+  }
+
+  return res.json()
+}
+
+function buildActionApiUrl(params) {
+  const search = new URLSearchParams({
+    format: 'json',
+    formatversion: '2',
+    origin: '*',
+    ...params,
+  })
+  return `${WIKI_ACTION_API}?${search.toString()}`
+}
+
+export async function fetchWikipediaSummary(title, { signal } = {}) {
+  const normalizedTitle = toWikiTitle(title)
+  if (!normalizedTitle) {
+    throw makeWikiError('Missing Wikipedia title', { code: 'bad_title' })
+  }
+
+  const url = `${WIKI_SUMMARY_ENDPOINT}${encodeURIComponent(normalizedTitle)}`
+
+  try {
+    return await fetchJsonWithTimeout(url, { signal })
+  } catch (err) {
+    if (err && typeof err === 'object' && err.code && !err.title) {
+      err.title = normalizedTitle
+    }
+    throw err
+  }
+}
+
+async function fetchActionQuery(params, { signal } = {}) {
+  const url = buildActionApiUrl({ action: 'query', ...params })
+  const json = await fetchJsonWithTimeout(url, { signal })
+  if (json?.error?.info) {
+    throw makeWikiError(String(json.error.info), { code: 'api_error', url, error: json.error })
+  }
+  return json
+}
+
+export function normalizeWikipediaSummary(raw) {
+  const title = typeof raw?.title === 'string' ? raw.title : ''
+  const extract = typeof raw?.extract === 'string' ? raw.extract : ''
+
+  const thumbnailUrl =
+    typeof raw?.thumbnail?.source === 'string'
+      ? raw.thumbnail.source
+      : typeof raw?.originalimage?.source === 'string'
+        ? raw.originalimage.source
+        : null
+
+  const pageUrl = typeof raw?.content_urls?.desktop?.page === 'string' ? raw.content_urls.desktop.page : null
+  const type = typeof raw?.type === 'string' ? raw.type : null
+  const isDisambiguation = type === 'disambiguation'
+
+  return {
+    title,
+    extract,
+    thumbnailUrl,
+    pageUrl,
+    isDisambiguation,
+    rawType: type,
+  }
+}
+
+export function normalizeWikipediaRelated(raw) {
+  const pages = Array.isArray(raw?.query?.pages) ? raw.query.pages : []
+  return pages
+    .map((p) => {
+      const title = typeof p?.title === 'string' ? p.title : ''
+      const extract = typeof p?.extract === 'string' ? p.extract : ''
+      const thumbnailUrl = typeof p?.thumbnail?.source === 'string' ? p.thumbnail.source : null
+      const pageUrl = typeof p?.fullurl === 'string' ? p.fullurl : null
+      return { title, extract, thumbnailUrl, pageUrl }
+    })
+    .filter((p) => p.title)
+}
+
+function normalizeActionImageInfo(raw, { maxImages = 4 } = {}) {
+  const pages = Array.isArray(raw?.query?.pages) ? raw.query.pages : []
+  const out = []
+  const seen = new Set()
+
+  for (const p of pages) {
+    const info = Array.isArray(p?.imageinfo) ? p.imageinfo[0] : null
+    const url = typeof info?.url === 'string' ? info.url : null
+    if (!url) continue
+    if (seen.has(url)) continue
+    if (url.toLowerCase().endsWith('.svg')) continue
+    seen.add(url)
+    out.push(url)
+    if (out.length >= maxImages) break
+  }
+
+  return out
+}
+
+export async function fetchWikipediaSeeAlso(title, { signal } = {}) {
+  const normalizedTitle = toWikiTitle(title)
+  if (!normalizedTitle) {
+    throw makeWikiError('Missing Wikipedia title', { code: 'bad_title' })
+  }
+
+  return fetchActionQuery(
+    {
+      generator: 'links',
+      titles: normalizedTitle,
+      gplnamespace: '0',
+      gpllimit: '10',
+      prop: 'extracts|pageimages|info',
+      exintro: '1',
+      explaintext: '1',
+      exsentences: '2',
+      piprop: 'thumbnail',
+      pithumbsize: '320',
+      inprop: 'url',
+    },
+    { signal }
+  )
+}
+
+export async function fetchWikipediaPhotos(title, { signal, maxImages = 4 } = {}) {
+  const normalizedTitle = toWikiTitle(title)
+  if (!normalizedTitle) {
+    throw makeWikiError('Missing Wikipedia title', { code: 'bad_title' })
+  }
+
+  const pageWithImages = await fetchActionQuery(
+    {
+      titles: normalizedTitle,
+      prop: 'images',
+      imlimit: '20',
+    },
+    { signal }
+  )
+
+  const pages = Array.isArray(pageWithImages?.query?.pages) ? pageWithImages.query.pages : []
+  const images = Array.isArray(pages?.[0]?.images) ? pages[0].images : []
+  const fileTitles = images
+    .map((im) => (typeof im?.title === 'string' ? im.title : ''))
+    .filter((t) => t.startsWith('File:'))
+    .slice(0, 12)
+
+  if (fileTitles.length === 0) return []
+
+  const imageInfo = await fetchActionQuery(
+    {
+      titles: fileTitles.join('|'),
+      prop: 'imageinfo',
+      iiprop: 'url',
+    },
+    { signal }
+  )
+
+  return normalizeActionImageInfo(imageInfo, { maxImages })
+}
+
+export async function fetchRoomData(title, opts = {}) {
+  const raw = await fetchWikipediaSummary(title, opts)
+  const data = normalizeWikipediaSummary(raw)
+
+  if (!data.title) {
+    throw makeWikiError('Wikipedia response missing title', { code: 'bad_response', raw })
+  }
+
+  if (data.isDisambiguation) {
+    throw makeWikiError(`Wikipedia title "${data.title}" is a disambiguation page`, {
+      code: 'disambiguation',
+      data,
+    })
+  }
+
+  return data
+}
+
+export async function fetchGalleryRoomData(title, opts = {}) {
+  const [summaryRaw, photos, relatedRaw] = await Promise.all([
+    fetchWikipediaSummary(title, opts),
+    fetchWikipediaPhotos(title, { ...opts, maxImages: 4 }),
+    fetchWikipediaSeeAlso(title, opts),
+  ])
+
+  const room = normalizeWikipediaSummary(summaryRaw)
+  if (!room.title) {
+    throw makeWikiError('Wikipedia response missing title', { code: 'bad_response', raw: summaryRaw })
+  }
+
+  if (room.isDisambiguation) {
+    throw makeWikiError(`Wikipedia title "${room.title}" is a disambiguation page`, {
+      code: 'disambiguation',
+      data: room,
+    })
+  }
+
+  const seeAlso = normalizeWikipediaRelated(relatedRaw)
+
+  return {
+    room,
+    mainThumbnailUrl: room.thumbnailUrl,
+    photos,
+    seeAlso,
+  }
+}

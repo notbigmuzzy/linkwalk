@@ -181,6 +181,58 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     const frameW = 0.08
     const frameDepth = 0.08
 
+    const fillGeo = new THREE.PlaneGeometry(w, h)
+    const fillMat = new THREE.MeshStandardMaterial({ color: 0x171c22, roughness: 0.95, metalness: 0.0 })
+    const fill = new THREE.Mesh(fillGeo, fillMat)
+    fill.position.set(0, h / 2, -0.02)
+    doorFrameGroup.add(fill)
+    disposables.push(fillGeo, fillMat)
+
+    const labelText =
+      typeof meta.label === 'string' && meta.label.trim().length > 0
+        ? meta.label.trim()
+        : typeof meta.category === 'string' && meta.category.trim().length > 0
+          ? meta.category.trim()
+          : ''
+
+    if (labelText) {
+      const plaqueW = Math.min(w * 0.82, 1.35)
+      const plaqueH = 0.24
+      const plaqueCenterY = Math.min(h - 0.25, 1.4)
+      const plaqueGeo = new THREE.PlaneGeometry(plaqueW, plaqueH)
+      const plaqueMat = new THREE.MeshStandardMaterial({ color: 0x12161b, roughness: 0.9, metalness: 0.0 })
+      const plaque = new THREE.Mesh(plaqueGeo, plaqueMat)
+      plaque.position.set(0, plaqueCenterY, -0.015)
+      doorFrameGroup.add(plaque)
+      disposables.push(plaqueGeo, plaqueMat)
+
+      const canvas = document.createElement('canvas')
+      canvas.width = 512
+      canvas.height = 128
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        ctx.fillStyle = '#171c22'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        ctx.font = '700 56px system-ui, -apple-system, Segoe UI, Roboto, Arial'
+        ctx.fillStyle = '#dfffe9'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(labelText, canvas.width / 2, canvas.height / 2)
+      }
+
+      const tex = new THREE.CanvasTexture(canvas)
+      tex.colorSpace = THREE.SRGBColorSpace
+      tex.needsUpdate = true
+
+      const textGeo = new THREE.PlaneGeometry(plaqueW * 0.96, plaqueH * 0.78)
+      const textMat = new THREE.MeshBasicMaterial({ map: tex })
+      const text = new THREE.Mesh(textGeo, textMat)
+      text.position.set(0, plaqueCenterY, -0.012)
+      doorFrameGroup.add(text)
+      disposables.push(tex, textGeo, textMat)
+    }
+
     const jambGeo = new THREE.BoxGeometry(frameW, h, frameDepth)
     const headerGeo = new THREE.BoxGeometry(w + frameW * 2, frameW, frameDepth)
     disposables.push(jambGeo, headerGeo)
@@ -235,7 +287,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
   if (mode === 'entryway') {
     const categories = Array.isArray(entryway.categories) && entryway.categories.length > 0
       ? entryway.categories
-      : ['Category 1', 'Category 2', 'Category 3', 'Category 4', 'Category 5', 'Category 6', 'Category 7', 'Category 8']
+      : ['Category 1', 'Category 2', 'Category 3', 'Category 4', 'Category 5', 'Category 6', 'Category 7', 'Category 8', 'Category 9', 'Category 10']
 
     const panelW = roundTo(clamp(width * 0.72, 2.4, 6.2), 0.05)
     const panelH = roundTo(clamp(height * 0.58, 1.2, 2.0), 0.05)
@@ -243,34 +295,40 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
     const doorW = 1.25
     const doorH = 2.25
+
+    const perWall = Math.ceil(categories.length / 2)
     const gapU = 0.55
-    const totalSpan = 4 * doorW + 3 * gapU
-    const span = Math.min(totalSpan, length - 2.0)
-    const actualGap = 4 > 1 ? (span - 4 * doorW) / 3 : 0
+    const totalSpan = perWall * doorW + (perWall - 1) * gapU
+    const span = Math.max(perWall * doorW, Math.min(totalSpan, length - 2.0))
+    const actualGap = perWall > 1 ? (span - perWall * doorW) / (perWall - 1) : 0
     const uStart = -span / 2 + doorW / 2
 
-    for (let i = 0; i < 4; i += 1) {
+    for (let i = 0; i < perWall; i += 1) {
       const u = uStart + i * (doorW + actualGap)
-      const eastId = `entry-east-${i}`
-      const westId = `entry-west-${i}`
 
-      addDoor({
-        id: eastId,
-        wall: 'east',
-        w: doorW,
-        h: doorH,
-        u,
-        meta: { category: categories[i] ?? `Category ${i + 1}` },
-      })
+      const eastCategory = categories[i]
+      if (eastCategory) {
+        addDoor({
+          id: `entry-east-${i}`,
+          wall: 'east',
+          w: doorW,
+          h: doorH,
+          u,
+          meta: { category: eastCategory },
+        })
+      }
 
-      addDoor({
-        id: westId,
-        wall: 'west',
-        w: doorW,
-        h: doorH,
-        u,
-        meta: { category: categories[i + 4] ?? `Category ${i + 5}` },
-      })
+      const westCategory = categories[i + perWall]
+      if (westCategory) {
+        addDoor({
+          id: `entry-west-${i}`,
+          wall: 'west',
+          w: doorW,
+          h: doorH,
+          u,
+          meta: { category: westCategory },
+        })
+      }
     }
 
     group.add(markers)
@@ -289,16 +347,34 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     }
   }
 
-  addDoor({ id: 'entry-door', wall: 'south', w: 1.25, h: 2.25, u: 0, meta: { target: 'entryway' } })
+  addDoor({ id: 'entry-door', wall: 'south', w: 1.25, h: 2.25, u: 0, color: 0xff4455, meta: { target: 'back', label: 'Back' } })
 
-  const heroWall = 'north'
-  const heroFrameH = roundTo(clamp(height * 0.46, 1.25, 1.6), 0.05)
-  const heroFrameW = roundTo(heroFrameH * 0.707, 0.05)
-  addSlot({ id: 'hero-frame', wall: heroWall, kind: 'frame', w: heroFrameW, h: heroFrameH, y: height * 0.62, color: 0xffffff })
+  {
+    const relatedTitles = Array.isArray(gallery.relatedTitles) ? gallery.relatedTitles.filter(Boolean) : []
+    const n = relatedTitles.length
+    if (n > 0) {
+      const wall = 'north'
+      const gapU = 0.22
+      const usable = Math.max(1.0, width - 2.0)
+      const doorW = clamp((usable - (n - 1) * gapU) / n, 0.45, 1.25)
+      const doorH = 2.25
+      const totalSpan = n * doorW + (n - 1) * gapU
+      const uStart = -totalSpan / 2 + doorW / 2
 
-  const heroPlaqueW = roundTo(clamp(heroFrameW, 0.6, 1.2), 0.05)
-  const heroPlaqueH = 0.22
-  addSlot({ id: 'hero-plaque', wall: heroWall, kind: 'plaque', w: heroPlaqueW, h: heroPlaqueH, y: height * 0.25, color: 0xffff88 })
+      for (let i = 0; i < n; i += 1) {
+        const u = uStart + i * (doorW + gapU)
+        const title = String(relatedTitles[i])
+        addDoor({
+          id: `seealso-${i}`,
+          wall,
+          w: doorW,
+          h: doorH,
+          u,
+          meta: { articleTitle: title, label: title },
+        })
+      }
+    }
+  }
 
   const stdFrameH = roundTo(clamp(height * 0.36, 1.05, 1.35), 0.05)
   const stdFrameW = roundTo(stdFrameH * 0.707, 0.05)
