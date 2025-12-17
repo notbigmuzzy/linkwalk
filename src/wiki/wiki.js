@@ -95,6 +95,166 @@ function buildActionApiUrl(params) {
   return `${WIKI_ACTION_API}?${search.toString()}`
 }
 
+function firstSentences(text, maxSentences = 2) {
+  const s = typeof text === 'string' ? text.trim() : ''
+  if (!s) return ''
+
+  const n = Math.max(1, Math.min(8, Math.floor(maxSentences)))
+
+  const out = []
+  let start = 0
+  for (let i = 0; i < n; i += 1) {
+    const rest = s.slice(start)
+    if (!rest) break
+    const m = rest.match(/[.!?](\s+|$)/)
+    if (!m || typeof m.index !== 'number') {
+      out.push(rest.trim())
+      start = s.length
+      break
+    }
+    const end = start + m.index + 1
+    out.push(s.slice(start, end).trim())
+    start = end
+    while (start < s.length && /\s/.test(s[start])) start += 1
+  }
+
+  const joined = out.filter(Boolean).join(' ')
+  return joined
+}
+
+function normalizeActionPageBundle(raw) {
+  const pages = Array.isArray(raw?.query?.pages) ? raw.query.pages : []
+  const p = pages?.[0] ?? null
+  if (!p || typeof p !== 'object') return null
+
+  const title = typeof p?.title === 'string' ? p.title : ''
+  const extract = typeof p?.extract === 'string' ? p.extract : ''
+  const thumbnailUrl = typeof p?.thumbnail?.source === 'string' ? p.thumbnail.source : null
+  const pageUrl = typeof p?.fullurl === 'string' ? p.fullurl : null
+  const pageprops = p?.pageprops
+  const isDisambiguation = Boolean(pageprops && typeof pageprops === 'object' && Object.prototype.hasOwnProperty.call(pageprops, 'disambiguation'))
+
+  const missing = Boolean(p?.missing)
+  return {
+    title,
+    extract,
+    thumbnailUrl,
+    pageUrl,
+    isDisambiguation,
+    missing,
+  }
+}
+
+async function fetchWikipediaPageBundle(title, { signal, maxChars = 6000, thumbSize = 640 } = {}) {
+  const normalizedTitle = toWikiTitle(title)
+  if (!normalizedTitle) {
+    throw makeWikiError('Missing Wikipedia title', { code: 'bad_title' })
+  }
+
+  const chars = typeof maxChars === 'number' && Number.isFinite(maxChars) ? Math.max(800, Math.min(12000, Math.floor(maxChars))) : 6000
+  const size = typeof thumbSize === 'number' && Number.isFinite(thumbSize) ? Math.max(64, Math.min(1200, Math.floor(thumbSize))) : 640
+
+  const raw = await fetchActionQuery(
+    {
+      titles: normalizedTitle,
+      redirects: '1',
+      prop: 'extracts|pageimages|info|pageprops',
+      explaintext: '1',
+      exsectionformat: 'plain',
+      exlimit: '1',
+      exchars: String(chars),
+      piprop: 'thumbnail',
+      pithumbsize: String(size),
+      inprop: 'url',
+      ppprop: 'disambiguation',
+    },
+    { signal }
+  )
+
+  const page = normalizeActionPageBundle(raw)
+  if (!page || !page.title) {
+    throw makeWikiError('Wikipedia response missing title', { code: 'bad_response', raw })
+  }
+  if (page.missing) {
+    throw makeWikiError(`Wikipedia title "${page.title}" not found`, { code: 'not_found', data: page })
+  }
+
+  const longExtract = typeof page.extract === 'string' ? page.extract : ''
+  const shortExtract = firstSentences(longExtract, 2)
+
+  return {
+    room: {
+      title: page.title,
+      extract: shortExtract,
+      thumbnailUrl: page.thumbnailUrl,
+      pageUrl: page.pageUrl,
+      isDisambiguation: page.isDisambiguation,
+      rawType: page.isDisambiguation ? 'disambiguation' : null,
+    },
+    longExtract,
+  }
+}
+
+function normalizeWikipediaRelatedWithPageprops(raw) {
+  const pages = Array.isArray(raw?.query?.pages) ? raw.query.pages : []
+  return pages
+    .map((p) => {
+      const title = typeof p?.title === 'string' ? p.title : ''
+      const extract = typeof p?.extract === 'string' ? p.extract : ''
+      const thumbnailUrl = typeof p?.thumbnail?.source === 'string' ? p.thumbnail.source : null
+      const pageUrl = typeof p?.fullurl === 'string' ? p.fullurl : null
+      const pageprops = p?.pageprops
+      const isDisambiguation = Boolean(pageprops && typeof pageprops === 'object' && Object.prototype.hasOwnProperty.call(pageprops, 'disambiguation'))
+      return { title, extract, thumbnailUrl, pageUrl, isDisambiguation }
+    })
+    .filter((p) => p.title)
+}
+
+export async function fetchWikipediaRelatedFast(title, { signal, limit } = {}) {
+  const normalizedTitle = toWikiTitle(title)
+  if (!normalizedTitle) {
+    throw makeWikiError('Missing Wikipedia title', { code: 'bad_title' })
+  }
+
+  const hardLimit = typeof limit === 'number' && Number.isFinite(limit) ? Math.max(1, Math.min(10, Math.floor(limit))) : 5
+
+  const raw = await fetchActionQuery(
+    {
+      generator: 'search',
+      gsrsearch: `morelike:${normalizedTitle}`,
+      gsrnamespace: '0',
+      gsrlimit: '25',
+      redirects: '1',
+      prop: 'extracts|pageimages|info|pageprops',
+      exintro: '1',
+      explaintext: '1',
+      exsentences: '2',
+      piprop: 'thumbnail',
+      pithumbsize: '320',
+      inprop: 'url',
+      ppprop: 'disambiguation',
+    },
+    { signal }
+  )
+
+  const pages = normalizeWikipediaRelatedWithPageprops(raw)
+    .filter((p) => p.title !== normalizedTitle)
+    .filter((p) => !p.isDisambiguation)
+    .filter((p) => !isLowSignalRelatedTitle(p.title))
+
+  const withExtract = []
+  const withoutExtract = []
+  for (const p of pages) {
+    const extract = typeof p.extract === 'string' ? p.extract.trim() : ''
+    if (extract) withExtract.push(p)
+    else withoutExtract.push(p)
+  }
+
+  shuffleInPlace(withExtract)
+  shuffleInPlace(withoutExtract)
+  return [...withExtract, ...withoutExtract].slice(0, hardLimit)
+}
+
 export async function fetchWikipediaSummary(title, { signal } = {}) {
   const normalizedTitle = toWikiTitle(title)
   if (!normalizedTitle) {
@@ -413,34 +573,20 @@ export async function fetchWikipediaPhotos(title, { signal, maxImages = 4 } = {}
     throw makeWikiError('Missing Wikipedia title', { code: 'bad_title' })
   }
 
-  const pageWithImages = await fetchActionQuery(
+  // Single-request image fetch (avoids the old 2-step images->imageinfo flow).
+  const raw = await fetchActionQuery(
     {
       titles: normalizedTitle,
-      prop: 'images',
-      imlimit: '20',
-    },
-    { signal }
-  )
-
-  const pages = Array.isArray(pageWithImages?.query?.pages) ? pageWithImages.query.pages : []
-  const images = Array.isArray(pages?.[0]?.images) ? pages[0].images : []
-  const fileTitles = images
-    .map((im) => (typeof im?.title === 'string' ? im.title : ''))
-    .filter((t) => t.startsWith('File:'))
-    .slice(0, 12)
-
-  if (fileTitles.length === 0) return []
-
-  const imageInfo = await fetchActionQuery(
-    {
-      titles: fileTitles.join('|'),
+      redirects: '1',
+      generator: 'images',
+      gimlimit: '30',
       prop: 'imageinfo',
       iiprop: 'url',
     },
     { signal }
   )
 
-  return normalizeActionImageInfo(imageInfo, { maxImages })
+  return normalizeActionImageInfo(raw, { maxImages })
 }
 
 export async function fetchWikipediaLongExtract(title, { signal, maxChars = 5000 } = {}) {
@@ -488,17 +634,30 @@ export async function fetchRoomData(title, opts = {}) {
 }
 
 export async function fetchGalleryRoomData(title, opts = {}) {
-  const [summaryRaw, photos, relatedBetter, longExtract] = await Promise.all([
-    fetchWikipediaSummary(title, opts),
+
+  const normalizedTitle = toWikiTitle(title)
+  if (!normalizedTitle) {
+    throw makeWikiError('Missing Wikipedia title', { code: 'bad_title' })
+  }
+
+  // Cache successful results by title so revisiting an exhibit doesn't refetch.
+  // Aborted/failed requests are not cached.
+  if (!fetchGalleryRoomData._cache) fetchGalleryRoomData._cache = new Map()
+  const cache = fetchGalleryRoomData._cache
+  if (cache.has(normalizedTitle)) return cache.get(normalizedTitle)
+
+  const [pageBundle, photos, related] = await Promise.all([
+    fetchWikipediaPageBundle(normalizedTitle, { ...opts, maxChars: 6000, thumbSize: 640 }),
     // Fetch an extra image so we can exclude the main thumbnail without ending up short.
-    fetchWikipediaPhotos(title, { ...opts, maxImages: 6 }),
-    fetchWikipediaRelatedBetter(title, { ...opts, limit: 7 }),
-    fetchWikipediaLongExtract(title, { ...opts, maxChars: 6000 }),
+    fetchWikipediaPhotos(normalizedTitle, { ...opts, maxImages: 6 }),
+    fetchWikipediaRelatedFast(normalizedTitle, { ...opts, limit: 7 }),
   ])
 
-  const room = normalizeWikipediaSummary(summaryRaw)
-  if (!room.title) {
-    throw makeWikiError('Wikipedia response missing title', { code: 'bad_response', raw: summaryRaw })
+  const room = pageBundle?.room
+  const longExtract = typeof pageBundle?.longExtract === 'string' ? pageBundle.longExtract : ''
+
+  if (!room || !room.title) {
+    throw makeWikiError('Wikipedia response missing title', { code: 'bad_response', raw: pageBundle })
   }
 
   if (room.isDisambiguation) {
@@ -508,7 +667,7 @@ export async function fetchGalleryRoomData(title, opts = {}) {
     })
   }
 
-  const seeAlso = relatedBetter
+  const seeAlso = related
 
   const mainThumbnailUrl = room.thumbnailUrl || (Array.isArray(photos) && typeof photos[0] === 'string' ? photos[0] : null)
 
@@ -544,11 +703,16 @@ export async function fetchGalleryRoomData(title, opts = {}) {
         .slice(0, 5)
     : []
 
-  return {
+  const result = {
     room,
     mainThumbnailUrl,
     photos: filteredPhotos,
     seeAlso,
     longExtract: typeof longExtract === 'string' ? longExtract : '',
   }
+
+  cache.set(normalizedTitle, result)
+  return result
 }
+
+fetchGalleryRoomData._cache = null

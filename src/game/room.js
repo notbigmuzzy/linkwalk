@@ -45,7 +45,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 	default:
   }
 
-
   const ambient = new THREE.AmbientLight(0xffffff, palette.ambientIntensity)
   group.add(ambient)
 
