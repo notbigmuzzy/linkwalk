@@ -9,6 +9,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
   group.name = 'room'
 
   const disposables = []
+  const deferredTextureLoads = []
   let palette = {}
 
   switch (mode) {
@@ -744,6 +745,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
   const roomCtx = {
     group,
     disposables,
+    deferredTextureLoads,
     slots,
     doors,
     doorHitMeshes,
@@ -787,7 +789,8 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
   roomCtx.addDoor = addDoor
 
   if (mode === 'lobby') {
-    return buildLobbyRoom(roomCtx, lobby)
+    const lobbyRoom = buildLobbyRoom(roomCtx, lobby)
+    return { ...lobbyRoom, deferredTextureLoads }
   }
 
   addDoor({ id: 'entry-door', wall: 'south', w: 1.25, h: 2.25 * 1.1, u: 0, color: 0xff4455, meta: { target: 'back', label: 'Back' } })
@@ -927,12 +930,12 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       disposables.push(tex)
     }
 
+    // Always start with a placeholder; load the real image later (staggered).
+    applyNoPhoto()
     if (mainThumbnailUrl) {
-      const loader = new THREE.TextureLoader()
-      if (typeof loader.setCrossOrigin === 'function') loader.setCrossOrigin('anonymous')
-      loader.load(
-        mainThumbnailUrl,
-        (tex) => {
+      deferredTextureLoads.push({
+        url: mainThumbnailUrl,
+        onLoad(tex) {
           tex.colorSpace = THREE.SRGBColorSpace
           configureGalleryTexture(tex)
           imgMat.map = tex
@@ -942,14 +945,11 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
           fitMeshToTextureAspect(imgBack, { baseW: panelW, baseH: panelH, tex })
           disposables.push(tex)
         },
-        undefined,
-        (err) => {
+        onError(err) {
           console.warn('[linkwalk] Failed to load gallery image', mainThumbnailUrl, err)
           applyNoPhoto()
-        }
-      )
-    } else {
-      applyNoPhoto()
+        },
+      })
     }
 
     const descW = 1.55
@@ -1749,20 +1749,17 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
         disposables.push(tex)
       }
 
+      // Show placeholder immediately; load real image later (staggered).
+      applyTexture(makeNoPhotoTexture({ size: 1024, title: placeholderTitle }))
       if (url) {
-        const loader = new THREE.TextureLoader()
-        if (typeof loader.setCrossOrigin === 'function') loader.setCrossOrigin('anonymous')
-        loader.load(
+        deferredTextureLoads.push({
           url,
-          (tex) => applyTexture(tex),
-          undefined,
-          (err) => {
+          onLoad: (tex) => applyTexture(tex),
+          onError: (err) => {
             console.warn('[linkwalk] Failed to load wall photo', url, err)
             applyTexture(makeNoPhotoTexture({ size: 1024, title: placeholderTitle }))
-          }
-        )
-      } else {
-        applyTexture(makeNoPhotoTexture({ size: 1024, title: placeholderTitle }))
+          },
+        })
       }
     }
 
@@ -2050,6 +2047,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
   return {
     group,
     disposables,
+    deferredTextureLoads,
     slots,
     doors,
     doorHitMeshes,

@@ -62,6 +62,53 @@ export function startYourEngines({
   let pickableMeshes = []
   let interactionLocked = false
 
+  let deferredTextureLoadToken = 0
+
+  function loadTextureAsync(url) {
+    const loader = new THREE.TextureLoader()
+    if (typeof loader.setCrossOrigin === 'function') loader.setCrossOrigin('anonymous')
+    return new Promise((resolve, reject) => {
+      loader.load(url, resolve, undefined, reject)
+    })
+  }
+
+  async function runDeferredTextureLoads(room, token) {
+    const jobs = Array.isArray(room?.deferredTextureLoads) ? room.deferredTextureLoads : []
+    if (jobs.length === 0) return
+
+    // Small delay between images to avoid hitching from decode/upload spikes.
+    const staggerMs = 90
+
+    for (const job of jobs) {
+      if (token !== deferredTextureLoadToken) return
+      if (currentRoom !== room) return
+
+      const url = typeof job?.url === 'string' ? job.url.trim() : ''
+      if (!url) continue
+
+      // Yield so the renderer can present a frame between loads.
+      await new Promise((r) => window.requestAnimationFrame(r))
+      if (token !== deferredTextureLoadToken || currentRoom !== room) return
+
+      try {
+        const tex = await loadTextureAsync(url)
+        if (token !== deferredTextureLoadToken || currentRoom !== room) {
+          if (tex && typeof tex.dispose === 'function') tex.dispose()
+          return
+        }
+        if (job && typeof job.onLoad === 'function') job.onLoad(tex)
+        else if (tex && typeof tex.dispose === 'function') tex.dispose()
+      } catch (err) {
+        if (token !== deferredTextureLoadToken || currentRoom !== room) return
+        if (job && typeof job.onError === 'function') job.onError(err)
+      }
+
+      if (staggerMs > 0) {
+        await new Promise((r) => window.setTimeout(r, staggerMs))
+      }
+    }
+  }
+
   const holdAnchor = new THREE.Object3D()
   holdAnchor.position.set(0, 0, -0.6)
   camera.add(holdAnchor)
@@ -347,6 +394,10 @@ export function startYourEngines({
 
     currentRoom = nextRoom
     scene.add(currentRoom.group)
+
+    // Start staggered texture loading for the new room; cancel any prior runs.
+    deferredTextureLoadToken += 1
+    void runDeferredTextureLoads(currentRoom, deferredTextureLoadToken)
 
     halfW = currentRoom.bounds?.halfW ?? halfW
     halfL = currentRoom.bounds?.halfL ?? halfL
