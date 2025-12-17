@@ -385,6 +385,32 @@ export async function fetchWikipediaPhotos(title, { signal, maxImages = 4 } = {}
   return normalizeActionImageInfo(imageInfo, { maxImages })
 }
 
+export async function fetchWikipediaLongExtract(title, { signal, maxChars = 5000 } = {}) {
+  const normalizedTitle = toWikiTitle(title)
+  if (!normalizedTitle) {
+    throw makeWikiError('Missing Wikipedia title', { code: 'bad_title' })
+  }
+
+  const chars = typeof maxChars === 'number' && Number.isFinite(maxChars) ? Math.max(800, Math.min(12000, Math.floor(maxChars))) : 5000
+
+  const raw = await fetchActionQuery(
+    {
+      titles: normalizedTitle,
+      prop: 'extracts',
+      explaintext: '1',
+      exsectionformat: 'plain',
+      exlimit: '1',
+      exchars: String(chars),
+      redirects: '1',
+    },
+    { signal }
+  )
+
+  const pages = Array.isArray(raw?.query?.pages) ? raw.query.pages : []
+  const extract = typeof pages?.[0]?.extract === 'string' ? pages[0].extract : ''
+  return extract
+}
+
 export async function fetchRoomData(title, opts = {}) {
   const raw = await fetchWikipediaSummary(title, opts)
   const data = normalizeWikipediaSummary(raw)
@@ -404,10 +430,11 @@ export async function fetchRoomData(title, opts = {}) {
 }
 
 export async function fetchGalleryRoomData(title, opts = {}) {
-  const [summaryRaw, photos, relatedBetter] = await Promise.all([
+  const [summaryRaw, photos, relatedBetter, longExtract] = await Promise.all([
     fetchWikipediaSummary(title, opts),
-    fetchWikipediaPhotos(title, { ...opts, maxImages: 4 }),
+    fetchWikipediaPhotos(title, { ...opts, maxImages: 5 }),
     fetchWikipediaRelatedBetter(title, { ...opts, limit: 7 }),
+    fetchWikipediaLongExtract(title, { ...opts, maxChars: 6000 }),
   ])
 
   const room = normalizeWikipediaSummary(summaryRaw)
@@ -431,5 +458,6 @@ export async function fetchGalleryRoomData(title, opts = {}) {
     mainThumbnailUrl,
     photos,
     seeAlso,
+    longExtract: typeof longExtract === 'string' ? longExtract : '',
   }
 }

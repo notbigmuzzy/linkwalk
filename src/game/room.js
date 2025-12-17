@@ -182,6 +182,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       normal: wallInfo.normal.clone(),
       right: wallRight,
       up: wallUp,
+      outlineObject: object,
     })
   }
 
@@ -477,6 +478,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
     const title = typeof gallery.title === 'string' ? gallery.title.trim() : ''
     const description = typeof gallery.description === 'string' ? gallery.description.trim() : ''
+    const longExtract = typeof gallery.longExtract === 'string' ? gallery.longExtract.trim() : ''
     const mainThumbnailUrl = typeof gallery.mainThumbnailUrl === 'string' ? gallery.mainThumbnailUrl.trim() : ''
 
     const imageOnLeft = Math.random() < 0.5
@@ -530,6 +532,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       imgMat.color.setHex(0xffffff)
       imgMat.needsUpdate = true
       fitMeshToTextureAspect(img, { baseW: panelW, baseH: panelH, tex })
+      fitMeshToTextureAspect(imgBack, { baseW: panelW, baseH: panelH, tex })
       disposables.push(tex)
     }
 
@@ -545,6 +548,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
           imgMat.color.setHex(0xffffff)
           imgMat.needsUpdate = true
           fitMeshToTextureAspect(img, { baseW: panelW, baseH: panelH, tex })
+          fitMeshToTextureAspect(imgBack, { baseW: panelW, baseH: panelH, tex })
           disposables.push(tex)
         },
         undefined,
@@ -705,12 +709,35 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     addGridWallSlots('east')
     addGridWallSlots('west')
   } else {
-    // Gallery: photo / text / photo on each side wall; no extra empty 4th frame.
-    addGridWallSlots('east', { cols: 3, withPlaques: false, frameScale: 1.5, gapU: 0.4 })
-    addGridWallSlots('west', { cols: 3, withPlaques: false, frameScale: 1.5, gapU: 0.4 })
+    // Gallery side walls: photo / wider text / photo, with larger frames and more spacing.
+    const gapU = 0.4
+    const frameScale = 1.5
+    const photoW = stdFrameW * frameScale
+    const photoH = stdFrameH * frameScale
+    const textW = photoW * 2
+    const textH = photoH * 1.24
+
+    function addGallerySideWallSlots(wall) {
+      const totalW = photoW + gapU + textW + gapU + photoW
+      const u1 = -totalW / 2 + photoW / 2
+      const u2 = u1 + photoW / 2 + gapU + textW / 2
+      const u3 = u2 + textW / 2 + gapU + photoW / 2
+      const y = stdFrameY
+
+      addSlot({ id: `${wall}-frame-0`, wall, kind: 'frame', w: photoW, h: photoH, y, u: u1, color: 0xffffff })
+      addSlot({ id: `${wall}-frame-1`, wall, kind: 'frame', w: textW, h: textH, y, u: u2, color: 0xffffff })
+      addSlot({ id: `${wall}-frame-2`, wall, kind: 'frame', w: photoW, h: photoH, y, u: u3, color: 0xffffff })
+    }
+
+    addGallerySideWallSlots('east')
+    addGallerySideWallSlots('west')
   }
 
   if (mode !== 'entryway') {
+    const wallPanelDepth = 0.06
+    const wallBackMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.95, metalness: 0.0 })
+    disposables.push(wallBackMat)
+
     const photos = Array.isArray(gallery.photos)
       ? gallery.photos
           .map((u) => (typeof u === 'string' ? u.trim() : ''))
@@ -724,6 +751,28 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       : []
 
     const description = typeof gallery.description === 'string' ? gallery.description.trim() : ''
+    const longExtract = typeof gallery.longExtract === 'string' ? gallery.longExtract.trim() : ''
+
+    function slotFrontOffset(slot, extra = 0.002) {
+      const normal = slot.normal.clone().normalize()
+      return { normal, backOffset: wallPanelDepth / 2 + extra, frontOffset: wallPanelDepth + extra * 2 }
+    }
+
+    function ensureOutlineInFront(slot) {
+      if (!slot?.outlineObject) return
+      const { normal, frontOffset } = slotFrontOffset(slot, 0.003)
+      slot.outlineObject.position.copy(slot.center).add(normal.clone().multiplyScalar(frontOffset))
+    }
+
+    function addBackplate({ center, normal, w, h, depth = wallPanelDepth }) {
+      const geo = new THREE.BoxGeometry(w, h, depth)
+      const mesh = new THREE.Mesh(geo, wallBackMat)
+      mesh.position.copy(center).add(normal.clone().multiplyScalar(depth / 2 + 0.002))
+      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal)
+      group.add(mesh)
+      disposables.push(geo)
+      return mesh
+    }
 
     function selectThreeFrameSlots(wall) {
       const frames = slots.filter((s) => s.wall === wall && s.kind === 'frame')
@@ -736,13 +785,19 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       const baseW = slot.width * 0.96
       const baseH = slot.height * 0.96
 
+      const { normal, frontOffset } = slotFrontOffset(slot)
+
+      // Physical backplate (thickness) behind the frame.
+      const backplate = addBackplate({ center: slot.center, normal, w: baseW, h: baseH })
+
+      ensureOutlineInFront(slot)
+
       const geo = new THREE.PlaneGeometry(1, 1)
       const mat = new THREE.MeshBasicMaterial({ color: 0xffffff })
       const mesh = new THREE.Mesh(geo, mat)
       mesh.scale.set(baseW, baseH, 1)
 
-      const normal = slot.normal.clone().normalize()
-      mesh.position.copy(slot.center).add(normal.clone().multiplyScalar(0.012))
+      mesh.position.copy(slot.center).add(normal.clone().multiplyScalar(frontOffset + 0.004))
       mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal)
 
       group.add(mesh)
@@ -769,6 +824,15 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
             sx = imageAspect / frameAspect
           }
           mesh.scale.set(baseW * sx, baseH * sy, 1)
+
+          if (backplate) {
+            backplate.scale.set(sx, sy, 1)
+          }
+
+          // Resize the outline "frame" to match the image aspect, too.
+          if (slot.outlineObject) {
+            slot.outlineObject.scale.set(0.96 * sx, 0.96 * sy, 1)
+          }
         }
 
         disposables.push(tex)
@@ -855,14 +919,20 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
       const plaqueW = slot.width * 0.92
       const plaqueH = Math.min(0.28, slot.height * 0.22)
+
+      const { normal, frontOffset } = slotFrontOffset(slot)
+
+      // Physical backplate for the caption plaque.
+      const backCenter = new THREE.Vector3(slot.center.x, slot.center.y - slot.height / 2 - plaqueH / 2 - 0.08, slot.center.z)
+      addBackplate({ center: backCenter, normal, w: plaqueW, h: plaqueH })
+
       const geo = new THREE.PlaneGeometry(plaqueW, plaqueH)
       const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true })
       const mesh = new THREE.Mesh(geo, mat)
 
-      const normal = slot.normal.clone().normalize()
       const y = slot.center.y - slot.height / 2 - plaqueH / 2 - 0.08
       mesh.position.set(slot.center.x, y, slot.center.z)
-      mesh.position.add(normal.clone().multiplyScalar(0.012))
+      mesh.position.add(normal.clone().multiplyScalar(frontOffset + 0.004))
       mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal)
 
       group.add(mesh)
@@ -896,18 +966,19 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
         ctx.lineWidth = Math.max(6, Math.floor(size * 0.01))
         ctx.strokeRect(24, 24, canvas.width - 48, canvas.height - 48)
 
-        const pad = 64
+        const pad = 52
         let y = pad + 10
 
         const safeTitle = String(title || 'Wikipedia')
         ctx.fillStyle = 'rgba(223,255,233,0.96)'
         ctx.textAlign = 'left'
         ctx.textBaseline = 'alphabetic'
-        ctx.font = `800 ${Math.floor(size * 0.075)}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
+        ctx.font = `800 ${Math.floor(size * 0.072)}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
         ctx.fillText(safeTitle, pad, y)
-        y += Math.floor(size * 0.095)
+        y += Math.floor(size * 0.09)
 
-        ctx.font = `600 ${Math.floor(size * 0.045)}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
+        const bodyFontSize = Math.floor(size * 0.038)
+        ctx.font = `600 ${bodyFontSize}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
         ctx.fillStyle = 'rgba(255,255,255,0.9)'
 
         function wrapText(text, maxWidth) {
@@ -929,13 +1000,21 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
         const maxWidth = canvas.width - pad * 2
         const safeText = String(text || '').trim()
-        const wrapped = safeText ? wrapText(safeText, maxWidth) : ['No description available']
-        const lineHeight = Math.floor(size * 0.062)
+        const lineHeight = Math.floor(bodyFontSize * 1.28)
 
-        for (const line of wrapped.slice(0, 10)) {
-          ctx.fillText(line, pad, y)
-          y += lineHeight
+        const paragraphs = safeText ? safeText.split(/\n{2,}/g) : ['No additional info']
+        for (const para of paragraphs) {
+          const trimmed = String(para || '').trim()
+          if (!trimmed) continue
+
+          const lines = wrapText(trimmed, maxWidth)
+          for (const line of lines) {
+            ctx.fillText(line, pad, y)
+            y += lineHeight
+            if (y > canvas.height - pad) break
+          }
           if (y > canvas.height - pad) break
+          y += Math.floor(lineHeight * 0.28)
         }
       }
 
@@ -948,12 +1027,19 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     function placeTextInSlot(slot, { title, text }) {
       if (!slot) return
 
-      const geo = new THREE.PlaneGeometry(slot.width * 0.96, slot.height * 0.96)
+      const baseW = slot.width * 0.96
+      const baseH = slot.height * 0.96
+
+      const { normal, frontOffset } = slotFrontOffset(slot)
+
+      addBackplate({ center: slot.center, normal, w: baseW, h: baseH })
+      ensureOutlineInFront(slot)
+
+      const geo = new THREE.PlaneGeometry(baseW, baseH)
       const mat = new THREE.MeshBasicMaterial({ color: 0xffffff })
       const mesh = new THREE.Mesh(geo, mat)
 
-      const normal = slot.normal.clone().normalize()
-      mesh.position.copy(slot.center).add(normal.clone().multiplyScalar(0.012))
+      mesh.position.copy(slot.center).add(normal.clone().multiplyScalar(frontOffset + 0.004))
       mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal)
 
       group.add(mesh)
@@ -971,27 +1057,89 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
     const galleryTitle = typeof gallery.title === 'string' ? gallery.title.trim() : ''
 
-    const maxExcerptLen = 520
-    const excerptA = description ? description.slice(0, maxExcerptLen).trimEnd() : ''
-    const excerptB = description ? description.slice(maxExcerptLen, maxExcerptLen * 2).trimStart() : ''
-    const westText = excerptA ? (description.length > maxExcerptLen ? `${excerptA}…` : excerptA) : ''
-    const eastText = excerptB ? (description.length > maxExcerptLen * 2 ? `${excerptB}…` : excerptB) : ''
+    function findNextSentenceBoundary(text, fromIdx) {
+      const s = typeof text === 'string' ? text : ''
+      const n = s.length
+      const start = Math.max(0, Math.min(n, Math.floor(fromIdx || 0)))
+      if (!s) return 0
+      if (start >= n) return n
 
-    // West wall: photo / text / photo
-    placePhotoWithCaption(westSlots[0], photos[0] ?? null)
-    placePhotoWithCaption(westSlots[2], photos[1] ?? null)
-    {
-      placeTextInSlot(westSlots[1], { title: galleryTitle || 'Wikipedia', text: westText || description || 'No description available' })
+      const slice = s.slice(start)
+      const m = slice.match(/[.!?]\s+/)
+      if (m && typeof m.index === 'number') {
+        return Math.min(n, start + m.index + 2)
+      }
+
+      return start
     }
 
-    // East wall: photo / text / photo
-    placePhotoWithCaption(eastSlots[0], photos[2] ?? null)
-    placePhotoWithCaption(eastSlots[2], photos[3] ?? null)
-    {
-      const fallback = description || 'No description available'
-      const text = eastText || (description.length > maxExcerptLen ? fallback : '')
-      placeTextInSlot(eastSlots[1], { title: galleryTitle || 'Wikipedia', text: text || fallback })
+    function takeChunk(text, start, maxLen) {
+      const s = typeof text === 'string' ? text : ''
+      const n = s.length
+      if (!s) return ''
+      if (start >= n) return ''
+
+      const endBase = Math.min(n, start + maxLen)
+      let end = endBase
+
+      // Prefer to end on a sentence boundary shortly after maxLen.
+      const lookahead = s.slice(endBase, Math.min(n, endBase + 420))
+      const m = lookahead.match(/[.!?](\s+|$)/)
+      if (m && typeof m.index === 'number') {
+        end = Math.min(n, endBase + m.index + 1)
+      }
+
+      const chunk = s.slice(start, end).trim()
+      if (!chunk) return ''
+      const hasMore = end < n
+      return hasMore ? `${chunk}…` : chunk
     }
+
+    function buildHighlightsText(text, { title } = {}) {
+      const s = typeof text === 'string' ? text : ''
+      const years = new Set()
+      for (const m of s.matchAll(/\b(1[0-9]{3}|20[0-9]{2})\b/g)) {
+        if (m && m[1]) years.add(m[1])
+        if (years.size >= 8) break
+      }
+
+      const items = [...years]
+      if (items.length === 0) return ''
+      return [String(title || 'Highlights'), '', ...items.map((y) => `• ${y}`)].join('\n')
+    }
+
+    // Columns carry the "most important" summary; walls use a longer extract.
+    const wallSource = longExtract || description
+
+    // Prefer to start right after the summary, but clamp so we don't jump near the end
+    // (which would result in just a few lines + an ellipsis).
+    const chunkLen = 2400
+    const tailRoom = 260
+    const maxStart = Math.max(0, wallSource.length - chunkLen - tailRoom)
+    const desiredSkip = Math.max(0, description.length + 140)
+    const startBase1 = Math.min(desiredSkip, maxStart)
+
+    const start1 = findNextSentenceBoundary(wallSource, startBase1)
+    const wallText =
+      takeChunk(wallSource, start1, chunkLen) ||
+      buildHighlightsText(wallSource, { title: 'Highlights' }) ||
+      'No additional info available'
+
+    const textWall = Math.random() < 0.5 ? 'west' : 'east'
+    const textSlots = textWall === 'west' ? westSlots : eastSlots
+    const photoSlots = textWall === 'west' ? eastSlots : westSlots
+
+    // Text wall: photo / text / photo
+    placePhotoWithCaption(textSlots[0], photos[0] ?? null)
+    placePhotoWithCaption(textSlots[2], photos[1] ?? null)
+    {
+      placeTextInSlot(textSlots[1], { title: galleryTitle || 'Wikipedia', text: wallText })
+    }
+
+    // Photo wall: photo / photo / photo (middle slot is the wide former "text" frame)
+    placePhotoWithCaption(photoSlots[0], photos[2] ?? null)
+    placePhotoWithCaption(photoSlots[1], photos[3] ?? null)
+    placePhotoWithCaption(photoSlots[2], photos[4] ?? null)
   }
 
   group.add(markers)

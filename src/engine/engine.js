@@ -44,6 +44,7 @@ export function startYourEngines({
   galleryDescription,
   galleryMainThumbnailUrl,
   galleryPhotos,
+  galleryLongExtract,
 }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio ?? 1, 2))
@@ -154,6 +155,7 @@ export function startYourEngines({
     galleryDescription: nextGalleryDescription,
     galleryMainThumbnailUrl: nextGalleryMainThumbnailUrl,
     galleryPhotos: nextGalleryPhotos,
+    galleryLongExtract: nextGalleryLongExtract,
     spawn,
   }) {
     const wallThickness = 0.2
@@ -187,6 +189,7 @@ export function startYourEngines({
         description: nextGalleryDescription,
         mainThumbnailUrl: nextGalleryMainThumbnailUrl,
         photos: nextGalleryPhotos,
+        longExtract: nextGalleryLongExtract,
       },
     })
 
@@ -218,6 +221,7 @@ export function startYourEngines({
     galleryDescription,
     galleryMainThumbnailUrl,
     galleryPhotos,
+    galleryLongExtract,
     spawn: roomSpawn,
   })
   const raycaster = new THREE.Raycaster()
@@ -473,6 +477,7 @@ export function startYourEngines({
       galleryDescription: nextGalleryDescription,
       galleryMainThumbnailUrl: nextGalleryMainThumbnailUrl,
       galleryPhotos: nextGalleryPhotos,
+      galleryLongExtract: nextGalleryLongExtract,
       spawn,
     } = {}) {
       const hasGalleryTitle = Object.prototype.hasOwnProperty.call(arguments.length ? arguments[0] ?? {} : {}, 'galleryTitle')
@@ -482,6 +487,7 @@ export function startYourEngines({
         'galleryMainThumbnailUrl'
       )
       const hasGalleryPhotos = Object.prototype.hasOwnProperty.call(arguments.length ? arguments[0] ?? {} : {}, 'galleryPhotos')
+      const hasGalleryLongExtract = Object.prototype.hasOwnProperty.call(arguments.length ? arguments[0] ?? {} : {}, 'galleryLongExtract')
 
       loadRoom({
         mode: typeof nextMode === 'string' ? nextMode : roomMode,
@@ -497,6 +503,7 @@ export function startYourEngines({
             : null
           : galleryMainThumbnailUrl,
         galleryPhotos: hasGalleryPhotos ? (Array.isArray(nextGalleryPhotos) ? nextGalleryPhotos : null) : galleryPhotos,
+        galleryLongExtract: hasGalleryLongExtract ? (typeof nextGalleryLongExtract === 'string' ? nextGalleryLongExtract : null) : galleryLongExtract,
         spawn,
       })
     },
