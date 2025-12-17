@@ -1,5 +1,8 @@
 import * as THREE from 'three'
-import { clamp, makeOutlineRect, roundTo, configureGalleryTexture} from '../misc/helper.js'
+import { clamp, roundTo, configureGalleryTexture } from '../misc/helper.js'
+import { buildLobbyRoom } from './room/lobby.js'
+import { addDoor as addDoorToRoom } from './room/doors.js'
+import { addSlot as addSlotToRoom } from './room/slots.js'
 
 export function buildRoom({ width, length, height, wallThickness = 0.2, mode = 'gallery', lobby = {}, gallery = {} }) {
   const group = new THREE.Group()
@@ -157,677 +160,41 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     return tex
   }
 
-  function addSlot({ id, wall, kind, w, h, y, u = 0, color }) {
-    const wallInfo = walls[wall]
-    const wallRight = wall === 'east' || wall === 'west' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0)
-    const wallUp = new THREE.Vector3(0, 1, 0)
-
-    const center = wallInfo.center
-      .clone()
-      .add(wallUp.clone().multiplyScalar(y - height / 2))
-      .add(wallRight.clone().multiplyScalar(u))
-      .add(wallInfo.normal.clone().multiplyScalar(surfaceOffset))
-
-    const { object, disposables: outlineDisposables } = makeOutlineRect({
-      width: w,
-      height: h,
-      center,
-      normal: wallInfo.normal,
-      color,
-    })
-
-    markers.add(object)
-    disposables.push(...outlineDisposables)
-
-    slots.push({
-      id,
-      wall,
-      kind,
-      width: w,
-      height: h,
-      center,
-      normal: wallInfo.normal.clone(),
-      right: wallRight,
-      up: wallUp,
-      outlineObject: object,
-    })
+  const roomCtx = {
+    group,
+    disposables,
+    slots,
+    doors,
+    doorHitMeshes,
+    pickableMeshes,
+    obstacles,
+    markers,
+    palette,
+    width,
+    length,
+    height,
+    halfW,
+    halfL,
+    wallThickness,
+    surfaceOffset,
+    walls,
   }
 
-  function addDoor({ id, wall, w, h, y = 0, u = 0, color = 0x22ffee, meta = {} }) {
-    const wallInfo = walls[wall]
-    const wallNormal = wallInfo.normal.clone().normalize()
-    const wallUp = new THREE.Vector3(0, 1, 0)
-    const wallRight = wall === 'east' || wall === 'west' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0)
-
-    const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), wallNormal)
-    const baseCenter = wallInfo.center
-      .clone()
-      .add(wallRight.clone().multiplyScalar(u))
-      .add(wallUp.clone().multiplyScalar(y - height / 2))
-      .add(wallNormal.clone().multiplyScalar(wallThickness / 2 + 0.03))
-
-    const doorFrameGroup = new THREE.Group()
-    doorFrameGroup.name = `door-frame-${id}`
-
-    const doorMat = new THREE.MeshStandardMaterial({
-      color,
-      roughness: 0.35,
-      metalness: 0.0,
-      emissive: 0x112244,
-      emissiveIntensity: 0.75,
-    })
-    disposables.push(doorMat)
-
-    const frameW = 0.08
-    const frameDepth = 0.08
-
-    const fillGeo = new THREE.PlaneGeometry(w, h)
-    const fillMat = new THREE.MeshStandardMaterial({ color: 0x171c22, roughness: 0.95, metalness: 0.0 })
-    const fill = new THREE.Mesh(fillGeo, fillMat)
-    fill.position.set(0, h / 2, -0.02)
-    doorFrameGroup.add(fill)
-    disposables.push(fillGeo, fillMat)
-
-    const labelText =
-      typeof meta.label === 'string' && meta.label.trim().length > 0
-        ? meta.label.trim()
-        : typeof meta.category === 'string' && meta.category.trim().length > 0
-          ? meta.category.trim()
-          : ''
-
-    let labelControl = null
-
-    if (labelText) {
-      const plaqueW = Math.min(w * 0.82, 1.35)
-      const plaqueH = 0.24
-      const plaqueCenterY = Math.min(h - 0.25, 1.4)
-      const plaqueGeo = new THREE.PlaneGeometry(plaqueW, plaqueH)
-      const plaqueMat = new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0.0 })
-      const plaque = new THREE.Mesh(plaqueGeo, plaqueMat)
-      plaque.position.set(0, plaqueCenterY, -0.015)
-      doorFrameGroup.add(plaque)
-      disposables.push(plaqueGeo, plaqueMat)
-
-      const canvas = document.createElement('canvas')
-      canvas.width = 512
-      canvas.height = 128
-      const ctx = canvas.getContext('2d')
-      let drawLabelText = null
-      if (ctx) {
-        const plaqueBg = `#${new THREE.Color(color).getHexString()}`
-
-        drawLabelText = function drawLabelText(nextText) {
-          function wrapLines(text, maxWidth, maxLines) {
-            const words = String(text).trim().split(/\s+/g)
-            const lines = []
-            let cur = ''
-
-            function pushLine(line) {
-              if (line.trim()) lines.push(line.trim())
-            }
-
-            for (const word of words) {
-              const next = cur ? `${cur} ${word}` : word
-              if (ctx.measureText(next).width <= maxWidth) {
-                cur = next
-                continue
-              }
-
-              if (cur) pushLine(cur)
-              cur = word
-
-              if (ctx.measureText(cur).width > maxWidth) {
-                let chunk = ''
-                for (const ch of cur) {
-                  const nextChunk = chunk + ch
-                  if (ctx.measureText(nextChunk).width <= maxWidth) {
-                    chunk = nextChunk
-                  } else {
-                    pushLine(chunk)
-                    chunk = ch
-                  }
-                }
-                cur = chunk
-              }
-
-              if (lines.length >= maxLines) break
-            }
-
-            if (lines.length < maxLines && cur) pushLine(cur)
-
-            if (lines.length > maxLines) lines.length = maxLines
-            if (lines.length === maxLines) {
-              const lastIdx = maxLines - 1
-              let last = lines[lastIdx] ?? ''
-              const ell = '…'
-              while (last && ctx.measureText(last + ell).width > maxWidth) {
-                last = last.slice(0, -1)
-              }
-              lines[lastIdx] = last ? last + ell : ell
-            }
-
-            return lines
-          }
-
-          const safeText = String(nextText || '').trim()
-          ctx.clearRect(0, 0, canvas.width, canvas.height)
-          ctx.fillStyle = plaqueBg
-          ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-          const padX = 18
-          const maxLines = 3
-          let fontPx = 56
-          ctx.font = `700 ${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
-          ctx.fillStyle = '#000000'
-          ctx.textAlign = 'center'
-          ctx.textBaseline = 'middle'
-
-          const maxWidth = canvas.width - padX * 2
-          let lines = wrapLines(safeText, maxWidth, maxLines)
-
-          if (lines.length >= 3) fontPx = 28
-          else if (lines.length === 2) fontPx = 38
-          else fontPx = 56
-
-          ctx.font = `700 ${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
-          lines = wrapLines(safeText, maxWidth, maxLines)
-
-          const lineHeight = Math.round(fontPx * 1.1)
-          const totalH = lines.length * lineHeight
-          const startY = canvas.height / 2 - totalH / 2 + lineHeight / 2
-
-          for (let i = 0; i < lines.length; i += 1) {
-            ctx.fillText(lines[i], canvas.width / 2, startY + i * lineHeight)
-          }
-        }
-
-        drawLabelText(labelText)
-      }
-
-      const tex = new THREE.CanvasTexture(canvas)
-      tex.colorSpace = THREE.SRGBColorSpace
-      tex.needsUpdate = true
-
-      labelControl = {
-        originalText: labelText,
-        overrideText: null,
-        setOverride(nextText) {
-          const t = String(nextText || '').trim()
-          this.overrideText = t || null
-          if (typeof drawLabelText === 'function') {
-            drawLabelText(t || this.originalText)
-          }
-          tex.needsUpdate = true
-        },
-        clearOverride() {
-          this.setOverride('')
-        },
-      }
-
-      const textGeo = new THREE.PlaneGeometry(plaqueW * 0.96, plaqueH * 0.78)
-      const textMat = new THREE.MeshBasicMaterial({ map: tex })
-      const text = new THREE.Mesh(textGeo, textMat)
-      text.position.set(0, plaqueCenterY, -0.012)
-      doorFrameGroup.add(text)
-      disposables.push(tex, textGeo, textMat)
-    }
-
-    const jambGeo = new THREE.BoxGeometry(frameW, h, frameDepth)
-    const headerGeo = new THREE.BoxGeometry(w + frameW * 2, frameW, frameDepth)
-    disposables.push(jambGeo, headerGeo)
-
-    const leftJamb = new THREE.Mesh(jambGeo, doorMat)
-    leftJamb.position.set(-(w / 2 + frameW / 2), h / 2, 0)
-    doorFrameGroup.add(leftJamb)
-
-    const rightJamb = new THREE.Mesh(jambGeo, doorMat)
-    rightJamb.position.set(w / 2 + frameW / 2, h / 2, 0)
-    doorFrameGroup.add(rightJamb)
-
-    const header = new THREE.Mesh(headerGeo, doorMat)
-    header.position.set(0, h - frameW / 2, 0)
-    doorFrameGroup.add(header)
-
-    doorFrameGroup.quaternion.copy(quat)
-    doorFrameGroup.position.copy(baseCenter)
-    group.add(doorFrameGroup)
-
-    const hitGeo = new THREE.PlaneGeometry(w, h)
-    const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.0, depthWrite: false })
-    const hitMesh = new THREE.Mesh(hitGeo, hitMat)
-    hitMesh.name = 'door-hit'
-    hitMesh.userData.doorId = id
-    if (labelControl) hitMesh.userData.labelControl = labelControl
-    hitMesh.quaternion.copy(quat)
-    hitMesh.position.copy(baseCenter.clone().add(wallUp.clone().multiplyScalar(h / 2)).add(wallNormal.clone().multiplyScalar(0.02)))
-    group.add(hitMesh)
-    doorHitMeshes.push(hitMesh)
-    disposables.push(hitGeo, hitMat)
-
-    doors.push({
-      id,
-      wall,
-      normal: wallNormal,
-      right: wallRight,
-      up: wallUp,
-      ...meta,
-    })
-
-    const { object, disposables: outlineDisposables } = makeOutlineRect({
-      width: w,
-      height: h,
-      center: baseCenter.clone().add(wallUp.clone().multiplyScalar(h / 2)).add(wallNormal.clone().multiplyScalar(0.01)),
-      normal: wallNormal,
-      color,
-    })
-    markers.add(object)
-    disposables.push(...outlineDisposables)
+  function addSlot(args) {
+    return addSlotToRoom(roomCtx, args)
   }
+
+  function addDoor(args) {
+    return addDoorToRoom(roomCtx, args)
+  }
+
+  roomCtx.addSlot = addSlot
+  roomCtx.addDoor = addDoor
 
   if (mode === 'lobby') {
-    const categories = Array.isArray(lobby.categories) && lobby.categories.length > 0
-      ? lobby.categories
-      : ['Category 1', 'Category 2', 'Category 3', 'Category 4', 'Category 5', 'Category 6', 'Category 7', 'Category 8', 'Category 9', 'Category 10']
-
-    // Lobby north wall: big whiteboard listing categories by side.
-    const perWall = Math.ceil(categories.length / 2)
-    const eastCategories = categories.slice(0, perWall).map((c) => String(c))
-    const westCategories = categories.slice(perWall).map((c) => String(c))
-
-    const boardW = roundTo(clamp(width * 0.72, 2.4, 6.2), 0.05)
-    const boardH = roundTo(clamp(height * 0.58, 1.2, 2.0), 0.05)
-    const boardY = height * 0.62
-
-    function addLobbyWhiteboard({ leftItems, rightItems }) {
-      const innerNorthZ = -halfL + wallThickness / 2
-      const bottomY = -boardH / 2
-      const legTopY = bottomY + 0.08
-      const baseLegH = Math.max(0.35, boardY + legTopY - 0.02)
-      const legH = Math.max(0.25, baseLegH * 0.5)
-      const boardCenterY = 0.02 - legTopY + legH
-      const boardCenter = new THREE.Vector3(0, boardCenterY, innerNorthZ + 1.4)
-
-      const canvas = document.createElement('canvas')
-      canvas.width = 2048
-      canvas.height = 1024
-      const ctx = canvas.getContext('2d')
-      if (ctx) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height)
-        ctx.fillStyle = '#ffffff'
-        ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-        // Simple border like a whiteboard frame.
-        ctx.strokeStyle = 'rgba(0,0,0,0.22)'
-        ctx.lineWidth = 14
-        ctx.strokeRect(18, 18, canvas.width - 36, canvas.height - 36)
-
-        const padX = 90
-        const padY = 86
-        const midW = Math.floor(canvas.width * 0.34)
-        const colW = (canvas.width - padX * 2 - midW) / 2
-
-        const headerFont = '800 76px system-ui, -apple-system, Segoe UI, Roboto, Arial'
-        const itemFont = '700 56px system-ui, -apple-system, Segoe UI, Roboto, Arial'
-        const itemColor = 'rgba(0,0,0,0.92)'
-
-        function drawWelcome() {
-          const lines = ['WELCOME TO', 'WIKIPEDIA', 'MUSEUM']
-          const centerX = canvas.width / 2
-          const maxWidth = Math.max(260, midW * 0.92)
-
-          let fontPx = 104
-          function setFont(px) {
-            ctx.font = `900 ${px}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
-          }
-
-          setFont(fontPx)
-          while (fontPx > 54) {
-            const widest = Math.max(...lines.map((t) => ctx.measureText(t).width))
-            if (widest <= maxWidth) break
-            fontPx -= 4
-            setFont(fontPx)
-          }
-
-          const lineH = Math.round(fontPx * 1.05)
-          const totalH = lines.length * lineH
-          const startY = canvas.height / 2 - totalH / 2 + lineH * 0.85
-
-          ctx.textAlign = 'center'
-          ctx.textBaseline = 'alphabetic'
-          ctx.fillStyle = 'rgba(0,0,0,0.86)'
-
-          for (let i = 0; i < lines.length; i += 1) {
-            ctx.fillText(lines[i], centerX, startY + i * lineH)
-          }
-        }
-
-        function drawWikipediaWatermark() {
-          const cx = canvas.width / 2
-          const cy = canvas.height / 2
-          const r = Math.min(midW, canvas.height) * 0.38
-
-          ctx.save()
-          ctx.globalAlpha = 0.5
-          ctx.lineWidth = Math.max(10, Math.floor(canvas.width * 0.006))
-          ctx.strokeStyle = 'rgba(0,0,0,0.35)'
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.37)'
-
-          ctx.beginPath()
-          ctx.arc(cx, cy, r, 0, Math.PI * 2)
-          ctx.fill()
-          ctx.stroke()
-
-          ctx.textAlign = 'center'
-          ctx.textBaseline = 'middle'
-          const fontPx = Math.max(120, Math.floor(r * 0.95))
-          ctx.font = `900 ${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
-          ctx.fillStyle = 'rgba(0,0,0,0.25)'
-          ctx.fillText('W', cx, cy)
-          ctx.restore()
-        }
-
-        function drawList(x0, title, items, { align = 'left' } = {}) {
-          ctx.textAlign = align
-          ctx.textBaseline = 'alphabetic'
-
-          const safeItems = Array.isArray(items)
-            ? items.map((s) => String(s || '').trim()).filter(Boolean)
-            : []
-
-          // Layout constants (baseline-oriented).
-          const lineH = 66
-          const headerLineH = 118
-          const headerGap = 68
-          const yMargin = Math.max(70, padY)
-          const contentMaxH = Math.max(240, canvas.height - yMargin * 2)
-
-          // Reserve room for an optional "… +N more" line.
-          let maxItemLines = Math.max(1, Math.floor((contentMaxH - headerLineH - headerGap) / lineH))
-          let shown = safeItems.slice(0, maxItemLines)
-          let hasMore = safeItems.length > shown.length
-          if (hasMore && shown.length > 1) {
-            shown = safeItems.slice(0, Math.max(1, maxItemLines - 1))
-            hasMore = safeItems.length > shown.length
-          }
-
-          const moreLineCount = hasMore ? 1 : 0
-          const totalH = headerLineH + headerGap + (shown.length + moreLineCount) * lineH
-          const yTop = (canvas.height - totalH) / 2
-
-          // Header
-          let y = yTop + headerLineH
-          ctx.font = headerFont
-          ctx.fillStyle = 'rgba(0,0,0,0.92)'
-          ctx.fillText(String(title), x0, y)
-
-          // Items
-          y += headerGap
-          ctx.font = itemFont
-          ctx.fillStyle = itemColor
-          for (let i = 0; i < shown.length; i += 1) {
-            const label = `• ${shown[i]}`
-            ctx.fillText(label, x0, y + i * lineH)
-          }
-
-          if (hasMore) {
-            const more = safeItems.length - shown.length
-            ctx.fillStyle = 'rgba(0,0,0,0.62)'
-            ctx.fillText(`… +${more} more`, x0, y + shown.length * lineH)
-          }
-        }
-
-        drawList(padX, 'Left wall', leftItems, { align: 'left' })
-        drawList(canvas.width - padX, 'Right wall', rightItems, { align: 'right' })
-
-        drawWikipediaWatermark()
-        drawWelcome()
-      }
-
-      const tex = new THREE.CanvasTexture(canvas)
-      tex.colorSpace = THREE.SRGBColorSpace
-      tex.needsUpdate = true
-
-      const boardDepth = 0.08
-      const boardGroup = new THREE.Group()
-      boardGroup.name = 'lobby-whiteboard'
-      boardGroup.position.copy(boardCenter)
-
-      const backGeo = new THREE.BoxGeometry(boardW, boardH, boardDepth)
-      const backMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, metalness: 0.0 })
-      const back = new THREE.Mesh(backGeo, backMat)
-      back.position.set(0, 0, 0)
-      boardGroup.add(back)
-      disposables.push(backGeo, backMat)
-
-      const faceGeo = new THREE.PlaneGeometry(boardW * 0.98, boardH * 0.98)
-      const faceMat = new THREE.MeshBasicMaterial({ map: tex })
-      const face = new THREE.Mesh(faceGeo, faceMat)
-      face.position.set(0, 0, boardDepth / 2 + 0.002)
-      boardGroup.add(face)
-      disposables.push(tex, faceGeo, faceMat)
-
-      // Legs
-      const metalMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.7, metalness: 0.05 })
-      disposables.push(metalMat)
-      const legGeo = new THREE.CylinderGeometry(0.05, 0.05, legH, 12, 1)
-      disposables.push(legGeo)
-
-      const legXs = [-boardW * 0.32, 0, boardW * 0.32]
-      for (const lx of legXs) {
-        const leg = new THREE.Mesh(legGeo, metalMat)
-        leg.position.set(lx, legTopY - legH / 2, -boardDepth * 0.18)
-        boardGroup.add(leg)
-      }
-
-      // Slight backward tilt like a real whiteboard stand.
-      boardGroup.rotation.x = -0.06
-
-      group.add(boardGroup)
-
-      // Collision approximation: a few cylinders across the width.
-      const obstacleZ = boardCenter.z + 0.05
-      const n = 5
-      for (let i = 0; i < n; i += 1) {
-        const t = n === 1 ? 0.5 : i / (n - 1)
-        const x = -boardW * 0.42 + t * (boardW * 0.84)
-        obstacles.push({ type: 'cylinder', x, z: obstacleZ, radius: 0.32 })
-      }
-    }
-
-    addLobbyWhiteboard({
-      leftItems: westCategories,
-      rightItems: eastCategories,
-    })
-
-    const doorW = 1.25
-    const doorH = 2.25
-
-    const gapU = 1.1
-    const totalSpan = perWall * doorW + (perWall - 1) * gapU
-    const span = Math.max(perWall * doorW, Math.min(totalSpan, length - 2.0))
-    const actualGap = perWall > 1 ? (span - perWall * doorW) / (perWall - 1) : 0
-    const uStart = -span / 2 + doorW / 2
-
-    for (let i = 0; i < perWall; i += 1) {
-      const u = uStart + i * (doorW + actualGap)
-
-      const eastCategory = categories[i]
-      if (eastCategory) {
-        addDoor({
-          id: `entry-east-${i}`,
-          wall: 'east',
-          w: doorW,
-          h: doorH,
-          u,
-          meta: { category: eastCategory },
-        })
-      }
-
-      const westCategory = categories[i + perWall]
-      if (westCategory) {
-        addDoor({
-          id: `entry-west-${i}`,
-          wall: 'west',
-          w: doorW,
-          h: doorH,
-          u,
-          meta: { category: westCategory },
-        })
-      }
-    }
-
-    // Lobby decoration on south wall: PLANT – BENCH – PLANT – BENCH – PLANT
-    {
-      const innerSouthZ = halfL - wallThickness / 2
-      const benchZ = innerSouthZ - 0.42
-      const plantZ = innerSouthZ - 0.38
-
-      const decoSouth = new THREE.Group()
-      decoSouth.name = 'deco-south-lobby'
-      group.add(decoSouth)
-
-      const woodMat = new THREE.MeshStandardMaterial({ color: palette.wall, roughness: 0.78, metalness: 0.0 })
-      const metalMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.7, metalness: 0.05 })
-      const potMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.95, metalness: 0.0 })
-      const leafMat = new THREE.MeshStandardMaterial({ color: 0x2f6f4e, roughness: 0.85, metalness: 0.0, side: THREE.DoubleSide })
-      disposables.push(woodMat, metalMat, potMat, leafMat)
-
-      // Bench geometry (same as gallery benches)
-      const seatW = 2.6
-      const seatD = 0.55
-      const seatH = 0.12
-      const seatY = 0.46
-
-      const backW = seatW
-      const backH = 0.55
-      const backD = 0.08
-
-      const seatGeo = new THREE.BoxGeometry(seatW, seatH, seatD)
-      const backGeo = new THREE.BoxGeometry(backW, backH, backD)
-      const legW = 0.08
-      const legD = 0.08
-      const legH = seatY - seatH / 2
-      const legGeo = new THREE.BoxGeometry(legW, legH, legD)
-      disposables.push(seatGeo, backGeo, legGeo)
-
-      const legX = seatW / 2 - 0.18
-      const legZ = seatD / 2 - 0.18
-
-      function addBenchAt(x) {
-        const b = new THREE.Group()
-        b.name = 'bench-south-lobby'
-        b.position.set(x, 0, benchZ)
-        // Face into the room (toward north / -Z)
-        b.rotation.y = Math.PI
-        decoSouth.add(b)
-
-        const s = new THREE.Mesh(seatGeo, woodMat)
-        s.position.set(0, seatY, 0)
-        b.add(s)
-
-        const bk = new THREE.Mesh(backGeo, woodMat)
-        bk.position.set(0, seatY + backH / 2 - 0.02, -(seatD / 2 - backD / 2))
-        b.add(bk)
-
-        function addLegToBench(lx, lz) {
-          const leg = new THREE.Mesh(legGeo, metalMat)
-          leg.position.set(lx, legH / 2, lz)
-          b.add(leg)
-        }
-        addLegToBench(-legX, -legZ)
-        addLegToBench(legX, -legZ)
-        addLegToBench(-legX, legZ)
-        addLegToBench(legX, legZ)
-
-        // Collision approximations (engine supports cylinder obstacles)
-        obstacles.push({ type: 'cylinder', x: x - seatW * 0.28, z: benchZ + 0.02, radius: 0.5 })
-        obstacles.push({ type: 'cylinder', x: x + seatW * 0.28, z: benchZ + 0.02, radius: 0.5 })
-      }
-
-      // Plant geometry (same as gallery plants)
-      const potRTop = 0.19
-      const potRBottom = 0.24
-      const potH = 0.34
-      const potGeo = new THREE.CylinderGeometry(potRTop, potRBottom, potH, 14, 1)
-      const soilGeo = new THREE.CylinderGeometry(potRTop * 0.92, potRTop * 0.92, 0.06, 14, 1)
-      const leafGeo = new THREE.PlaneGeometry(0.38, 0.7)
-      disposables.push(potGeo, soilGeo, leafGeo)
-
-      function addPlantAt(x) {
-        const plant = new THREE.Group()
-        plant.name = 'plant-south-lobby'
-        plant.position.set(x, 0, plantZ)
-        decoSouth.add(plant)
-
-        const pot = new THREE.Mesh(potGeo, potMat)
-        pot.position.set(0, potH / 2, 0)
-        plant.add(pot)
-
-        const soil = new THREE.Mesh(soilGeo, potMat)
-        soil.position.set(0, potH - 0.02, 0)
-        plant.add(soil)
-
-        const leaves = new THREE.Group()
-        leaves.position.set(0, potH + 0.05, 0)
-        plant.add(leaves)
-
-        const leafCount = 10
-        for (let i = 0; i < leafCount; i += 1) {
-          const leaf = new THREE.Mesh(leafGeo, leafMat)
-          const a = (i / leafCount) * Math.PI * 2
-          leaf.rotation.y = a
-          leaf.rotation.x = -0.25 - Math.random() * 0.25
-          leaf.position.set(0, 0.25 + Math.random() * 0.12, 0)
-          leaves.add(leaf)
-        }
-
-        obstacles.push({ type: 'cylinder', x, z: plantZ, radius: 0.38 })
-      }
-
-      // Compute positions to fit the fixed lobby width.
-      const margin = 1.0
-      const usable = Math.max(6.0, width - margin * 2)
-      const plantSpan = 0.9
-      const benchSpan = seatW
-      const baseSpan = 3 * plantSpan + 2 * benchSpan
-      const gap = Math.max(0.2, (usable - baseSpan) / 4)
-      const totalSpan = baseSpan + gap * 4
-      let cursor = -totalSpan / 2
-
-      const xPlant1 = cursor + plantSpan / 2
-      cursor += plantSpan + gap
-      const xBench1 = cursor + benchSpan / 2
-      cursor += benchSpan + gap
-      const xPlant2 = cursor + plantSpan / 2
-      cursor += plantSpan + gap
-      const xBench2 = cursor + benchSpan / 2
-      cursor += benchSpan + gap
-      const xPlant3 = cursor + plantSpan / 2
-
-      addPlantAt(xPlant1)
-      addBenchAt(xBench1)
-      addPlantAt(xPlant2)
-      addBenchAt(xBench2)
-      addPlantAt(xPlant3)
-    }
-
-    group.add(markers)
-
-    return {
-      group,
-      disposables,
-      slots,
-      doors,
-      doorHitMeshes,
-      pickableMeshes,
-      obstacles,
-      bounds: {
-        halfW,
-        halfL,
-        height,
-      },
-    }
+    return buildLobbyRoom(roomCtx, lobby)
   }
+
 
   addDoor({ id: 'entry-door', wall: 'south', w: 1.25, h: 2.25, u: 0, color: 0xff4455, meta: { target: 'back', label: 'Back' } })
 
@@ -1444,10 +811,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
       const baseW = slot.width * 0.96
       const baseH = slot.height * 0.96
-
       const { normal, frontOffset } = slotFrontOffset(slot)
-
-      // Physical backplate (thickness) behind the frame.
       const backplate = addBackplate({ center: slot.center, normal, w: baseW, h: baseH })
 
       ensureOutlineInFront(slot)
@@ -1456,14 +820,11 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       const mat = new THREE.MeshBasicMaterial({ color: 0xffffff })
       const mesh = new THREE.Mesh(geo, mat)
       mesh.scale.set(baseW, baseH, 1)
-
       mesh.position.copy(slot.center).add(normal.clone().multiplyScalar(frontOffset + 0.004))
       mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal)
-
       group.add(mesh)
       disposables.push(geo, mat)
 
-      // Allow the engine to raycast and pick up wall photos.
       mesh.userData = {
         ...(mesh.userData || {}),
         pickable: true,
@@ -1498,7 +859,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
             backplate.scale.set(sx, sy, 1)
           }
 
-          // Resize the outline "frame" to match the image aspect, too.
           if (slot.outlineObject) {
             slot.outlineObject.scale.set(0.96 * sx, 0.96 * sy, 1)
           }
@@ -1588,12 +948,8 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
       const plaqueW = slot.width * 0.92
       const plaqueH = Math.min(0.28, slot.height * 0.22)
-
       const gapFromPhoto = 0.04
-
       const { normal, frontOffset } = slotFrontOffset(slot)
-
-      // Physical backplate for the caption plaque.
       const backCenter = new THREE.Vector3(slot.center.x, slot.center.y - slot.height / 2 - plaqueH / 2 - gapFromPhoto, slot.center.z)
       addBackplate({ center: backCenter, normal, w: plaqueW, h: plaqueH })
 
@@ -1725,7 +1081,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
     const westSlots = selectThreeFrameSlots('west')
     const eastSlots = selectThreeFrameSlots('east')
-
     const galleryTitle = typeof gallery.title === 'string' ? gallery.title.trim() : ''
 
     function findNextSentenceBoundary(text, fromIdx) {
@@ -1753,7 +1108,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       const endBase = Math.min(n, start + maxLen)
       let end = endBase
 
-      // Prefer to end on a sentence boundary shortly after maxLen.
       const lookahead = s.slice(endBase, Math.min(n, endBase + 420))
       const m = lookahead.match(/[.!?](\s+|$)/)
       if (m && typeof m.index === 'number') {
@@ -1779,11 +1133,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       return [String(title || 'Highlights'), '', ...items.map((y) => `• ${y}`)].join('\n')
     }
 
-    // Columns carry the "most important" summary; walls use a longer extract.
     const wallSource = longExtract || description
-
-    // Prefer to start right after the summary, but clamp so we don't jump near the end
-    // (which would result in just a few lines + an ellipsis).
     const chunkLen = 2400
     const tailRoom = 260
     const maxStart = Math.max(0, wallSource.length - chunkLen - tailRoom)
@@ -1800,14 +1150,12 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     const textSlots = textWall === 'west' ? westSlots : eastSlots
     const photoSlots = textWall === 'west' ? eastSlots : westSlots
 
-    // Text wall: photo / text / photo
     placePhotoWithCaption(textSlots[0], photos[0] ?? null)
     placePhotoWithCaption(textSlots[2], photos[1] ?? null)
     {
       placeTextInSlot(textSlots[1], { title: galleryTitle || 'Wikipedia', text: wallText })
     }
 
-    // Photo wall: photo / photo / photo (middle slot is the wide former "text" frame)
     placePhotoWithCaption(photoSlots[0], photos[2] ?? null)
     placePhotoWithCaption(photoSlots[1], photos[3] ?? null)
     placePhotoWithCaption(photoSlots[2], photos[4] ?? null)
