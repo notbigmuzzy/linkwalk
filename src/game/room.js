@@ -106,6 +106,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
   const slots = []
   const doors = []
   const doorHitMeshes = []
+  const pickableMeshes = []
   const obstacles = []
   const markers = new THREE.Group()
   markers.name = 'display-slots'
@@ -506,6 +507,11 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     group.add(img)
     disposables.push(imgGeo, imgMat)
 
+    img.userData.pickable = true
+    img.userData.pickableType = 'column-photo'
+    img.userData.photoUrl = mainThumbnailUrl || null
+    pickableMeshes.push(img)
+
     function fitMeshToTextureAspect(mesh, { baseW, baseH, tex }) {
       if (!mesh || !tex) return
       const iw = tex?.image?.width
@@ -710,7 +716,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     addGridWallSlots('west')
   } else {
     // Gallery side walls: photo / wider text / photo, with larger frames and more spacing.
-    const gapU = 0.4
+    const gapU = 0.8
     const frameScale = 1.5
     const photoW = stdFrameW * frameScale
     const photoH = stdFrameH * frameScale
@@ -802,6 +808,15 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
       group.add(mesh)
       disposables.push(geo, mat)
+
+      // Allow the engine to raycast and pick up wall photos.
+      mesh.userData = {
+        ...(mesh.userData || {}),
+        pickable: true,
+        pickableType: 'wall-photo',
+        photoUrl: url || null,
+      }
+      pickableMeshes.push(mesh)
 
       function applyTexture(tex) {
         if (!tex) return
@@ -1150,6 +1165,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     slots,
     doors,
     doorHitMeshes,
+    pickableMeshes,
     obstacles,
     bounds: {
       halfW,

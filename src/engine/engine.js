@@ -85,6 +85,170 @@ export function startYourEngines({
   let doorById = new Map()
   let doorHitMeshes = []
   let roomObstacles = []
+  let pickableMeshes = []
+
+  const holdAnchor = new THREE.Object3D()
+  holdAnchor.position.set(0, 0, -0.6)
+  camera.add(holdAnchor)
+
+  let held = null
+
+  function forEachMaterial(obj, fn) {
+    if (!obj) return
+    obj.traverse((child) => {
+      const m = child && child.material
+      if (!m) return
+      if (Array.isArray(m)) {
+        for (const mm of m) fn(mm, child)
+      } else {
+        fn(m, child)
+      }
+    })
+  }
+
+  function releaseHeld() {
+    if (!held) return
+    const {
+      obj,
+      originalParent,
+      originalPosition,
+      originalQuaternion,
+      originalScale,
+      originalRenderOrder,
+      originalMaterialState,
+    } = held
+
+    if (obj && obj.parent) {
+      obj.parent.remove(obj)
+    }
+
+    if (originalParent) {
+      originalParent.add(obj)
+      obj.position.copy(originalPosition)
+      obj.quaternion.copy(originalQuaternion)
+      obj.scale.copy(originalScale)
+    }
+
+    if (obj) {
+      obj.renderOrder = originalRenderOrder
+      forEachMaterial(obj, (mat, child) => {
+        const state = originalMaterialState.get(mat)
+        if (!state) return
+        mat.depthTest = state.depthTest
+        mat.depthWrite = state.depthWrite
+        if ('transparent' in mat) mat.transparent = state.transparent
+        if ('opacity' in mat) mat.opacity = state.opacity
+        if (child) child.renderOrder = state.renderOrder
+        mat.needsUpdate = true
+      })
+    }
+
+    held = null
+  }
+
+  function holdObject(obj) {
+    if (!obj) return
+
+    // Toggle: clicking the currently-held object drops it.
+    if (held && held.obj === obj) {
+      releaseHeld()
+      return
+    }
+
+    // Holding something else? Drop first.
+    if (held) releaseHeld()
+
+    const originalParent = obj.parent
+    const originalPosition = obj.position.clone()
+    const originalQuaternion = obj.quaternion.clone()
+    const originalScale = obj.scale.clone()
+    const originalRenderOrder = obj.renderOrder
+    const originalMaterialState = new Map()
+
+    if (originalParent) originalParent.remove(obj)
+    holdAnchor.add(obj)
+    obj.position.set(0, 0, 0)
+    obj.quaternion.identity()
+    obj.scale.copy(originalScale)
+
+    // Render held item on top of the scene (avoid visual intersection/occlusion).
+    obj.renderOrder = 9999
+    forEachMaterial(obj, (mat, child) => {
+      if (!originalMaterialState.has(mat)) {
+        originalMaterialState.set(mat, {
+          depthTest: mat.depthTest,
+          depthWrite: mat.depthWrite,
+          transparent: 'transparent' in mat ? mat.transparent : undefined,
+          opacity: 'opacity' in mat ? mat.opacity : undefined,
+          renderOrder: child ? child.renderOrder : 0,
+        })
+      }
+
+      mat.depthTest = false
+      mat.depthWrite = false
+      if ('transparent' in mat) mat.transparent = true
+      if ('opacity' in mat) mat.opacity = Math.min(1, mat.opacity ?? 1)
+      if (child) child.renderOrder = 9999
+      mat.needsUpdate = true
+    })
+
+    // Center and scale so the object is as large as possible while fully visible.
+    holdAnchor.updateWorldMatrix(true, true)
+    obj.updateWorldMatrix(true, true)
+
+    const box = new THREE.Box3().setFromObject(obj)
+    const size = new THREE.Vector3()
+    const centerWorld = new THREE.Vector3()
+    box.getSize(size)
+
+    // Recenter the object so its bbox center sits at the holdAnchor origin.
+    box.getCenter(centerWorld)
+    const centerInHold = holdAnchor.worldToLocal(centerWorld.clone())
+    obj.position.sub(centerInHold)
+    obj.updateWorldMatrix(true, true)
+
+    // Place it centered on camera. Keep enough distance to avoid near-plane clipping.
+    const baseDistance = Math.max(0.35, (camera.near ?? 0.1) + 0.15)
+    const depthPad = (size.z || 0) * 0.5
+    const distance = Math.max(baseDistance, (camera.near ?? 0.1) + 0.1 + depthPad)
+    holdAnchor.position.set(0, 0, -distance)
+
+    const vFovRad = THREE.MathUtils.degToRad((camera.fov || 60) * 0.5)
+    const viewHeight = 2 * distance * Math.tan(vFovRad)
+    const viewWidth = viewHeight * (camera.aspect || 1)
+
+    const safeW = (size.x || 1e-6)
+    const safeH = (size.y || 1e-6)
+
+    // Add a pixel margin around the held object.
+    const marginPx = 50
+    const vw = canvas.clientWidth || 0
+    const vh = canvas.clientHeight || 0
+    const padX = vw > 0 ? Math.max(0.1, (vw - 2 * marginPx) / vw) : 0.94
+    const padY = vh > 0 ? Math.max(0.1, (vh - 2 * marginPx) / vh) : 0.94
+
+    const scaleToFit = Math.min((viewWidth * padX) / safeW, (viewHeight * padY) / safeH)
+    if (Number.isFinite(scaleToFit) && scaleToFit > 0) {
+      obj.scale.copy(originalScale).multiplyScalar(scaleToFit)
+    }
+
+    // Recenter after scaling so it stays perfectly centered.
+    obj.updateWorldMatrix(true, true)
+    box.setFromObject(obj)
+    box.getCenter(centerWorld)
+    const centerInHoldAfterScale = holdAnchor.worldToLocal(centerWorld.clone())
+    obj.position.sub(centerInHoldAfterScale)
+
+    held = {
+      obj,
+      originalParent,
+      originalPosition,
+      originalQuaternion,
+      originalScale,
+      originalRenderOrder,
+      originalMaterialState,
+    }
+  }
 
   let yaw = 0
   let pitch = 0
@@ -194,6 +358,8 @@ export function startYourEngines({
     })
 
     if (currentRoom) {
+      // Ensure we don't keep a held object across room swaps.
+      if (held) releaseHeld()
       scene.remove(currentRoom.group)
       disposeMany(currentRoom.disposables)
     }
@@ -208,6 +374,7 @@ export function startYourEngines({
     doorById = new Map(doors.map((d) => [d.id, d]))
     doorHitMeshes = Array.isArray(currentRoom.doorHitMeshes) ? currentRoom.doorHitMeshes : []
     roomObstacles = Array.isArray(currentRoom.obstacles) ? currentRoom.obstacles : []
+    pickableMeshes = Array.isArray(currentRoom.pickableMeshes) ? currentRoom.pickableMeshes : []
 
     applySpawn(spawn)
   }
@@ -300,17 +467,34 @@ export function startYourEngines({
       flashlightTimeoutId = 0
     }, 120)
 
-    if (doorHitMeshes.length === 0) return
-
     raycaster.setFromCamera(rayNdc, camera)
-    const hits = raycaster.intersectObjects(doorHitMeshes, true)
+    const candidates = []
+    if (doorHitMeshes.length) candidates.push(...doorHitMeshes)
+    if (pickableMeshes.length) candidates.push(...pickableMeshes)
+    if (candidates.length === 0) return
+
+    const hits = raycaster.intersectObjects(candidates, true)
     if (hits.length === 0) return
 
-    const interactMaxDistance = 2.25
+    const hitObj = hits[0]?.object
     const hitPoint = hits[0]?.point
+
+    const interactMaxDistance = 2.25
     if (hitPoint && typeof hitPoint.distanceTo === 'function') {
       const d = hitPoint.distanceTo(camera.position)
       if (d > interactMaxDistance) return
+    }
+
+    // If it (or a parent) is marked pickable, hold it.
+    {
+      let cur = hitObj
+      while (cur) {
+        if (cur.userData && cur.userData.pickable) {
+          holdObject(cur)
+          return
+        }
+        cur = cur.parent
+      }
     }
 
     const doorId = findDoorId(hits[0].object)
@@ -508,6 +692,8 @@ export function startYourEngines({
       })
     },
     stop() {
+      if (held) releaseHeld()
+
       window.cancelAnimationFrame(rafId)
       window.removeEventListener('resize', resize)
 
