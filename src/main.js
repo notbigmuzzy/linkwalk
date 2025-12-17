@@ -103,12 +103,31 @@ function loadAndEnterGallery(title, { pushHistory = false, spawn, updateUrlState
     .then((data) => {
       if (navId !== activeNavId) return
 
-      const relatedTitles = Array.isArray(data?.seeAlso)
+      const pool = Array.isArray(data?.seeAlso)
         ? data.seeAlso
             .map((p) => (p && typeof p.title === 'string' ? p.title : ''))
             .map((t) => t.trim())
             .filter(Boolean)
         : []
+
+      // Pick a random set of doors each time we enter.
+      const seen = new Set()
+      const uniquePool = []
+      for (const t of pool) {
+        const k = t.toLowerCase()
+        if (seen.has(k)) continue
+        seen.add(k)
+        uniquePool.push(t)
+      }
+
+      for (let i = uniquePool.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1))
+        const tmp = uniquePool[i]
+        uniquePool[i] = uniquePool[j]
+        uniquePool[j] = tmp
+      }
+
+      const relatedTitles = uniquePool.slice(0, 6)
 
       if (updateUrlState) {
         setUrlAndState(title, { push: Boolean(pushHistory) })

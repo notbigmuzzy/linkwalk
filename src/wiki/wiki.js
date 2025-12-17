@@ -5,7 +5,7 @@ const WIKI_ACTION_API = 'https://en.wikipedia.org/w/api.php'
 
 const DEFAULT_TIMEOUT_MS = 8000
 
-const GALLERY_PERSIST_KEY = 'linkwalk:galleryCache:v1'
+const GALLERY_PERSIST_KEY = 'linkwalk:galleryCache:v2'
 const GALLERY_PERSIST_MAX = 80
 const GALLERY_PERSIST_TTL_MS = 24 * 60 * 60 * 1000
 
@@ -264,7 +264,7 @@ export async function fetchWikipediaRelatedFast(title, { signal, limit } = {}) {
     throw makeWikiError('Missing Wikipedia title', { code: 'bad_title' })
   }
 
-  const hardLimit = typeof limit === 'number' && Number.isFinite(limit) ? Math.max(1, Math.min(10, Math.floor(limit))) : 5
+  const hardLimit = typeof limit === 'number' && Number.isFinite(limit) ? Math.max(1, Math.min(50, Math.floor(limit))) : 5
 
   const raw = await fetchActionQuery(
     {
@@ -688,45 +688,45 @@ export async function fetchGalleryRoomData(title, opts = {}) {
     throw makeWikiError('Missing Wikipedia title', { code: 'bad_title' })
   }
 
-  // Cache successful results by title so revisiting an exhibit doesn't refetch.
+  // Cache successful BASE results by title so revisiting an exhibit doesn't refetch.
+  // NOTE: related/seeAlso links are intentionally NOT cached.
   // Aborted/failed requests are not cached.
   if (!fetchGalleryRoomData._cache) fetchGalleryRoomData._cache = new Map()
   const cache = fetchGalleryRoomData._cache
-  if (cache.has(normalizedTitle)) return cache.get(normalizedTitle)
+  const cachedBase = cache.get(normalizedTitle)
 
   // Persistent cache (survives reloads) to reduce request volume.
   if (!fetchGalleryRoomData._persist) fetchGalleryRoomData._persist = loadGalleryPersistCache()
   const persist = fetchGalleryRoomData._persist
   const persisted = persist.get(normalizedTitle)
-  if (persisted && persisted.v) {
-    cache.set(normalizedTitle, persisted.v)
-    return persisted.v
-  }
+  const baseFromPersist = persisted && persisted.v ? persisted.v : null
 
-  const [pageBundle, photos, related] = await Promise.all([
-    fetchWikipediaPageBundle(normalizedTitle, { ...opts, maxChars: 6000, thumbSize: 640 }),
-    // Fetch an extra image so we can exclude the main thumbnail without ending up short.
-    fetchWikipediaPhotos(normalizedTitle, { ...opts, maxImages: 6 }),
-    fetchWikipediaRelatedFast(normalizedTitle, { ...opts, limit: 7 }),
-  ])
+  // Always fetch related fresh, but cache everything else.
+  const relatedPromise = fetchWikipediaRelatedFast(normalizedTitle, { ...opts, limit: 30 })
 
-  const room = pageBundle?.room
-  const longExtract = typeof pageBundle?.longExtract === 'string' ? pageBundle.longExtract : ''
+  let base = cachedBase || baseFromPersist
+  if (!base) {
+    const [pageBundle, photos] = await Promise.all([
+      fetchWikipediaPageBundle(normalizedTitle, { ...opts, maxChars: 6000, thumbSize: 640 }),
+      // Fetch an extra image so we can exclude the main thumbnail without ending up short.
+      fetchWikipediaPhotos(normalizedTitle, { ...opts, maxImages: 6 }),
+    ])
 
-  if (!room || !room.title) {
-    throw makeWikiError('Wikipedia response missing title', { code: 'bad_response', raw: pageBundle })
-  }
+    const room = pageBundle?.room
+    const longExtract = typeof pageBundle?.longExtract === 'string' ? pageBundle.longExtract : ''
 
-  if (room.isDisambiguation) {
-    throw makeWikiError(`Wikipedia title "${room.title}" is a disambiguation page`, {
-      code: 'disambiguation',
-      data: room,
-    })
-  }
+    if (!room || !room.title) {
+      throw makeWikiError('Wikipedia response missing title', { code: 'bad_response', raw: pageBundle })
+    }
 
-  const seeAlso = related
+    if (room.isDisambiguation) {
+      throw makeWikiError(`Wikipedia title "${room.title}" is a disambiguation page`, {
+        code: 'disambiguation',
+        data: room,
+      })
+    }
 
-  const mainThumbnailUrl = room.thumbnailUrl || (Array.isArray(photos) && typeof photos[0] === 'string' ? photos[0] : null)
+    const mainThumbnailUrl = room.thumbnailUrl || (Array.isArray(photos) && typeof photos[0] === 'string' ? photos[0] : null)
 
   function canonicalImageKey(url) {
     if (typeof url !== 'string') return ''
@@ -749,32 +749,35 @@ export async function fetchGalleryRoomData(title, opts = {}) {
     }
   }
 
-  const mainKey = canonicalImageKey(mainThumbnailUrl)
-  const filteredPhotos = Array.isArray(photos)
-    ? photos
-        .filter((u) => typeof u === 'string' && u.trim())
-        .filter((u) => {
-          const k = canonicalImageKey(u)
-          return !mainKey || !k || k !== mainKey
-        })
-        .slice(0, 5)
-    : []
+    const mainKey = canonicalImageKey(mainThumbnailUrl)
+    const filteredPhotos = Array.isArray(photos)
+      ? photos
+          .filter((u) => typeof u === 'string' && u.trim())
+          .filter((u) => {
+            const k = canonicalImageKey(u)
+            return !mainKey || !k || k !== mainKey
+          })
+          .slice(0, 5)
+      : []
 
-  const result = {
-    room,
-    mainThumbnailUrl,
-    photos: filteredPhotos,
-    seeAlso,
-    longExtract: typeof longExtract === 'string' ? longExtract : '',
+    base = {
+      room,
+      mainThumbnailUrl,
+      photos: filteredPhotos,
+      longExtract: typeof longExtract === 'string' ? longExtract : '',
+    }
+
+    cache.set(normalizedTitle, base)
+    if (persist) {
+      persist.set(normalizedTitle, { t: safeNow(), v: base })
+      saveGalleryPersistCache(persist)
+    }
+  } else if (!cachedBase && baseFromPersist) {
+    cache.set(normalizedTitle, baseFromPersist)
   }
 
-  cache.set(normalizedTitle, result)
-
-  if (persist) {
-    persist.set(normalizedTitle, { t: safeNow(), v: result })
-    saveGalleryPersistCache(persist)
-  }
-  return result
+  const seeAlso = await relatedPromise
+  return { ...base, seeAlso }
 }
 
 fetchGalleryRoomData._cache = null
