@@ -132,20 +132,20 @@ Goal: Desktop-only web app (Three.js) where each “room” is generated from a 
 
 **Definition of done:** You can go lobby → article room → another room → back to lobby.
 
---- -->
+--- 
 
 ## Milestone 7 — Vaporwave Visual Style (Day 9–10)
-- [ ] Create 4–6 theme presets (no image textures)
-  - [ ] Wall/floor/ceiling colors
-  - [ ] Roughness/metalness values
-  - [ ] Light colors + intensities
-  - [ ] Optional: fog for atmospheric themes
-- [ ] Choose theme per article (seeded)
-- [ ] Ensure exhibits remain readable (contrast)
+- [x] Create 4–6 theme presets (no image textures)
+  - [x] Wall/floor/ceiling colors
+  - [x] Roughness/metalness values
+  - [x] Light colors + intensities
+  - [x] Optional: fog for atmospheric themes
+- [x] Choose theme per article (seeded)
+- [x] Ensure exhibits remain readable (contrast)
 
 **Definition of done:** Rooms have consistent vaporwave mood with a small set of coherent themes.
 
----
+--- -->
 
 ## Milestone 8 — Caching + Memory Safety (Day 10–12)
 - [ ] Data cache (small, safe)
