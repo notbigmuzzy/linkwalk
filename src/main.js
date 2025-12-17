@@ -203,7 +203,7 @@ engineApi = startYourEngines({
   roomSeedTitle: initialTitle ?? 'Lobby',
   roomMode: initialTitle ? 'gallery' : 'lobby',
   roomSpawn: initialTitle ? undefined : { type: 'fromWall', wall: 'south' },
-  lobbyCategories: ['Culture', 'Geography', 'Animals', 'History', 'Nature', 'People', 'Philosophy', 'Religion', 'Society', 'Technology'],
+  lobbyCategories: ['Culture', 'Geography', 'Animals', 'History', 'Nature', 'Humanities', 'Philosophy', 'Cosmology', 'Society', 'Technology', 'Meteorology', 'Art' ],
   onFps(fps) {
     fpsEl.textContent = `${fps.toFixed(0)} FPS`
   },
