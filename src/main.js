@@ -159,10 +159,18 @@ function loadAndEnterGallery(title, { pushHistory = false, spawn, updateUrlState
 }
 
 function enterlobby({ push = false } = {}) {
+  // Lobby is immediate (no network), so ensure we cancel any in-flight fetch and clear loading.
+  if (wikiAbortController) {
+    wikiAbortController.abort()
+    wikiAbortController = null
+  }
+  activeNavId += 1
+
   setUrlAndState(null, { push })
   if (engineApi && typeof engineApi.setRoom === 'function') {
     engineApi.setRoom({ roomMode: 'lobby', spawn: { type: 'fromWall', wall: 'south' } })
   }
+  setLoading(false)
 }
 
 function goBackInApp() {
@@ -246,6 +254,7 @@ window.addEventListener('popstate', (e) => {
   }
 
   enterlobby({ push: false })
+  setLoading(false)
 })
 
 if (initialTitle) {
