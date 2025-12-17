@@ -54,3 +54,10 @@ export function configureGalleryTexture(tex) {
   tex.needsUpdate = true
   return tex
 }
+
+export function setBodyClickableCursor(isClickable) {
+  if (typeof document === 'undefined') return
+  const body = document.body
+  if (!body || !body.classList) return
+  body.classList.toggle('cursor-clickable', Boolean(isClickable))
+}

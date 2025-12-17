@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { buildRoom } from '../game/room.js'
-import { hashStringToUint32, mulberry32, randRange, roundTo } from '../misc/helper.js'
+import { hashStringToUint32, mulberry32, randRange, roundTo, setBodyClickableCursor } from '../misc/helper.js'
 
 export function startYourEngines({
   canvas,
@@ -383,6 +383,29 @@ export function startYourEngines({
   const raycaster = new THREE.Raycaster()
   const rayNdc = new THREE.Vector2(0, 0)
 
+  function computeIsAimingAtClickable() {
+    if (!isPointerLocked()) return false
+    if (interactionLocked) return false
+    if (held) return true
+
+    const candidates = []
+    if (doorHitMeshes.length) candidates.push(...doorHitMeshes)
+    if (pickableMeshes.length) candidates.push(...pickableMeshes)
+    if (candidates.length === 0) return false
+
+    raycaster.setFromCamera(rayNdc, camera)
+    const hits = raycaster.intersectObjects(candidates, true)
+    if (hits.length === 0) return false
+
+    const hitPoint = hits[0]?.point
+    const interactMaxDistance = 2.25
+    if (hitPoint && typeof hitPoint.distanceTo === 'function') {
+      const d = hitPoint.distanceTo(camera.position)
+      if (d > interactMaxDistance) return false
+    }
+    return true
+  }
+
   const keysDown = new Set()
   let jumpRequested = false
 
@@ -630,6 +653,9 @@ export function startYourEngines({
     }
 
     updatePlayer(dt)
+
+    // Swap the center "pointer" style when aiming at something clickable.
+    setBodyClickableCursor(computeIsAimingAtClickable())
 
     resize()
     renderer.render(scene, camera)
