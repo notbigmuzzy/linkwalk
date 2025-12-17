@@ -196,7 +196,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
   }
 
 
-  addDoor({ id: 'entry-door', wall: 'south', w: 1.25, h: 2.25, u: 0, color: 0xff4455, meta: { target: 'back', label: 'Back' } })
+  addDoor({ id: 'entry-door', wall: 'south', w: 1.25, h: 2.25 * 1.1, u: 0, color: 0xff4455, meta: { target: 'back', label: 'Back' } })
 
   {
     const colRadius = 0.65
@@ -398,7 +398,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     const relatedTitles = Array.isArray(gallery.relatedTitles) ? gallery.relatedTitles.filter(Boolean).slice(0, 6) : []
     const n = relatedTitles.length
     if (n > 0) {
-      const doorH = 2.25
+      const doorH = 2.25 * 1.1
       const cornerMargin = 1.6
       const cornerUSouth = Math.max(-halfL + 1.0, halfL - cornerMargin)
       const cornerUNorth = Math.min(halfL - 1.0, -halfL + cornerMargin)
@@ -899,10 +899,26 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       }
     }
 
-    function makePlaqueTexture({ size = 1024, text } = {}) {
+    function makePlaqueTexture({ size = 1024, text, aspect } = {}) {
+      const maxW = typeof size === 'number' && Number.isFinite(size) ? Math.max(256, Math.floor(size)) : 1024
+      const a = typeof aspect === 'number' && Number.isFinite(aspect) && aspect > 0 ? aspect : null
+
+      let canvasW = maxW
+      let canvasH = Math.floor(maxW * 0.33)
+      if (a) {
+        // Match the plaque mesh aspect ratio to avoid stretching the text.
+        canvasH = Math.round(canvasW / a)
+        canvasH = Math.max(160, Math.min(512, canvasH))
+        canvasW = Math.round(canvasH * a)
+        if (canvasW > maxW) {
+          canvasW = maxW
+          canvasH = Math.round(canvasW / a)
+        }
+      }
+
       const canvas = document.createElement('canvas')
-      canvas.width = size
-      canvas.height = Math.floor(size * 0.33)
+      canvas.width = canvasW
+      canvas.height = canvasH
       const ctx = canvas.getContext('2d')
       if (ctx) {
         ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -910,8 +926,9 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
         ctx.fillRect(0, 0, canvas.width, canvas.height)
 
         ctx.strokeStyle = 'rgba(255,255,255,0.18)'
-        ctx.lineWidth = Math.max(6, Math.floor(size * 0.008))
-        ctx.strokeRect(18, 18, canvas.width - 36, canvas.height - 36)
+        ctx.lineWidth = Math.max(6, Math.floor(canvas.width * 0.008))
+        const pad = Math.max(14, Math.floor(canvas.width * 0.018))
+        ctx.strokeRect(pad, pad, canvas.width - pad * 2, canvas.height - pad * 2)
 
         const safeText = String(text || '').trim() || 'Untitled'
         ctx.textAlign = 'center'
@@ -919,7 +936,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
         ctx.fillStyle = 'rgba(255,255,255,0.92)'
 
         const maxWidth = canvas.width * 0.86
-        let fontSize = Math.floor(size * 0.06)
+        let fontSize = Math.floor(canvas.width * 0.06)
         ctx.font = `700 ${fontSize}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
         while (fontSize > 18 && ctx.measureText(safeText).width > maxWidth) {
           fontSize -= 2
@@ -939,6 +956,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
       const tex = new THREE.CanvasTexture(canvas)
       tex.colorSpace = THREE.SRGBColorSpace
+      configureGalleryTexture(tex)
       tex.needsUpdate = true
       return tex
     }
@@ -965,7 +983,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       group.add(mesh)
       disposables.push(geo, mat)
 
-      const tex = makePlaqueTexture({ size: 1024, text: caption })
+      const tex = makePlaqueTexture({ size: 1024, text: caption, aspect: plaqueW / plaqueH })
       mat.map = tex
       mat.color.setHex(0xffffff)
       mat.needsUpdate = true

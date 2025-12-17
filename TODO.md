@@ -80,15 +80,15 @@ Goal: Desktop-only web app (Three.js) where each “room” is generated from a 
 
 **Definition of done:** Given a title string, you can fetch and obtain a stable `RoomData` object.
 
---- -->
+--- 
 
 ## Milestone 4 — “Article Room” Rendering (Day 4–6)
 - [x] Spawn room shell immediately (no blank screen)
 - [x] Add “loading placeholders”
   - [x] Empty frames
   - [x] “Installing exhibit…” plaque
-- [ ] Render title + extract
-  - [ ] Prefer HTML overlay for readable text (CSS2DRenderer or a simple HUD)
+- [x] Render title + extract
+  - [x] Prefer HTML overlay for readable text (CSS2DRenderer or a simple HUD)
 - [x] Render images
   - [x] Apply thumbnail as a texture on a plane in a frame
   - [x] Use `TextureLoader` / `ImageBitmapLoader`
@@ -96,7 +96,7 @@ Goal: Desktop-only web app (Three.js) where each “room” is generated from a 
 
 **Definition of done:** Entering a room shows title/extract + at least one framed image if available.
 
----
+--- -->
 
 ## Milestone 5 — Entrance Lobby + Shows (Day 6–7)
 - [ ] Create a fixed “Entrance Room” that loads first

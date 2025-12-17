@@ -235,7 +235,7 @@ export function buildLobbyRoom(ctx, lobby) {
   })
 
   const doorW = 1.25
-  const doorH = 2.25
+  const doorH = 2.25 * 1.1
 
   const gapU = 1.1
   const totalSpan = perWall * doorW + (perWall - 1) * gapU
