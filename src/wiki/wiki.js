@@ -1,10 +1,8 @@
 const WIKI_REST_BASE = 'https://en.wikipedia.org/api/rest_v1'
 const WIKI_SUMMARY_ENDPOINT = `${WIKI_REST_BASE}/page/summary/`
-
 const WIKI_ACTION_API = 'https://en.wikipedia.org/w/api.php'
 
 const DEFAULT_TIMEOUT_MS = 8000
-
 const GALLERY_PERSIST_KEY = 'linkwalk:galleryCache:v2'
 const GALLERY_PERSIST_MAX = 80
 const GALLERY_PERSIST_TTL_MS = 24 * 60 * 60 * 1000

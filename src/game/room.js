@@ -195,7 +195,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     return buildLobbyRoom(roomCtx, lobby)
   }
 
-
   addDoor({ id: 'entry-door', wall: 'south', w: 1.25, h: 2.25 * 1.1, u: 0, color: 0xff4455, meta: { target: 'back', label: 'Back' } })
 
   {
@@ -777,11 +776,39 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     const wallBackMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.95, metalness: 0.0 })
     disposables.push(wallBackMat)
 
+    function isSupportedImageUrl(url) {
+      const raw = typeof url === 'string' ? url.trim() : ''
+      if (!raw) return false
+
+      const blocked = new Set(['ogv', 'oga', 'ogg', 'webm', 'mp4', 'm4v', 'mp3', 'wav', 'flac', 'pdf', 'djvu', 'tif', 'tiff'])
+      const allowed = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg'])
+
+      try {
+        const u = new URL(raw)
+        const file = (u.pathname.split('/').pop() ?? '').split('?')[0]
+        const m = file.match(/\.([a-z0-9]+)$/i)
+        const ext = m?.[1] ? String(m[1]).toLowerCase() : ''
+        if (!ext) return true
+        if (blocked.has(ext)) return false
+        return allowed.has(ext)
+      } catch {
+        const file = raw.split('/').pop() ?? raw
+        const clean = (file.split('?')[0] ?? file).trim()
+        const m = clean.match(/\.([a-z0-9]+)$/i)
+        const ext = m?.[1] ? String(m[1]).toLowerCase() : ''
+        if (!ext) return true
+        if (blocked.has(ext)) return false
+        return allowed.has(ext)
+      }
+    }
+
     const photos = Array.isArray(gallery.photos)
       ? gallery.photos
           .map((u) => (typeof u === 'string' ? u.trim() : ''))
           .filter(Boolean)
       : []
+
+    const imagePhotos = photos.filter(isSupportedImageUrl)
 
     const relatedTitles = Array.isArray(gallery.relatedTitles)
       ? gallery.relatedTitles
@@ -902,7 +929,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
         const file = raw.split('/').pop() ?? ''
         const decoded = decodeURIComponent(file)
         const withoutQuery = decoded.split('?')[0] ?? decoded
-        const withoutExt = withoutQuery.replace(/\.(jpg|jpeg|png|webp|gif)$/i, '')
+        const withoutExt = withoutQuery.replace(/\.(jpg|jpeg|png|webp|gif|avif|svg)$/i, '')
         const cleaned = withoutExt.replace(/^File:/i, '').replace(/_/g, ' ').trim()
         return cleaned
       } catch {
@@ -1001,9 +1028,10 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     }
 
     function placePhotoWithCaption(slot, url) {
-      placePhotoInSlot(slot, url, { placeholderTitle: 'NO PHOTO' })
-      const label = labelFromImageUrl(url)
-      placeCaptionUnderSlot(slot, label || (url ? 'Untitled' : 'No photo'))
+      const safeUrl = isSupportedImageUrl(url) ? url : null
+      placePhotoInSlot(slot, safeUrl, { placeholderTitle: 'NO PHOTO' })
+      const label = labelFromImageUrl(safeUrl)
+      placeCaptionUnderSlot(slot, label || (safeUrl ? 'Untitled' : 'No photo'))
     }
 
     function makeWallTextTexture({ size = 1024, title, text, aspect, startLine = 0, withTitle = true } = {}) {
@@ -1144,7 +1172,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
     {
       const eastPhotoSlots = [slotById('east-photo-0'), slotById('east-photo-1'), slotById('east-photo-2'), slotById('east-photo-3')]
-      const shuffled = [...photos]
+      const shuffled = [...imagePhotos]
       for (let i = shuffled.length - 1; i > 0; i -= 1) {
         const j = Math.floor(Math.random() * (i + 1))
         const tmp = shuffled[i]
