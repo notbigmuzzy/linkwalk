@@ -539,32 +539,49 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     addGridWallSlots('east')
     addGridWallSlots('west')
   } else {
-    // Gallery side walls: photo / wider text / photo, with larger frames and more spacing.
-    const gapU = 0.8
-    const frameScale = 1.5
-    const photoW = stdFrameW * frameScale
-    const photoH = stdFrameH * frameScale
-    const textW = photoW * 2
-    const textH = photoH * 1.24
+    {
+      const count = 4
+      const margin = 1.75
+      const gapU = 0.5
+      const usable = Math.max(2.8, length - margin * 2)
 
-    function addGallerySideWallSlots(wall) {
-      const totalW = photoW + gapU + textW + gapU + photoW
-      const u1 = -totalW / 2 + photoW / 2
-      const u2 = u1 + photoW / 2 + gapU + textW / 2
-      const u3 = u2 + textW / 2 + gapU + photoW / 2
-      const y = stdFrameY
+      const aspect = stdFrameW / stdFrameH
+      let photoW = clamp((usable - (count - 1) * gapU) / count, 0.65, 1.35)
+      let photoH = photoW / aspect
 
-      addSlot({ id: `${wall}-frame-0`, wall, kind: 'frame', w: photoW, h: photoH, y, u: u1, color: 0xffffff })
-      addSlot({ id: `${wall}-frame-1`, wall, kind: 'frame', w: textW, h: textH, y, u: u2, color: 0xffffff })
-      addSlot({ id: `${wall}-frame-2`, wall, kind: 'frame', w: photoW, h: photoH, y, u: u3, color: 0xffffff })
+      const maxPhotoH = clamp(height * 0.5, 1.15, 1.85)
+      if (photoH > maxPhotoH) {
+        photoH = maxPhotoH
+        photoW = photoH * aspect
+      }
+
+      const y = clamp(stdFrameY, photoH / 2 + 0.25, height - photoH / 2 - 0.25)
+      const totalW = count * photoW + (count - 1) * gapU
+      const uStart = -totalW / 2 + photoW / 2
+
+      for (let i = 0; i < count; i += 1) {
+        const u = uStart + i * (photoW + gapU)
+        addSlot({ id: `east-photo-${i}`, wall: 'east', kind: 'frame', w: photoW, h: photoH, y, u, color: 0xffffff })
+      }
     }
 
-    addGallerySideWallSlots('east')
-    addGallerySideWallSlots('west')
+    {
+      const gapU = 0.65
+      const margin = 1.6
+      const usable = Math.max(2.8, length - margin * 2)
+      const panelW = clamp((usable - gapU) / 2, 1.7, 3.4)
+      const panelH = clamp(height * 0.55, 1.35, 2.05)
+      const y = clamp(stdFrameY, panelH / 2 + 0.25, height - panelH / 2 - 0.25)
+
+      const uNeg = -(panelW / 2 + gapU / 2)
+      const uPos = panelW / 2 + gapU / 2
+
+      addSlot({ id: 'west-text-0', wall: 'west', kind: 'frame', w: panelW, h: panelH, y, u: uPos, color: 0xffffff })
+      addSlot({ id: 'west-text-1', wall: 'west', kind: 'frame', w: panelW, h: panelH, y, u: uNeg, color: 0xffffff })
+    }
   }
 
   if (mode !== 'lobby') {
-    // Simple in-room decoration: PLANT – BENCH – PLANT on the north wall.
     {
       const innerNorthZ = -halfL + wallThickness / 2
       const benchZ = innerNorthZ + 0.42
@@ -584,7 +601,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       const leafMat = new THREE.MeshStandardMaterial({ color: 0x2f6f4e, roughness: 0.85, metalness: 0.0, side: THREE.DoubleSide })
       disposables.push(woodMat, metalMat, potMat, leafMat)
 
-      // Bench
       const bench = new THREE.Group()
       bench.name = 'bench'
       bench.position.set(0, 0, benchZ)
@@ -629,11 +645,9 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       addLeg(-legX, legZ)
       addLeg(legX, legZ)
 
-      // Collision approximations (engine currently supports cylinder obstacles only)
       obstacles.push({ type: 'cylinder', x: -seatW * 0.28, z: benchZ + 0.02, radius: 0.5 })
       obstacles.push({ type: 'cylinder', x: seatW * 0.28, z: benchZ + 0.02, radius: 0.5 })
 
-      // Plants
       const potRTop = 0.19
       const potRBottom = 0.24
       const potH = 0.34
@@ -677,7 +691,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       addPlant(-plantX)
       addPlant(plantX)
 
-      // South wall: PLANT – BENCH – DOOR – BENCH – PLANT
       {
         const innerSouthZ = halfL - wallThickness / 2
         const benchZSouth = innerSouthZ - 0.42
@@ -697,7 +710,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
           const b = new THREE.Group()
           b.name = 'bench-south'
           b.position.set(x, 0, benchZSouth)
-          // Face into the room (toward north / -Z)
           b.rotation.y = Math.PI
           decoSouth.add(b)
 
@@ -801,9 +813,8 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       return mesh
     }
 
-    function selectThreeFrameSlots(wall) {
-      const frames = slots.filter((s) => s.wall === wall && s.kind === 'frame')
-      return frames.slice(0, 3)
+    function slotById(id) {
+      return slots.find((s) => s && s.id === id) || null
     }
 
     function placePhotoInSlot(slot, url, { placeholderTitle = 'NO PHOTO' } = {}) {
@@ -906,7 +917,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       let canvasW = maxW
       let canvasH = Math.floor(maxW * 0.33)
       if (a) {
-        // Match the plaque mesh aspect ratio to avoid stretching the text.
         canvasH = Math.round(canvasW / a)
         canvasH = Math.max(160, Math.min(512, canvasH))
         canvasW = Math.round(canvasH * a)
@@ -996,11 +1006,28 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       placeCaptionUnderSlot(slot, label || (url ? 'Untitled' : 'No photo'))
     }
 
-    function makeWallTextTexture({ size = 1024, title, text } = {}) {
+    function makeWallTextTexture({ size = 1024, title, text, aspect, startLine = 0, withTitle = true } = {}) {
+      const maxW = typeof size === 'number' && Number.isFinite(size) ? Math.max(512, Math.floor(size)) : 1024
+      const a = typeof aspect === 'number' && Number.isFinite(aspect) && aspect > 0 ? aspect : null
+
+      let canvasW = maxW
+      let canvasH = maxW
+      if (a) {
+        canvasH = Math.round(canvasW / a)
+        canvasH = Math.max(640, Math.min(1600, canvasH))
+        canvasW = Math.round(canvasH * a)
+        if (canvasW > maxW) {
+          canvasW = maxW
+          canvasH = Math.round(canvasW / a)
+        }
+      }
+
       const canvas = document.createElement('canvas')
-      canvas.width = size
-      canvas.height = size
+      canvas.width = canvasW
+      canvas.height = canvasH
       const ctx = canvas.getContext('2d')
+
+      let nextLine = Math.max(0, Math.floor(startLine || 0))
 
       if (ctx) {
         ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -1015,14 +1042,17 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
         let y = pad + 10
 
         const safeTitle = String(title || 'Wikipedia')
-        ctx.fillStyle = 'rgba(223,255,233,0.96)'
         ctx.textAlign = 'left'
         ctx.textBaseline = 'alphabetic'
-        ctx.font = `800 ${Math.floor(size * 0.072)}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
-        ctx.fillText(safeTitle, pad, y)
-        y += Math.floor(size * 0.09)
 
-        const bodyFontSize = Math.floor(size * 0.038)
+        if (withTitle) {
+          ctx.fillStyle = 'rgba(223,255,233,0.96)'
+          ctx.font = `800 ${Math.floor(maxW * 0.072)}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
+          ctx.fillText(safeTitle, pad, y)
+          y += Math.floor(maxW * 0.09)
+        }
+
+        const bodyFontSize = Math.floor(maxW * 0.038)
         ctx.font = `600 ${bodyFontSize}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
         ctx.fillStyle = 'rgba(255,255,255,0.9)'
 
@@ -1047,29 +1077,42 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
         const safeText = String(text || '').trim()
         const lineHeight = Math.floor(bodyFontSize * 1.28)
 
+        const allLines = []
         const paragraphs = safeText ? safeText.split(/\n{2,}/g) : ['No additional info']
         for (const para of paragraphs) {
           const trimmed = String(para || '').trim()
           if (!trimmed) continue
-
           const lines = wrapText(trimmed, maxWidth)
-          for (const line of lines) {
+          for (const line of lines) allLines.push(line)
+          allLines.push('')
+        }
+        while (allLines.length > 0 && allLines[allLines.length - 1] === '') allLines.pop()
+
+        let i = nextLine
+        while (i < allLines.length) {
+          const line = allLines[i]
+          if (line) {
             ctx.fillText(line, pad, y)
             y += lineHeight
-            if (y > canvas.height - pad) break
+          } else {
+            y += Math.floor(lineHeight * 0.55)
           }
+
           if (y > canvas.height - pad) break
-          y += Math.floor(lineHeight * 0.28)
+          i += 1
         }
+
+        nextLine = i
       }
 
       const tex = new THREE.CanvasTexture(canvas)
       tex.colorSpace = THREE.SRGBColorSpace
+      configureGalleryTexture(tex)
       tex.needsUpdate = true
-      return tex
+      return { tex, nextLine }
     }
 
-    function placeTextInSlot(slot, { title, text }) {
+    function placeTextInSlot(slot, { title, text, startLine = 0, withTitle = true } = {}) {
       if (!slot) return
 
       const baseW = slot.width * 0.96
@@ -1090,93 +1133,40 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       group.add(mesh)
       disposables.push(geo, mat)
 
-      const tex = makeWallTextTexture({ size: 1024, title, text })
+      const { tex, nextLine } = makeWallTextTexture({ size: 1024, title, text, aspect: baseW / baseH, startLine, withTitle })
       mat.map = tex
       mat.color.setHex(0xffffff)
       mat.needsUpdate = true
       disposables.push(tex)
+
+      return nextLine
     }
 
-    const westSlots = selectThreeFrameSlots('west')
-    const eastSlots = selectThreeFrameSlots('east')
-    const galleryTitle = typeof gallery.title === 'string' ? gallery.title.trim() : ''
-
-    function findNextSentenceBoundary(text, fromIdx) {
-      const s = typeof text === 'string' ? text : ''
-      const n = s.length
-      const start = Math.max(0, Math.min(n, Math.floor(fromIdx || 0)))
-      if (!s) return 0
-      if (start >= n) return n
-
-      const slice = s.slice(start)
-      const m = slice.match(/[.!?]\s+/)
-      if (m && typeof m.index === 'number') {
-        return Math.min(n, start + m.index + 2)
-      }
-
-      return start
-    }
-
-    function takeChunk(text, start, maxLen) {
-      const s = typeof text === 'string' ? text : ''
-      const n = s.length
-      if (!s) return ''
-      if (start >= n) return ''
-
-      const endBase = Math.min(n, start + maxLen)
-      let end = endBase
-
-      const lookahead = s.slice(endBase, Math.min(n, endBase + 420))
-      const m = lookahead.match(/[.!?](\s+|$)/)
-      if (m && typeof m.index === 'number') {
-        end = Math.min(n, endBase + m.index + 1)
-      }
-
-      const chunk = s.slice(start, end).trim()
-      if (!chunk) return ''
-      const hasMore = end < n
-      return hasMore ? `${chunk}…` : chunk
-    }
-
-    function buildHighlightsText(text, { title } = {}) {
-      const s = typeof text === 'string' ? text : ''
-      const years = new Set()
-      for (const m of s.matchAll(/\b(1[0-9]{3}|20[0-9]{2})\b/g)) {
-        if (m && m[1]) years.add(m[1])
-        if (years.size >= 8) break
-      }
-
-      const items = [...years]
-      if (items.length === 0) return ''
-      return [String(title || 'Highlights'), '', ...items.map((y) => `• ${y}`)].join('\n')
-    }
-
-    const wallSource = longExtract || description
-    const chunkLen = 2400
-    const tailRoom = 260
-    const maxStart = Math.max(0, wallSource.length - chunkLen - tailRoom)
-    const desiredSkip = Math.max(0, description.length + 140)
-    const startBase1 = Math.min(desiredSkip, maxStart)
-
-    const start1 = findNextSentenceBoundary(wallSource, startBase1)
-    const wallText =
-      takeChunk(wallSource, start1, chunkLen) ||
-      buildHighlightsText(wallSource, { title: 'Highlights' }) ||
-      'No additional info available'
-
-    const textWall = Math.random() < 0.5 ? 'west' : 'east'
-    const textSlots = textWall === 'west' ? westSlots : eastSlots
-    const photoSlots = textWall === 'west' ? eastSlots : westSlots
-
-    placePhotoWithCaption(textSlots[0], photos[0] ?? null)
-    placePhotoWithCaption(textSlots[2], photos[1] ?? null)
     {
-      placeTextInSlot(textSlots[1], { title: galleryTitle || 'Wikipedia', text: wallText })
+      const eastPhotoSlots = [slotById('east-photo-0'), slotById('east-photo-1'), slotById('east-photo-2'), slotById('east-photo-3')]
+      const shuffled = [...photos]
+      for (let i = shuffled.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1))
+        const tmp = shuffled[i]
+        shuffled[i] = shuffled[j]
+        shuffled[j] = tmp
+      }
+
+      for (let i = 0; i < eastPhotoSlots.length; i += 1) {
+        placePhotoWithCaption(eastPhotoSlots[i], shuffled[i] ?? null)
+      }
     }
 
-    placePhotoWithCaption(photoSlots[0], photos[2] ?? null)
-    placePhotoWithCaption(photoSlots[1], photos[3] ?? null)
-    placePhotoWithCaption(photoSlots[2], photos[4] ?? null)
+    {
+      const galleryTitle = typeof gallery.title === 'string' ? gallery.title.trim() : ''
+      const source = (longExtract || description || '').trim() || 'No additional info available'
+
+      const panel0 = slotById('west-text-0')
+      const panel1 = slotById('west-text-1')
+
+      const nextLine = placeTextInSlot(panel0, { title: galleryTitle || 'Wikipedia', text: source, startLine: 0, withTitle: true })
+      placeTextInSlot(panel1, { title: galleryTitle || 'Wikipedia', text: source, startLine: nextLine || 0, withTitle: false })
+    }
   }
 
   group.add(markers)
