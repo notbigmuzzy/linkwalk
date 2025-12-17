@@ -822,6 +822,203 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
   }
 
   if (mode !== 'entryway') {
+    // Simple in-room decoration: PLANT – BENCH – PLANT on the north wall.
+    {
+      const innerNorthZ = -halfL + wallThickness / 2
+      const benchZ = innerNorthZ + 0.42
+      const plantZ = innerNorthZ + 0.38
+
+      const decoNorth = new THREE.Group()
+      decoNorth.name = 'deco-north'
+      group.add(decoNorth)
+
+      const decoSouth = new THREE.Group()
+      decoSouth.name = 'deco-south'
+      group.add(decoSouth)
+
+      const woodMat = new THREE.MeshStandardMaterial({ color: palette.wall, roughness: 0.78, metalness: 0.0 })
+      const metalMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.7, metalness: 0.05 })
+      const potMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.95, metalness: 0.0 })
+      const leafMat = new THREE.MeshStandardMaterial({ color: 0x2f6f4e, roughness: 0.85, metalness: 0.0, side: THREE.DoubleSide })
+      disposables.push(woodMat, metalMat, potMat, leafMat)
+
+      // Bench
+      const bench = new THREE.Group()
+      bench.name = 'bench'
+      bench.position.set(0, 0, benchZ)
+      decoNorth.add(bench)
+
+      const seatW = 2.6
+      const seatD = 0.55
+      const seatH = 0.12
+      const seatY = 0.46
+
+      const seatGeo = new THREE.BoxGeometry(seatW, seatH, seatD)
+      const seat = new THREE.Mesh(seatGeo, woodMat)
+      seat.position.set(0, seatY, 0)
+      bench.add(seat)
+      disposables.push(seatGeo)
+
+      const backW = seatW
+      const backH = 0.55
+      const backD = 0.08
+      const backGeo = new THREE.BoxGeometry(backW, backH, backD)
+      const back = new THREE.Mesh(backGeo, woodMat)
+      back.position.set(0, seatY + backH / 2 - 0.02, -(seatD / 2 - backD / 2))
+      bench.add(back)
+      disposables.push(backGeo)
+
+      const legW = 0.08
+      const legD = 0.08
+      const legH = seatY - seatH / 2
+      const legGeo = new THREE.BoxGeometry(legW, legH, legD)
+      disposables.push(legGeo)
+
+      function addLeg(x, z) {
+        const leg = new THREE.Mesh(legGeo, metalMat)
+        leg.position.set(x, legH / 2, z)
+        bench.add(leg)
+      }
+
+      const legX = seatW / 2 - 0.18
+      const legZ = seatD / 2 - 0.18
+      addLeg(-legX, -legZ)
+      addLeg(legX, -legZ)
+      addLeg(-legX, legZ)
+      addLeg(legX, legZ)
+
+      // Collision approximations (engine currently supports cylinder obstacles only)
+      obstacles.push({ type: 'cylinder', x: -seatW * 0.28, z: benchZ + 0.02, radius: 0.5 })
+      obstacles.push({ type: 'cylinder', x: seatW * 0.28, z: benchZ + 0.02, radius: 0.5 })
+
+      // Plants
+      const potRTop = 0.19
+      const potRBottom = 0.24
+      const potH = 0.34
+      const potGeo = new THREE.CylinderGeometry(potRTop, potRBottom, potH, 14, 1)
+      const soilGeo = new THREE.CylinderGeometry(potRTop * 0.92, potRTop * 0.92, 0.06, 14, 1)
+      const leafGeo = new THREE.PlaneGeometry(0.38, 0.7)
+      disposables.push(potGeo, soilGeo, leafGeo)
+
+      function addPlant(x) {
+        const plant = new THREE.Group()
+        plant.name = 'plant'
+        plant.position.set(x, 0, plantZ)
+        decoNorth.add(plant)
+
+        const pot = new THREE.Mesh(potGeo, potMat)
+        pot.position.set(0, potH / 2, 0)
+        plant.add(pot)
+
+        const soil = new THREE.Mesh(soilGeo, potMat)
+        soil.position.set(0, potH - 0.02, 0)
+        plant.add(soil)
+
+        const leaves = new THREE.Group()
+        leaves.position.set(0, potH + 0.05, 0)
+        plant.add(leaves)
+
+        const leafCount = 10
+        for (let i = 0; i < leafCount; i += 1) {
+          const leaf = new THREE.Mesh(leafGeo, leafMat)
+          const a = (i / leafCount) * Math.PI * 2
+          leaf.rotation.y = a
+          leaf.rotation.x = -0.25 - Math.random() * 0.25
+          leaf.position.set(0, 0.25 + Math.random() * 0.12, 0)
+          leaves.add(leaf)
+        }
+
+        obstacles.push({ type: 'cylinder', x, z: plantZ, radius: 0.38 })
+      }
+
+      const plantX = seatW / 2 + 0.7
+      addPlant(-plantX)
+      addPlant(plantX)
+
+      // South wall: PLANT – BENCH – DOOR – BENCH – PLANT
+      {
+        const innerSouthZ = halfL - wallThickness / 2
+        const benchZSouth = innerSouthZ - 0.42
+        const plantZSouth = innerSouthZ - 0.38
+
+        const doorW = 1.25
+        const doorHalf = doorW / 2
+        const benchGap = 0.6
+
+        const maxBenchCenterX = halfW - seatW / 2 - 0.35
+        const benchCenterX = clamp(doorHalf + seatW / 2 + benchGap, 0.9, maxBenchCenterX)
+
+        const maxPlantX = halfW - 0.6
+        const plantXSouth = clamp(benchCenterX + seatW / 2 + 0.7, 1.2, maxPlantX)
+
+        function addBenchSouth(x) {
+          const b = new THREE.Group()
+          b.name = 'bench-south'
+          b.position.set(x, 0, benchZSouth)
+          // Face into the room (toward north / -Z)
+          b.rotation.y = Math.PI
+          decoSouth.add(b)
+
+          const s = new THREE.Mesh(seatGeo, woodMat)
+          s.position.set(0, seatY, 0)
+          b.add(s)
+
+          const bk = new THREE.Mesh(backGeo, woodMat)
+          bk.position.set(0, seatY + backH / 2 - 0.02, -(seatD / 2 - backD / 2))
+          b.add(bk)
+
+          function addLegToBench(lx, lz) {
+            const leg = new THREE.Mesh(legGeo, metalMat)
+            leg.position.set(lx, legH / 2, lz)
+            b.add(leg)
+          }
+          addLegToBench(-legX, -legZ)
+          addLegToBench(legX, -legZ)
+          addLegToBench(-legX, legZ)
+          addLegToBench(legX, legZ)
+
+          obstacles.push({ type: 'cylinder', x: x - seatW * 0.28, z: benchZSouth + 0.02, radius: 0.5 })
+          obstacles.push({ type: 'cylinder', x: x + seatW * 0.28, z: benchZSouth + 0.02, radius: 0.5 })
+        }
+
+        function addPlantSouth(x) {
+          const plant = new THREE.Group()
+          plant.name = 'plant-south'
+          plant.position.set(x, 0, plantZSouth)
+          decoSouth.add(plant)
+
+          const pot = new THREE.Mesh(potGeo, potMat)
+          pot.position.set(0, potH / 2, 0)
+          plant.add(pot)
+
+          const soil = new THREE.Mesh(soilGeo, potMat)
+          soil.position.set(0, potH - 0.02, 0)
+          plant.add(soil)
+
+          const leaves = new THREE.Group()
+          leaves.position.set(0, potH + 0.05, 0)
+          plant.add(leaves)
+
+          const leafCount = 10
+          for (let i = 0; i < leafCount; i += 1) {
+            const leaf = new THREE.Mesh(leafGeo, leafMat)
+            const a = (i / leafCount) * Math.PI * 2
+            leaf.rotation.y = a
+            leaf.rotation.x = -0.25 - Math.random() * 0.25
+            leaf.position.set(0, 0.25 + Math.random() * 0.12, 0)
+            leaves.add(leaf)
+          }
+
+          obstacles.push({ type: 'cylinder', x, z: plantZSouth, radius: 0.38 })
+        }
+
+        addPlantSouth(-plantXSouth)
+        addBenchSouth(-benchCenterX)
+        addBenchSouth(benchCenterX)
+        addPlantSouth(plantXSouth)
+      }
+    }
+
     const wallPanelDepth = 0.06
     const wallBackMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.95, metalness: 0.0 })
     disposables.push(wallBackMat)
