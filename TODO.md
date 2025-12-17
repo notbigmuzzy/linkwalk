@@ -62,7 +62,7 @@ Goal: Desktop-only web app (Three.js) where each “room” is generated from a 
 
 **Definition of done:** Rooms spawn with consistent layout and reserved spaces.
 
---- -->
+--- 
 
 ## Milestone 3 — Wikipedia Data (Day 3–4)
 - [ ] Implement Wikipedia fetch (REST summary)
@@ -80,7 +80,7 @@ Goal: Desktop-only web app (Three.js) where each “room” is generated from a 
 
 **Definition of done:** Given a title string, you can fetch and obtain a stable `RoomData` object.
 
----
+--- -->
 
 ## Milestone 4 — “Article Room” Rendering (Day 4–6)
 - [ ] Spawn room shell immediately (no blank screen)

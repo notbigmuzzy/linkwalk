@@ -138,10 +138,10 @@ function loadAndEnterGallery(title, { pushHistory = false, spawn, updateUrlState
     })
 }
 
-function enterEntryway({ push = false } = {}) {
+function enterlobby({ push = false } = {}) {
   setUrlAndState(null, { push })
   if (engineApi && typeof engineApi.setRoom === 'function') {
-    engineApi.setRoom({ roomMode: 'entryway', spawn: { type: 'fromWall', wall: 'south' } })
+    engineApi.setRoom({ roomMode: 'lobby', spawn: { type: 'fromWall', wall: 'south' } })
   }
 }
 
@@ -151,16 +151,16 @@ function goBackInApp() {
     window.history.back()
     return
   }
-  enterEntryway({ push: false })
+  enterlobby({ push: false })
   setLoading(false)
 }
 
 engineApi = startYourEngines({
   canvas,
   roomSeedTitle: initialTitle ?? 'Lobby',
-  roomMode: initialTitle ? 'gallery' : 'entryway',
+  roomMode: initialTitle ? 'gallery' : 'lobby',
   roomSpawn: initialTitle ? undefined : { type: 'fromWall', wall: 'south' },
-  entrywayCategories: ['Culture', 'Geography', 'Health', 'History', 'Nature', 'People', 'Philosophy', 'Religion', 'Society', 'Technology'],
+  lobbyCategories: ['Culture', 'Geography', 'Health', 'History', 'Nature', 'People', 'Philosophy', 'Religion', 'Society', 'Technology'],
   onFps(fps) {
     fpsEl.textContent = `${fps.toFixed(0)} FPS`
   },
@@ -194,8 +194,8 @@ engineApi = startYourEngines({
       return
     }
 
-    if (door && door.target === 'entryway') {
-      enterEntryway({ push: true })
+    if (door && door.target === 'lobby') {
+      enterlobby({ push: true })
       return
     }
 
@@ -225,7 +225,7 @@ window.addEventListener('popstate', (e) => {
     return
   }
 
-  enterEntryway({ push: false })
+  enterlobby({ push: false })
 })
 
 if (initialTitle) {

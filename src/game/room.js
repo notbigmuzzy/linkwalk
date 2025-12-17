@@ -3,8 +3,6 @@ import { clamp, makeOutlineRect, roundTo } from './helper.js'
 
 function configureGalleryTexture(tex) {
   if (!tex) return tex
-  // Mipmaps and trilinear filtering can cause noticeable hitches when large images finish loading.
-  // For this gallery use-case (mostly facing the camera), linear sampling is usually fine.
   tex.generateMipmaps = false
   tex.minFilter = THREE.LinearFilter
   tex.magFilter = THREE.LinearFilter
@@ -12,34 +10,41 @@ function configureGalleryTexture(tex) {
   return tex
 }
 
-export function buildRoom({ width, length, height, wallThickness = 0.2, mode = 'gallery', entryway = {}, gallery = {} }) {
+export function buildRoom({ width, length, height, wallThickness = 0.2, mode = 'gallery', lobby = {}, gallery = {} }) {
   const group = new THREE.Group()
   group.name = 'room'
 
   const disposables = []
+  let palette = {}
 
-  const palette =
-    mode === 'entryway'
-      ? {
-          floor: 0x1c221f,
-          ceiling: 0xa7c9b6,
-          wall: 0x5f786c,
-          keyLight: 0x78ffb1,
-          keyLightIntensity: 1.9,
-          ambientIntensity: 0.9,
-          ceilingLightColor: 0xf4fff8,
-          ceilingLightIntensity: 1.5,
-        }
-      : {
-          floor: 0x2a2a2f,
-          ceiling: 0x3a3a41,
-          wall: 0x4a4a52,
-          keyLight: 0xff66cc,
-          keyLightIntensity: 1.6,
-          ambientIntensity: 0.95,
-          ceilingLightColor: 0xffffff,
-          ceilingLightIntensity: 0.9,
-        }
+  switch (mode) {
+	case 'lobby':
+		palette = {
+			floor: 0x1c221f,
+			ceiling: 0xa7c9b6,
+			wall: 0x5f786c,
+			keyLight: 0x78ffb1,
+			keyLightIntensity: 1.9,
+			ambientIntensity: 0.9,
+			ceilingLightColor: 0xf4fff8,
+			ceilingLightIntensity: 1.5,
+		}
+		break;
+	case 'gallery':
+		palette = {
+			floor: 0x2a2a2f,
+			ceiling: 0x3a3a41,
+			wall: 0x4a4a52,
+			keyLight: 0xff66cc,
+			keyLightIntensity: 1.6,
+			ambientIntensity: 0.95,
+			ceilingLightColor: 0xffffff,
+			ceilingLightIntensity: 0.9,
+		}
+		break;
+	default:
+  }
+
 
   const ambient = new THREE.AmbientLight(0xffffff, palette.ambientIntensity)
   group.add(ambient)
@@ -402,9 +407,9 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     disposables.push(...outlineDisposables)
   }
 
-  if (mode === 'entryway') {
-    const categories = Array.isArray(entryway.categories) && entryway.categories.length > 0
-      ? entryway.categories
+  if (mode === 'lobby') {
+    const categories = Array.isArray(lobby.categories) && lobby.categories.length > 0
+      ? lobby.categories
       : ['Category 1', 'Category 2', 'Category 3', 'Category 4', 'Category 5', 'Category 6', 'Category 7', 'Category 8', 'Category 9', 'Category 10']
 
     const panelW = roundTo(clamp(width * 0.72, 2.4, 6.2), 0.05)
@@ -804,7 +809,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     }
   }
 
-  if (mode === 'entryway') {
+  if (mode === 'lobby') {
     addGridWallSlots('east')
     addGridWallSlots('west')
   } else {
@@ -832,7 +837,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     addGallerySideWallSlots('west')
   }
 
-  if (mode !== 'entryway') {
+  if (mode !== 'lobby') {
     // Simple in-room decoration: PLANT – BENCH – PLANT on the north wall.
     {
       const innerNorthZ = -halfL + wallThickness / 2

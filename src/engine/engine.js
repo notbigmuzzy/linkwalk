@@ -1,33 +1,6 @@
 import * as THREE from 'three'
 import { buildRoom } from '../game/room.js'
-
-function hashStringToUint32(str) {
-  let h = 2166136261
-  for (let i = 0; i < str.length; i += 1) {
-    h ^= str.charCodeAt(i)
-    h = Math.imul(h, 16777619)
-  }
-  return h >>> 0
-}
-
-function mulberry32(seed) {
-  let a = seed >>> 0
-  return function rand() {
-    a |= 0
-    a = (a + 0x6d2b79f5) | 0
-    let t = Math.imul(a ^ (a >>> 15), 1 | a)
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
-
-function roundTo(value, step) {
-  return Math.round(value / step) * step
-}
-
-function randRange(rand, min, max) {
-  return min + (max - min) * rand()
-}
+import { hashStringToUint32, mulberry32, randRange, roundTo } from '../game/helper.js'
 
 export function startYourEngines({
   canvas,
@@ -37,7 +10,7 @@ export function startYourEngines({
   onDoorTrigger,
   roomSeedTitle = 'Lobby',
   roomMode = 'gallery',
-  entrywayCategories,
+  lobbyCategories,
   roomSpawn,
   galleryRelatedTitles,
   galleryTitle,
@@ -328,7 +301,7 @@ export function startYourEngines({
     let roomLength = 18
     let roomHeight = 4
 
-    if (mode !== 'entryway') {
+    if (mode !== 'lobby') {
       const seed = hashStringToUint32(String(seedTitle))
       const rand = mulberry32(seed)
 
@@ -343,7 +316,7 @@ export function startYourEngines({
       height: roomHeight,
       wallThickness,
       mode,
-      entryway: {
+      lobby: {
         categories,
       },
       gallery: {
@@ -382,7 +355,7 @@ export function startYourEngines({
   loadRoom({
     mode: roomMode,
     seedTitle: roomSeedTitle,
-    categories: entrywayCategories,
+    categories: lobbyCategories,
     galleryRelatedTitles,
     galleryTitle,
     galleryDescription,
@@ -654,7 +627,7 @@ export function startYourEngines({
     setRoom({
       roomMode: nextMode,
       roomSeedTitle: nextSeedTitle,
-      entrywayCategories: nextCategories,
+      lobbyCategories: nextCategories,
       galleryEntryWall,
       galleryRelatedTitles: nextRelatedTitles,
       galleryTitle: nextGalleryTitle,
@@ -676,7 +649,7 @@ export function startYourEngines({
       loadRoom({
         mode: typeof nextMode === 'string' ? nextMode : roomMode,
         seedTitle: typeof nextSeedTitle === 'string' ? nextSeedTitle : roomSeedTitle,
-        categories: Array.isArray(nextCategories) ? nextCategories : entrywayCategories,
+        categories: Array.isArray(nextCategories) ? nextCategories : lobbyCategories,
         galleryEntryWall,
         galleryRelatedTitles: Array.isArray(nextRelatedTitles) ? nextRelatedTitles : galleryRelatedTitles,
         galleryTitle: hasGalleryTitle ? (typeof nextGalleryTitle === 'string' ? nextGalleryTitle : null) : galleryTitle,
