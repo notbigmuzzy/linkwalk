@@ -8,8 +8,9 @@ https://notbigmuzzy.github.io/linkwalk/
 
 ---
 
-<img width="1821" height="910" alt="image" src="https://github.com/user-attachments/assets/b5063ae0-a125-44b6-9d88-c4d5adb48ce6" />
+<img width="1324" height="725" alt="image" src="https://github.com/user-attachments/assets/4f98a5b2-32c6-469c-9675-22f35c025ba2" />
+
 
 ---
 
-<img width="1789" height="849" alt="image" src="https://github.com/user-attachments/assets/ecb4ddc8-95b8-4f88-b5bc-ea45b72a10aa" />
+<img width="1313" height="747" alt="image" src="https://github.com/user-attachments/assets/07d84cfb-5337-4edb-853e-a79ced9b3fcd" />
