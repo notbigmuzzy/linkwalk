@@ -265,7 +265,7 @@ export function startYourEngines({
 
     if (spawn.type === 'fromWall') {
       const wall = spawn.wall
-      const margin = 1.25
+      const margin = 1.5
 
       let x = 0
       let z = 0

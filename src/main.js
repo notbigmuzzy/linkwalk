@@ -257,7 +257,8 @@ engineApi = startYourEngines({
   canvas,
   roomSeedTitle: initialTitle ?? 'Lobby',
   roomMode: initialTitle ? 'gallery' : 'lobby',
-  roomSpawn: initialTitle ? undefined : { type: 'fromWall', wall: 'south' },
+  // Keep spawn consistent: whether entering from a door or loading via URL, start from south wall.
+  roomSpawn: { type: 'fromWall', wall: 'south' },
   lobbyCategories: ['Culture', 'Geography', 'Animals', 'History', 'Nature', 'Humanities', 'Philosophy', 'Cosmology', 'Society', 'Technology', 'Meteorology', 'Art' ],
   onFps(fps) {
     fpsEl.textContent = `${fps.toFixed(0)} FPS`
@@ -332,5 +333,9 @@ window.addEventListener('popstate', (e) => {
 })
 
 if (initialTitle) {
-  loadAndEnterGallery(initialTitle, { pushHistory: false, updateUrlState: false })
+  loadAndEnterGallery(initialTitle, {
+    pushHistory: false,
+    updateUrlState: false,
+    spawn: { type: 'fromWall', wall: 'south' },
+  })
 }
