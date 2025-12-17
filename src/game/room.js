@@ -249,7 +249,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       const plaqueH = 0.24
       const plaqueCenterY = Math.min(h - 0.25, 1.4)
       const plaqueGeo = new THREE.PlaneGeometry(plaqueW, plaqueH)
-      const plaqueMat = new THREE.MeshStandardMaterial({ color: 0x12161b, roughness: 0.9, metalness: 0.0 })
+      const plaqueMat = new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0.0 })
       const plaque = new THREE.Mesh(plaqueGeo, plaqueMat)
       plaque.position.set(0, plaqueCenterY, -0.015)
       doorFrameGroup.add(plaque)
@@ -260,6 +260,8 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       canvas.height = 128
       const ctx = canvas.getContext('2d')
       if (ctx) {
+        const plaqueBg = `#${new THREE.Color(color).getHexString()}`
+
         function wrapLines(text, maxWidth, maxLines) {
           const words = String(text).trim().split(/\s+/g)
           const lines = []
@@ -313,14 +315,14 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
         }
 
         ctx.clearRect(0, 0, canvas.width, canvas.height)
-        ctx.fillStyle = '#171c22'
+  		ctx.fillStyle = plaqueBg
         ctx.fillRect(0, 0, canvas.width, canvas.height)
 
         const padX = 18
         const maxLines = 3
         let fontPx = 56
         ctx.font = `700 ${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
-        ctx.fillStyle = '#dfffe9'
+        ctx.fillStyle = '#000000'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
 
@@ -1229,17 +1231,19 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       const plaqueW = slot.width * 0.92
       const plaqueH = Math.min(0.28, slot.height * 0.22)
 
+      const gapFromPhoto = 0.04
+
       const { normal, frontOffset } = slotFrontOffset(slot)
 
       // Physical backplate for the caption plaque.
-      const backCenter = new THREE.Vector3(slot.center.x, slot.center.y - slot.height / 2 - plaqueH / 2 - 0.08, slot.center.z)
+      const backCenter = new THREE.Vector3(slot.center.x, slot.center.y - slot.height / 2 - plaqueH / 2 - gapFromPhoto, slot.center.z)
       addBackplate({ center: backCenter, normal, w: plaqueW, h: plaqueH })
 
       const geo = new THREE.PlaneGeometry(plaqueW, plaqueH)
       const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true })
       const mesh = new THREE.Mesh(geo, mat)
 
-      const y = slot.center.y - slot.height / 2 - plaqueH / 2 - 0.08
+      const y = slot.center.y - slot.height / 2 - plaqueH / 2 - gapFromPhoto
       mesh.position.set(slot.center.x, y, slot.center.z)
       mesh.position.add(normal.clone().multiplyScalar(frontOffset + 0.004))
       mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal)

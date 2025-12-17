@@ -59,6 +59,7 @@ export function startYourEngines({
   let doorHitMeshes = []
   let roomObstacles = []
   let pickableMeshes = []
+  let interactionLocked = false
 
   const holdAnchor = new THREE.Object3D()
   holdAnchor.position.set(0, 0, -0.6)
@@ -432,6 +433,7 @@ export function startYourEngines({
   function onMouseDown(e) {
     if (e.button !== 0) return
     if (!isPointerLocked()) return
+    if (interactionLocked) return
 
     flashlight.visible = true
     if (flashlightTimeoutId) window.clearTimeout(flashlightTimeoutId)
@@ -624,6 +626,9 @@ export function startYourEngines({
   rafId = window.requestAnimationFrame(frame)
 
   return {
+    setInteractionLocked(locked) {
+      interactionLocked = Boolean(locked)
+    },
     setRoom({
       roomMode: nextMode,
       roomSeedTitle: nextSeedTitle,

@@ -65,6 +65,9 @@ let activeNavId = 0
 
 function setLoading(loading) {
   crosshairEl.classList.toggle('loading', Boolean(loading))
+  if (engineApi && typeof engineApi.setInteractionLocked === 'function') {
+    engineApi.setInteractionLocked(Boolean(loading))
+  }
 }
 
 let historyIndex = 0
@@ -99,8 +102,6 @@ function loadAndEnterGallery(title, { pushHistory = false, spawn, updateUrlState
   fetchGalleryRoomData(title, { signal: wikiAbortController.signal })
     .then((data) => {
       if (navId !== activeNavId) return
-
-      console.log('[linkwalk] GalleryData', data)
 
       const relatedTitles = Array.isArray(data?.seeAlso)
         ? data.seeAlso
