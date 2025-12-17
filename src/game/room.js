@@ -119,6 +119,37 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     west: { center: new THREE.Vector3(-halfW, height / 2, 0), normal: new THREE.Vector3(1, 0, 0), wallWidth: length, wallHeight: height },
   }
 
+  function makeNoPhotoTexture({ size = 1024, title = 'NO PHOTO', subtitle = 'No image available' } = {}) {
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    const ctx = canvas.getContext('2d')
+    if (ctx) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.fillStyle = '#0d1015'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)'
+      ctx.lineWidth = Math.max(6, Math.floor(size * 0.01))
+      ctx.strokeRect(24, 24, canvas.width - 48, canvas.height - 48)
+
+      ctx.fillStyle = 'rgba(255,255,255,0.9)'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.font = `800 ${Math.floor(size * 0.11)}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
+      ctx.fillText(String(title), canvas.width / 2, canvas.height / 2 - Math.floor(size * 0.01))
+
+      ctx.font = `600 ${Math.floor(size * 0.045)}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
+      ctx.fillStyle = 'rgba(156, 144, 30, 0.74)'
+      ctx.fillText(String(subtitle), canvas.width / 2, canvas.height / 2 + Math.floor(size * 0.09))
+    }
+
+    const tex = new THREE.CanvasTexture(canvas)
+    tex.colorSpace = THREE.SRGBColorSpace
+    tex.needsUpdate = true
+    return tex
+  }
+
   function addSlot({ id, wall, kind, w, h, y, u = 0, color }) {
     const wallInfo = walls[wall]
     const wallRight = wall === 'east' || wall === 'west' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0)
@@ -473,37 +504,32 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     group.add(img)
     disposables.push(imgGeo, imgMat)
 
-    function applyNoPhoto() {
-      const canvas = document.createElement('canvas')
-      canvas.width = 1024
-      canvas.height = 1024
-      const ctx = canvas.getContext('2d')
-      if (ctx) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height)
-        ctx.fillStyle = '#0d1015'
-        ctx.fillRect(0, 0, canvas.width, canvas.height)
+    function fitMeshToTextureAspect(mesh, { baseW, baseH, tex }) {
+      if (!mesh || !tex) return
+      const iw = tex?.image?.width
+      const ih = tex?.image?.height
+      if (!(typeof iw === 'number' && typeof ih === 'number' && iw > 0 && ih > 0)) return
 
-        ctx.strokeStyle = 'rgba(255,255,255,0.18)'
-        ctx.lineWidth = 10
-        ctx.strokeRect(24, 24, canvas.width - 48, canvas.height - 48)
+      const imageAspect = iw / ih
+      const frameAspect = baseW / baseH
 
-        ctx.fillStyle = 'rgba(255,255,255,0.9)'
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'middle'
-        ctx.font = '800 110px system-ui, -apple-system, Segoe UI, Roboto, Arial'
-        ctx.fillText('NO PHOTO', canvas.width / 2, canvas.height / 2 - 10)
-
-        ctx.font = '600 44px system-ui, -apple-system, Segoe UI, Roboto, Arial'
-        ctx.fillStyle = 'rgba(156, 144, 30, 0.74)'
-        ctx.fillText('No image available', canvas.width / 2, canvas.height / 2 + 90)
+      let sx = 1
+      let sy = 1
+      if (imageAspect > frameAspect) {
+        sy = frameAspect / imageAspect
+      } else {
+        sx = imageAspect / frameAspect
       }
 
-      const tex = new THREE.CanvasTexture(canvas)
-      tex.colorSpace = THREE.SRGBColorSpace
-      tex.needsUpdate = true
+      mesh.scale.set(sx, sy, 1)
+    }
+
+    function applyNoPhoto() {
+      const tex = makeNoPhotoTexture({ size: 1024 })
       imgMat.map = tex
       imgMat.color.setHex(0xffffff)
       imgMat.needsUpdate = true
+      fitMeshToTextureAspect(img, { baseW: panelW, baseH: panelH, tex })
       disposables.push(tex)
     }
 
@@ -518,6 +544,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
           imgMat.map = tex
           imgMat.color.setHex(0xffffff)
           imgMat.needsUpdate = true
+          fitMeshToTextureAspect(img, { baseW: panelW, baseH: panelH, tex })
           disposables.push(tex)
         },
         undefined,
@@ -650,30 +677,322 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
   const stdPlaqueY = height * 0.17
   const stdPlaqueW = roundTo(clamp(stdFrameW, 0.5, 1.05), 0.05)
 
-  function addGridWallSlots(wall) {
-    const cols = 4
+  function addGridWallSlots(wall, { cols = 4, withPlaques = true, frameScale = 1, gapU = 0.2 } = {}) {
     const rows = 1
-    const gapU = 0.2
-    const totalW = cols * stdFrameW + (cols - 1) * gapU
-    const uStart = -totalW / 2 + stdFrameW / 2
+    const frameW = stdFrameW * frameScale
+    const frameH = stdFrameH * frameScale
+    const totalW = cols * frameW + (cols - 1) * gapU
+    const uStart = -totalW / 2 + frameW / 2
 
     let idx = 0
     for (let r = 0; r < rows; r += 1) {
       for (let c = 0; c < cols; c += 1) {
-        const u = uStart + c * (stdFrameW + gapU)
+        const u = uStart + c * (frameW + gapU)
         const y = stdFrameY
 
         const frameId = `${wall}-frame-${idx}`
-        addSlot({ id: frameId, wall, kind: 'frame', w: stdFrameW, h: stdFrameH, y, u, color: 0xffffff })
-        addSlot({ id: `${wall}-plaque-${idx}`, wall, kind: 'plaque', w: stdPlaqueW, h: stdPlaqueH, y: stdPlaqueY, u, color: 0xffff88 })
+        addSlot({ id: frameId, wall, kind: 'frame', w: frameW, h: frameH, y, u, color: 0xffffff })
+        if (withPlaques) {
+          addSlot({ id: `${wall}-plaque-${idx}`, wall, kind: 'plaque', w: stdPlaqueW, h: stdPlaqueH, y: stdPlaqueY, u, color: 0xffff88 })
+        }
 
         idx += 1
       }
     }
   }
 
-  addGridWallSlots('east')
-  addGridWallSlots('west')
+  if (mode === 'entryway') {
+    addGridWallSlots('east')
+    addGridWallSlots('west')
+  } else {
+    // Gallery: photo / text / photo on each side wall; no extra empty 4th frame.
+    addGridWallSlots('east', { cols: 3, withPlaques: false, frameScale: 1.5, gapU: 0.4 })
+    addGridWallSlots('west', { cols: 3, withPlaques: false, frameScale: 1.5, gapU: 0.4 })
+  }
+
+  if (mode !== 'entryway') {
+    const photos = Array.isArray(gallery.photos)
+      ? gallery.photos
+          .map((u) => (typeof u === 'string' ? u.trim() : ''))
+          .filter(Boolean)
+      : []
+
+    const relatedTitles = Array.isArray(gallery.relatedTitles)
+      ? gallery.relatedTitles
+          .map((t) => (typeof t === 'string' ? t.trim() : ''))
+          .filter(Boolean)
+      : []
+
+    const description = typeof gallery.description === 'string' ? gallery.description.trim() : ''
+
+    function selectThreeFrameSlots(wall) {
+      const frames = slots.filter((s) => s.wall === wall && s.kind === 'frame')
+      return frames.slice(0, 3)
+    }
+
+    function placePhotoInSlot(slot, url, { placeholderTitle = 'NO PHOTO' } = {}) {
+      if (!slot) return
+
+      const baseW = slot.width * 0.96
+      const baseH = slot.height * 0.96
+
+      const geo = new THREE.PlaneGeometry(1, 1)
+      const mat = new THREE.MeshBasicMaterial({ color: 0xffffff })
+      const mesh = new THREE.Mesh(geo, mat)
+      mesh.scale.set(baseW, baseH, 1)
+
+      const normal = slot.normal.clone().normalize()
+      mesh.position.copy(slot.center).add(normal.clone().multiplyScalar(0.012))
+      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal)
+
+      group.add(mesh)
+      disposables.push(geo, mat)
+
+      function applyTexture(tex) {
+        if (!tex) return
+        tex.colorSpace = THREE.SRGBColorSpace
+        tex.needsUpdate = true
+        mat.map = tex
+        mat.color.setHex(0xffffff)
+        mat.needsUpdate = true
+
+        const iw = tex?.image?.width
+        const ih = tex?.image?.height
+        if (typeof iw === 'number' && typeof ih === 'number' && iw > 0 && ih > 0) {
+          const imageAspect = iw / ih
+          const frameAspect = baseW / baseH
+          let sx = 1
+          let sy = 1
+          if (imageAspect > frameAspect) {
+            sy = frameAspect / imageAspect
+          } else {
+            sx = imageAspect / frameAspect
+          }
+          mesh.scale.set(baseW * sx, baseH * sy, 1)
+        }
+
+        disposables.push(tex)
+      }
+
+      if (url) {
+        const loader = new THREE.TextureLoader()
+        if (typeof loader.setCrossOrigin === 'function') loader.setCrossOrigin('anonymous')
+        loader.load(
+          url,
+          (tex) => applyTexture(tex),
+          undefined,
+          (err) => {
+            console.warn('[linkwalk] Failed to load wall photo', url, err)
+            applyTexture(makeNoPhotoTexture({ size: 1024, title: placeholderTitle }))
+          }
+        )
+      } else {
+        applyTexture(makeNoPhotoTexture({ size: 1024, title: placeholderTitle }))
+      }
+    }
+
+    function labelFromImageUrl(url) {
+      const raw = typeof url === 'string' ? url.trim() : ''
+      if (!raw) return ''
+      try {
+        const file = raw.split('/').pop() ?? ''
+        const decoded = decodeURIComponent(file)
+        const withoutQuery = decoded.split('?')[0] ?? decoded
+        const withoutExt = withoutQuery.replace(/\.(jpg|jpeg|png|webp|gif)$/i, '')
+        const cleaned = withoutExt.replace(/^File:/i, '').replace(/_/g, ' ').trim()
+        return cleaned
+      } catch {
+        return ''
+      }
+    }
+
+    function makePlaqueTexture({ size = 1024, text } = {}) {
+      const canvas = document.createElement('canvas')
+      canvas.width = size
+      canvas.height = Math.floor(size * 0.33)
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        ctx.fillStyle = '#12161b'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+        ctx.strokeStyle = 'rgba(255,255,255,0.18)'
+        ctx.lineWidth = Math.max(6, Math.floor(size * 0.008))
+        ctx.strokeRect(18, 18, canvas.width - 36, canvas.height - 36)
+
+        const safeText = String(text || '').trim() || 'Untitled'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillStyle = 'rgba(255,255,255,0.92)'
+
+        const maxWidth = canvas.width * 0.86
+        let fontSize = Math.floor(size * 0.06)
+        ctx.font = `700 ${fontSize}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
+        while (fontSize > 18 && ctx.measureText(safeText).width > maxWidth) {
+          fontSize -= 2
+          ctx.font = `700 ${fontSize}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
+        }
+
+        function ellipsize(t) {
+          const ell = '…'
+          let out = String(t)
+          while (out.length > 0 && ctx.measureText(out + ell).width > maxWidth) out = out.slice(0, -1)
+          return out.length ? out + ell : ell
+        }
+
+        const rendered = ctx.measureText(safeText).width > maxWidth ? ellipsize(safeText) : safeText
+        ctx.fillText(rendered, canvas.width / 2, canvas.height / 2)
+      }
+
+      const tex = new THREE.CanvasTexture(canvas)
+      tex.colorSpace = THREE.SRGBColorSpace
+      tex.needsUpdate = true
+      return tex
+    }
+
+    function placeCaptionUnderSlot(slot, caption) {
+      if (!slot) return
+
+      const plaqueW = slot.width * 0.92
+      const plaqueH = Math.min(0.28, slot.height * 0.22)
+      const geo = new THREE.PlaneGeometry(plaqueW, plaqueH)
+      const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true })
+      const mesh = new THREE.Mesh(geo, mat)
+
+      const normal = slot.normal.clone().normalize()
+      const y = slot.center.y - slot.height / 2 - plaqueH / 2 - 0.08
+      mesh.position.set(slot.center.x, y, slot.center.z)
+      mesh.position.add(normal.clone().multiplyScalar(0.012))
+      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal)
+
+      group.add(mesh)
+      disposables.push(geo, mat)
+
+      const tex = makePlaqueTexture({ size: 1024, text: caption })
+      mat.map = tex
+      mat.color.setHex(0xffffff)
+      mat.needsUpdate = true
+      disposables.push(tex)
+    }
+
+    function placePhotoWithCaption(slot, url) {
+      placePhotoInSlot(slot, url, { placeholderTitle: 'NO PHOTO' })
+      const label = labelFromImageUrl(url)
+      placeCaptionUnderSlot(slot, label || (url ? 'Untitled' : 'No photo'))
+    }
+
+    function makeWallTextTexture({ size = 1024, title, text } = {}) {
+      const canvas = document.createElement('canvas')
+      canvas.width = size
+      canvas.height = size
+      const ctx = canvas.getContext('2d')
+
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        ctx.fillStyle = 'rgba(0,0,0,0.68)'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+        ctx.strokeStyle = 'rgba(255,255,255,0.16)'
+        ctx.lineWidth = Math.max(6, Math.floor(size * 0.01))
+        ctx.strokeRect(24, 24, canvas.width - 48, canvas.height - 48)
+
+        const pad = 64
+        let y = pad + 10
+
+        const safeTitle = String(title || 'Wikipedia')
+        ctx.fillStyle = 'rgba(223,255,233,0.96)'
+        ctx.textAlign = 'left'
+        ctx.textBaseline = 'alphabetic'
+        ctx.font = `800 ${Math.floor(size * 0.075)}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
+        ctx.fillText(safeTitle, pad, y)
+        y += Math.floor(size * 0.095)
+
+        ctx.font = `600 ${Math.floor(size * 0.045)}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
+        ctx.fillStyle = 'rgba(255,255,255,0.9)'
+
+        function wrapText(text, maxWidth) {
+          const words = String(text).trim().split(/\s+/g)
+          const out = []
+          let cur = ''
+          for (const w of words) {
+            const next = cur ? `${cur} ${w}` : w
+            if (ctx.measureText(next).width <= maxWidth) {
+              cur = next
+              continue
+            }
+            if (cur) out.push(cur)
+            cur = w
+          }
+          if (cur) out.push(cur)
+          return out
+        }
+
+        const maxWidth = canvas.width - pad * 2
+        const safeText = String(text || '').trim()
+        const wrapped = safeText ? wrapText(safeText, maxWidth) : ['No description available']
+        const lineHeight = Math.floor(size * 0.062)
+
+        for (const line of wrapped.slice(0, 10)) {
+          ctx.fillText(line, pad, y)
+          y += lineHeight
+          if (y > canvas.height - pad) break
+        }
+      }
+
+      const tex = new THREE.CanvasTexture(canvas)
+      tex.colorSpace = THREE.SRGBColorSpace
+      tex.needsUpdate = true
+      return tex
+    }
+
+    function placeTextInSlot(slot, { title, text }) {
+      if (!slot) return
+
+      const geo = new THREE.PlaneGeometry(slot.width * 0.96, slot.height * 0.96)
+      const mat = new THREE.MeshBasicMaterial({ color: 0xffffff })
+      const mesh = new THREE.Mesh(geo, mat)
+
+      const normal = slot.normal.clone().normalize()
+      mesh.position.copy(slot.center).add(normal.clone().multiplyScalar(0.012))
+      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal)
+
+      group.add(mesh)
+      disposables.push(geo, mat)
+
+      const tex = makeWallTextTexture({ size: 1024, title, text })
+      mat.map = tex
+      mat.color.setHex(0xffffff)
+      mat.needsUpdate = true
+      disposables.push(tex)
+    }
+
+    const westSlots = selectThreeFrameSlots('west')
+    const eastSlots = selectThreeFrameSlots('east')
+
+    const galleryTitle = typeof gallery.title === 'string' ? gallery.title.trim() : ''
+
+    const maxExcerptLen = 520
+    const excerptA = description ? description.slice(0, maxExcerptLen).trimEnd() : ''
+    const excerptB = description ? description.slice(maxExcerptLen, maxExcerptLen * 2).trimStart() : ''
+    const westText = excerptA ? (description.length > maxExcerptLen ? `${excerptA}…` : excerptA) : ''
+    const eastText = excerptB ? (description.length > maxExcerptLen * 2 ? `${excerptB}…` : excerptB) : ''
+
+    // West wall: photo / text / photo
+    placePhotoWithCaption(westSlots[0], photos[0] ?? null)
+    placePhotoWithCaption(westSlots[2], photos[1] ?? null)
+    {
+      placeTextInSlot(westSlots[1], { title: galleryTitle || 'Wikipedia', text: westText || description || 'No description available' })
+    }
+
+    // East wall: photo / text / photo
+    placePhotoWithCaption(eastSlots[0], photos[2] ?? null)
+    placePhotoWithCaption(eastSlots[2], photos[3] ?? null)
+    {
+      const fallback = description || 'No description available'
+      const text = eastText || (description.length > maxExcerptLen ? fallback : '')
+      placeTextInSlot(eastSlots[1], { title: galleryTitle || 'Wikipedia', text: text || fallback })
+    }
+  }
 
   group.add(markers)
 

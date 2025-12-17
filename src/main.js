@@ -122,6 +122,7 @@ function loadAndEnterGallery(title, { pushHistory = false, spawn, updateUrlState
           galleryTitle: typeof data?.room?.title === 'string' ? data.room.title : title,
           galleryDescription: typeof data?.room?.extract === 'string' ? data.room.extract : '',
           galleryMainThumbnailUrl: typeof data?.mainThumbnailUrl === 'string' ? data.mainThumbnailUrl : null,
+          galleryPhotos: Array.isArray(data?.photos) ? data.photos : [],
           spawn,
         })
       }

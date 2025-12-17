@@ -43,6 +43,7 @@ export function startYourEngines({
   galleryTitle,
   galleryDescription,
   galleryMainThumbnailUrl,
+  galleryPhotos,
 }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio ?? 1, 2))
@@ -152,6 +153,7 @@ export function startYourEngines({
     galleryTitle: nextGalleryTitle,
     galleryDescription: nextGalleryDescription,
     galleryMainThumbnailUrl: nextGalleryMainThumbnailUrl,
+    galleryPhotos: nextGalleryPhotos,
     spawn,
   }) {
     const wallThickness = 0.2
@@ -184,6 +186,7 @@ export function startYourEngines({
         title: nextGalleryTitle,
         description: nextGalleryDescription,
         mainThumbnailUrl: nextGalleryMainThumbnailUrl,
+        photos: nextGalleryPhotos,
       },
     })
 
@@ -214,6 +217,7 @@ export function startYourEngines({
     galleryTitle,
     galleryDescription,
     galleryMainThumbnailUrl,
+    galleryPhotos,
     spawn: roomSpawn,
   })
   const raycaster = new THREE.Raycaster()
@@ -468,6 +472,7 @@ export function startYourEngines({
       galleryTitle: nextGalleryTitle,
       galleryDescription: nextGalleryDescription,
       galleryMainThumbnailUrl: nextGalleryMainThumbnailUrl,
+      galleryPhotos: nextGalleryPhotos,
       spawn,
     } = {}) {
       const hasGalleryTitle = Object.prototype.hasOwnProperty.call(arguments.length ? arguments[0] ?? {} : {}, 'galleryTitle')
@@ -476,6 +481,7 @@ export function startYourEngines({
         arguments.length ? arguments[0] ?? {} : {},
         'galleryMainThumbnailUrl'
       )
+      const hasGalleryPhotos = Object.prototype.hasOwnProperty.call(arguments.length ? arguments[0] ?? {} : {}, 'galleryPhotos')
 
       loadRoom({
         mode: typeof nextMode === 'string' ? nextMode : roomMode,
@@ -490,6 +496,7 @@ export function startYourEngines({
             ? nextGalleryMainThumbnailUrl
             : null
           : galleryMainThumbnailUrl,
+        galleryPhotos: hasGalleryPhotos ? (Array.isArray(nextGalleryPhotos) ? nextGalleryPhotos : null) : galleryPhotos,
         spawn,
       })
     },
