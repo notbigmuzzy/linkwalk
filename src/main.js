@@ -259,7 +259,7 @@ engineApi = startYourEngines({
   roomMode: initialTitle ? 'gallery' : 'lobby',
   // Keep spawn consistent: whether entering from a door or loading via URL, start from south wall.
   roomSpawn: { type: 'fromWall', wall: 'south' },
-  lobbyCategories: ['Culture', 'Geography', 'Animals', 'History', 'Nature', 'Humanities', 'Philosophy', 'Cosmology', 'Society', 'Technology', 'Meteorology', 'Art' ],
+  lobbyCategories: ['Culture', 'Geography', 'Animals', 'History', 'Nature', 'Humanities', 'Philosophy', 'Cosmology', 'Society', 'Technology', 'Music', 'Painting' ],
   onFps(fps) {
     fpsEl.textContent = `${fps.toFixed(0)} FPS`
   },

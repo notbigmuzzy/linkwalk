@@ -1,6 +1,93 @@
 import * as THREE from 'three'
 import { makeOutlineRect } from '../../misc/helper.js'
 
+function hashStringToSeed(str) {
+  const s = String(str || '')
+  let h = 2166136261
+  for (let i = 0; i < s.length; i += 1) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return h >>> 0
+}
+
+function seededRand(seed) {
+  let s = (seed >>> 0) || 1
+  return function rand() {
+    s ^= s << 13
+    s ^= s >>> 17
+    s ^= s << 5
+    return (s >>> 0) / 0xffffffff
+  }
+}
+
+function makeMarbleTexture({ size = 512, seed = 1 } = {}) {
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+
+  const rand = seededRand(seed)
+
+  if (ctx) {
+    ctx.fillStyle = '#d8d8dc'
+    ctx.fillRect(0, 0, size, size)
+
+    // Soft cloudy variation.
+    const clouds = 340
+    for (let i = 0; i < clouds; i += 1) {
+      const x = rand() * size
+      const y = rand() * size
+      const r = (0.02 + rand() * 0.12) * size
+      const a = 0.025 + rand() * 0.05
+      const g = 205 + Math.floor((rand() - 0.5) * 30)
+      ctx.fillStyle = `rgba(${g},${g},${g},${a})`
+      ctx.beginPath()
+      ctx.arc(x, y, r, 0, Math.PI * 2)
+      ctx.fill()
+    }
+
+    // Veins.
+    ctx.globalAlpha = 0.6
+    ctx.strokeStyle = 'rgba(115,115,122,0.55)'
+    ctx.lineWidth = Math.max(1, Math.floor(size * 0.004))
+    const veins = 18
+    for (let i = 0; i < veins; i += 1) {
+      const y0 = rand() * size
+      const wobble = (rand() - 0.5) * size * 0.22
+      ctx.beginPath()
+      ctx.moveTo(-size * 0.1, y0)
+      ctx.bezierCurveTo(size * 0.25, y0 + wobble, size * 0.55, y0 - wobble, size * 1.1, y0 + wobble * 0.35)
+      ctx.stroke()
+
+      // A faint companion vein.
+      if (rand() < 0.55) {
+        ctx.globalAlpha = 0.28
+        ctx.beginPath()
+        ctx.moveTo(-size * 0.1, y0 + (rand() - 0.5) * size * 0.08)
+        ctx.bezierCurveTo(size * 0.25, y0 + wobble * 0.7, size * 0.55, y0 - wobble * 0.7, size * 1.1, y0 + wobble * 0.22)
+        ctx.stroke()
+        ctx.globalAlpha = 0.6
+      }
+    }
+    ctx.globalAlpha = 1
+
+    // Slight edge vignette for depth.
+    const v = ctx.createRadialGradient(size / 2, size / 2, size * 0.08, size / 2, size / 2, size * 0.8)
+    v.addColorStop(0, 'rgba(255,255,255,0.02)')
+    v.addColorStop(1, 'rgba(0,0,0,0.10)')
+    ctx.fillStyle = v
+    ctx.fillRect(0, 0, size, size)
+  }
+
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.colorSpace = THREE.SRGBColorSpace
+  tex.wrapS = THREE.ClampToEdgeWrapping
+  tex.wrapT = THREE.ClampToEdgeWrapping
+  tex.needsUpdate = true
+  return tex
+}
+
 export function addDoor(ctx, { id, wall, w, h, y = 0, u = 0, color = 0x22ffee, meta = {} }) {
   const { walls, height, wallThickness, group, markers, disposables, doorHitMeshes, doors } = ctx
 
@@ -19,24 +106,55 @@ export function addDoor(ctx, { id, wall, w, h, y = 0, u = 0, color = 0x22ffee, m
   const doorFrameGroup = new THREE.Group()
   doorFrameGroup.name = `door-frame-${id}`
 
-  const doorMat = new THREE.MeshStandardMaterial({
-    color,
-    roughness: 0.35,
-    metalness: 0.0,
-    emissive: 0x112244,
-    emissiveIntensity: 0.75,
+  const style = ctx?.doorStyle || {}
+  const frameStyle = style?.frame || null
+  const doorStyle = style?.door || null
+  const fillStyle = style?.fill || null
+
+  const frameMat = frameStyle
+    ? new THREE.MeshStandardMaterial({
+        color: frameStyle.color ?? 0x1a0f09,
+        roughness: frameStyle.roughness ?? 0.58,
+        metalness: frameStyle.metalness ?? 0.0,
+      })
+    : new THREE.MeshStandardMaterial({
+        color,
+        roughness: 0.35,
+        metalness: 0.0,
+      })
+  disposables.push(frameMat)
+
+  const doorPanelMat = new THREE.MeshStandardMaterial({
+    color: doorStyle?.color ?? 0x2a170d,
+    map: doorStyle?.map ?? null,
+    bumpMap: doorStyle?.bumpMap ?? null,
+    bumpScale: typeof doorStyle?.bumpScale === 'number' ? doorStyle.bumpScale : 0.02,
+    roughness: doorStyle?.roughness ?? 0.52,
+    metalness: doorStyle?.metalness ?? 0.0,
   })
-  disposables.push(doorMat)
+  disposables.push(doorPanelMat)
 
   const frameW = 0.08
   const frameDepth = 0.08
 
   const fillGeo = new THREE.PlaneGeometry(w, h)
-  const fillMat = new THREE.MeshStandardMaterial({ color: 0x171c22, roughness: 0.95, metalness: 0.0 })
+  const fillMat = new THREE.MeshStandardMaterial({
+    color: fillStyle?.color ?? 0x0d1015,
+    roughness: fillStyle?.roughness ?? 0.95,
+    metalness: fillStyle?.metalness ?? 0.0,
+  })
   const fill = new THREE.Mesh(fillGeo, fillMat)
   fill.position.set(0, h / 2, -0.02)
   doorFrameGroup.add(fill)
   disposables.push(fillGeo, fillMat)
+
+  // Door panel on top of the fill.
+  const panelInset = 0.05
+  const panelGeo = new THREE.PlaneGeometry(Math.max(0.2, w - panelInset * 2), Math.max(0.2, h - panelInset * 2))
+  const panel = new THREE.Mesh(panelGeo, doorPanelMat)
+  panel.position.set(0, h / 2, -0.016)
+  doorFrameGroup.add(panel)
+  disposables.push(panelGeo)
 
   const labelText =
     typeof meta.label === 'string' && meta.label.trim().length > 0
@@ -52,11 +170,19 @@ export function addDoor(ctx, { id, wall, w, h, y = 0, u = 0, color = 0x22ffee, m
     const plaqueH = 0.24
     const plaqueCenterY = Math.min(h - 0.25, 1.4)
     const plaqueGeo = new THREE.PlaneGeometry(plaqueW, plaqueH)
-    const plaqueMat = new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0.0 })
+
+    // Neutral gray marble plaque.
+    const marbleTex = makeMarbleTexture({ size: 512, seed: hashStringToSeed(id) ^ 0x6d617262 })
+    const plaqueMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      map: marbleTex,
+      roughness: 0.78,
+      metalness: 0.0,
+    })
     const plaque = new THREE.Mesh(plaqueGeo, plaqueMat)
     plaque.position.set(0, plaqueCenterY, -0.015)
     doorFrameGroup.add(plaque)
-    disposables.push(plaqueGeo, plaqueMat)
+    disposables.push(marbleTex, plaqueGeo, plaqueMat)
 
     const canvas = document.createElement('canvas')
     canvas.width = 512
@@ -64,8 +190,6 @@ export function addDoor(ctx, { id, wall, w, h, y = 0, u = 0, color = 0x22ffee, m
     const ctx2 = canvas.getContext('2d')
     let drawLabelText = null
     if (ctx2) {
-      const plaqueBg = `#${new THREE.Color(color).getHexString()}`
-
       drawLabelText = function drawLabelText(nextText) {
         function wrapLines(text, maxWidth, maxLines) {
           const words = String(text).trim().split(/\s+/g)
@@ -121,14 +245,13 @@ export function addDoor(ctx, { id, wall, w, h, y = 0, u = 0, color = 0x22ffee, m
 
         const safeText = String(nextText || '').trim()
         ctx2.clearRect(0, 0, canvas.width, canvas.height)
-        ctx2.fillStyle = plaqueBg
-        ctx2.fillRect(0, 0, canvas.width, canvas.height)
+        // Transparent background so the marble plaque shows through.
 
         const padX = 18
         const maxLines = 3
         let fontPx = 56
         ctx2.font = `700 ${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
-        ctx2.fillStyle = '#000000'
+        ctx2.fillStyle = '#2b2b2f'
         ctx2.textAlign = 'center'
         ctx2.textBaseline = 'middle'
 
@@ -175,7 +298,7 @@ export function addDoor(ctx, { id, wall, w, h, y = 0, u = 0, color = 0x22ffee, m
     }
 
     const textGeo = new THREE.PlaneGeometry(plaqueW * 0.96, plaqueH * 0.78)
-    const textMat = new THREE.MeshBasicMaterial({ map: tex })
+    const textMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true })
     const text = new THREE.Mesh(textGeo, textMat)
     text.position.set(0, plaqueCenterY, -0.012)
     doorFrameGroup.add(text)
@@ -186,15 +309,15 @@ export function addDoor(ctx, { id, wall, w, h, y = 0, u = 0, color = 0x22ffee, m
   const headerGeo = new THREE.BoxGeometry(w + frameW * 2, frameW, frameDepth)
   disposables.push(jambGeo, headerGeo)
 
-  const leftJamb = new THREE.Mesh(jambGeo, doorMat)
+  const leftJamb = new THREE.Mesh(jambGeo, frameMat)
   leftJamb.position.set(-(w / 2 + frameW / 2), h / 2, 0)
   doorFrameGroup.add(leftJamb)
 
-  const rightJamb = new THREE.Mesh(jambGeo, doorMat)
+  const rightJamb = new THREE.Mesh(jambGeo, frameMat)
   rightJamb.position.set(w / 2 + frameW / 2, h / 2, 0)
   doorFrameGroup.add(rightJamb)
 
-  const header = new THREE.Mesh(headerGeo, doorMat)
+  const header = new THREE.Mesh(headerGeo, frameMat)
   header.position.set(0, h - frameW / 2, 0)
   doorFrameGroup.add(header)
 

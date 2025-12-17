@@ -14,22 +14,23 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
   switch (mode) {
 	case 'lobby':
 		palette = {
-			floor: 0x1c221f,
-			ceiling: 0xa7c9b6,
-			wall: 0x5f786c,
-			keyLight: 0x78ffb1,
-			keyLightIntensity: 1.9,
-			ambientIntensity: 0.9,
-			ceilingLightColor: 0xf4fff8,
-			ceilingLightIntensity: 1.5,
+			// Summer vibe: warm light yellow + soft light blue.
+			floor: 0xfff1c8,
+			ceiling: 0xe9fbff,
+			wall: 0xcfeaff,
+			keyLight: 0xfff0b0,
+			keyLightIntensity: 1.55,
+			ambientIntensity: 1.05,
+			ceilingLightColor: 0xd7f1ff,
+			ceilingLightIntensity: 1.35,
 		}
 		break;
 	case 'gallery':
 		palette = {
 			floor: 0x2a2a2f,
-			ceiling: 0x3a3a41,
+      		ceiling: 0xd9d9de,
 			wall: 0x4a4a52,
-			keyLight: 0xff66cc,
+      		keyLight: 0xfff1d2,
 			keyLightIntensity: 1.6,
 			ambientIntensity: 0.95,
 			ceilingLightColor: 0xffffff,
@@ -71,8 +72,574 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
   lightBR.position.set(x, y, z)
   group.add(lightBR)
 
+  // Add mid-side ceiling lights: 3 on west (x=-x) and 3 on east (x=+x).
+  const lightML = new THREE.PointLight(ceilingLightColor, ceilingLightIntensity, ceilingLightDistance, ceilingLightDecay)
+  lightML.position.set(-x, y, 0)
+  group.add(lightML)
+
+  const lightMR = new THREE.PointLight(ceilingLightColor, ceilingLightIntensity, ceilingLightDistance, ceilingLightDecay)
+  lightMR.position.set(x, y, 0)
+  group.add(lightMR)
+
+  function seededRand(seed) {
+    let s = (seed >>> 0) || 1
+    return function rand() {
+      s ^= s << 13
+      s ^= s >>> 17
+      s ^= s << 5
+      return (s >>> 0) / 0xffffffff
+    }
+  }
+
+  function makeWoodFloorTextures({ size = 1024 } = {}) {
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    const ctx = canvas.getContext('2d')
+
+    const bump = document.createElement('canvas')
+    bump.width = size
+    bump.height = size
+    const bctx = bump.getContext('2d')
+
+    const rand = seededRand(0x51f00d)
+
+    if (ctx) {
+      // Base warm brown.
+      ctx.fillStyle = '#6a4a2e'
+      ctx.fillRect(0, 0, size, size)
+
+      const plankW = Math.floor(size * 0.13)
+      const gap = Math.max(2, Math.floor(size * 0.004))
+      const grainLines = Math.floor(size * 0.65)
+
+      for (let x = 0; x < size; x += plankW) {
+        const t = rand()
+        const hue = 28 + Math.floor(t * 10)
+        const sat = 30 + Math.floor(rand() * 12)
+        const light = 22 + Math.floor(rand() * 10)
+        ctx.fillStyle = `hsl(${hue} ${sat}% ${light}%)`
+        ctx.fillRect(x, 0, plankW - gap, size)
+
+        // Plank seams.
+        ctx.fillStyle = 'rgba(0,0,0,0.35)'
+        ctx.fillRect(x + plankW - gap, 0, gap, size)
+
+        // Subtle plank highlight.
+        const grad = ctx.createLinearGradient(x, 0, x + plankW, 0)
+        grad.addColorStop(0.0, 'rgba(255,255,255,0.06)')
+        grad.addColorStop(0.5, 'rgba(255,255,255,0.00)')
+        grad.addColorStop(1.0, 'rgba(0,0,0,0.05)')
+        ctx.fillStyle = grad
+        ctx.fillRect(x, 0, plankW - gap, size)
+
+        // Knots.
+        const knots = 1 + Math.floor(rand() * 2)
+        for (let k = 0; k < knots; k += 1) {
+          const cx = x + Math.floor(rand() * (plankW - gap))
+          const cy = Math.floor(rand() * size)
+          const r = Math.max(8, Math.floor(size * (0.012 + rand() * 0.012)))
+          ctx.strokeStyle = 'rgba(0,0,0,0.24)'
+          ctx.lineWidth = Math.max(2, Math.floor(r * 0.12))
+          ctx.beginPath()
+          ctx.ellipse(cx, cy, r, r * (0.65 + rand() * 0.25), rand() * Math.PI, 0, Math.PI * 2)
+          ctx.stroke()
+        }
+      }
+
+      // Grain.
+      ctx.globalAlpha = 0.18
+      ctx.strokeStyle = '#2b1a10'
+      ctx.lineWidth = 1
+      for (let i = 0; i < grainLines; i += 1) {
+        const y = Math.floor(rand() * size)
+        const wobble = (rand() - 0.5) * 10
+        ctx.beginPath()
+        ctx.moveTo(0, y)
+        ctx.bezierCurveTo(size * 0.33, y + wobble, size * 0.66, y - wobble, size, y + wobble * 0.5)
+        ctx.stroke()
+      }
+      ctx.globalAlpha = 1
+
+      // Slight vignette for depth.
+      const v = ctx.createRadialGradient(size / 2, size / 2, size * 0.1, size / 2, size / 2, size * 0.75)
+      v.addColorStop(0, 'rgba(255,255,255,0.02)')
+      v.addColorStop(1, 'rgba(0,0,0,0.10)')
+      ctx.fillStyle = v
+      ctx.fillRect(0, 0, size, size)
+    }
+
+    if (bctx) {
+      // Bump: plank seams + noise.
+      bctx.fillStyle = 'rgb(128,128,128)'
+      bctx.fillRect(0, 0, size, size)
+
+      const plankW = Math.floor(size * 0.13)
+      const gap = Math.max(2, Math.floor(size * 0.004))
+
+      bctx.fillStyle = 'rgb(92,92,92)'
+      for (let x = 0; x < size; x += plankW) {
+        bctx.fillRect(x + plankW - gap, 0, gap, size)
+      }
+
+      const img = bctx.getImageData(0, 0, size, size)
+      const d = img.data
+      for (let i = 0; i < d.length; i += 4) {
+        const n = (rand() - 0.5) * 18
+        d[i] = Math.max(0, Math.min(255, d[i] + n))
+        d[i + 1] = d[i]
+        d[i + 2] = d[i]
+        d[i + 3] = 255
+      }
+      bctx.putImageData(img, 0, 0)
+    }
+
+    const mapTex = new THREE.CanvasTexture(canvas)
+    mapTex.colorSpace = THREE.SRGBColorSpace
+    mapTex.wrapS = THREE.RepeatWrapping
+    mapTex.wrapT = THREE.RepeatWrapping
+
+    const bumpTex = new THREE.CanvasTexture(bump)
+    if (typeof THREE.NoColorSpace !== 'undefined') bumpTex.colorSpace = THREE.NoColorSpace
+    bumpTex.wrapS = THREE.RepeatWrapping
+    bumpTex.wrapT = THREE.RepeatWrapping
+
+    return { mapTex, bumpTex }
+  }
+
+  function makeLightWoodTextures({ size = 1024 } = {}) {
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    const ctx = canvas.getContext('2d')
+
+    const bump = document.createElement('canvas')
+    bump.width = size
+    bump.height = size
+    const bctx = bump.getContext('2d')
+
+    const rand = seededRand(0x11a7be)
+
+    if (ctx) {
+      // Light warm wood base.
+      ctx.fillStyle = '#c9aa7f'
+      ctx.fillRect(0, 0, size, size)
+
+      const plankW = Math.floor(size * 0.18)
+      const gap = Math.max(2, Math.floor(size * 0.0035))
+      const grainLines = Math.floor(size * 0.55)
+
+      for (let x = 0; x < size; x += plankW) {
+        const t = rand()
+        const hue = 34 + Math.floor(t * 10)
+        const sat = 22 + Math.floor(rand() * 10)
+        const light = 56 + Math.floor(rand() * 10)
+        ctx.fillStyle = `hsl(${hue} ${sat}% ${light}%)`
+        ctx.fillRect(x, 0, plankW - gap, size)
+
+        // Plank seams (subtle).
+        ctx.fillStyle = 'rgba(0,0,0,0.18)'
+        ctx.fillRect(x + plankW - gap, 0, gap, size)
+
+        // Soft highlight.
+        const grad = ctx.createLinearGradient(x, 0, x + plankW, 0)
+        grad.addColorStop(0.0, 'rgba(255,255,255,0.09)')
+        grad.addColorStop(0.5, 'rgba(255,255,255,0.02)')
+        grad.addColorStop(1.0, 'rgba(0,0,0,0.04)')
+        ctx.fillStyle = grad
+        ctx.fillRect(x, 0, plankW - gap, size)
+
+        // A couple of faint knots.
+        const knots = Math.floor(rand() * 2)
+        for (let k = 0; k < knots; k += 1) {
+          const cx = x + Math.floor(rand() * (plankW - gap))
+          const cy = Math.floor(rand() * size)
+          const r = Math.max(6, Math.floor(size * (0.01 + rand() * 0.01)))
+          ctx.strokeStyle = 'rgba(0,0,0,0.12)'
+          ctx.lineWidth = Math.max(2, Math.floor(r * 0.12))
+          ctx.beginPath()
+          ctx.ellipse(cx, cy, r, r * (0.65 + rand() * 0.25), rand() * Math.PI, 0, Math.PI * 2)
+          ctx.stroke()
+        }
+      }
+
+      // Grain (low contrast).
+      ctx.globalAlpha = 0.12
+      ctx.strokeStyle = 'rgba(70,45,28,0.55)'
+      ctx.lineWidth = 1
+      for (let i = 0; i < grainLines; i += 1) {
+        const y = Math.floor(rand() * size)
+        const wobble = (rand() - 0.5) * 8
+        ctx.beginPath()
+        ctx.moveTo(0, y)
+        ctx.bezierCurveTo(size * 0.33, y + wobble, size * 0.66, y - wobble, size, y + wobble * 0.5)
+        ctx.stroke()
+      }
+      ctx.globalAlpha = 1
+
+      // Very gentle vignette.
+      const v = ctx.createRadialGradient(size / 2, size / 2, size * 0.12, size / 2, size / 2, size * 0.78)
+      v.addColorStop(0, 'rgba(255,255,255,0.03)')
+      v.addColorStop(1, 'rgba(0,0,0,0.08)')
+      ctx.fillStyle = v
+      ctx.fillRect(0, 0, size, size)
+    }
+
+    if (bctx) {
+      bctx.fillStyle = 'rgb(128,128,128)'
+      bctx.fillRect(0, 0, size, size)
+
+      const plankW = Math.floor(size * 0.18)
+      const gap = Math.max(2, Math.floor(size * 0.0035))
+
+      bctx.fillStyle = 'rgb(108,108,108)'
+      for (let x = 0; x < size; x += plankW) {
+        bctx.fillRect(x + plankW - gap, 0, gap, size)
+      }
+
+      const img = bctx.getImageData(0, 0, size, size)
+      const d = img.data
+      for (let i = 0; i < d.length; i += 4) {
+        const n = (rand() - 0.5) * 14
+        d[i] = Math.max(0, Math.min(255, d[i] + n))
+        d[i + 1] = d[i]
+        d[i + 2] = d[i]
+        d[i + 3] = 255
+      }
+      bctx.putImageData(img, 0, 0)
+    }
+
+    const mapTex = new THREE.CanvasTexture(canvas)
+    mapTex.colorSpace = THREE.SRGBColorSpace
+    mapTex.wrapS = THREE.RepeatWrapping
+    mapTex.wrapT = THREE.RepeatWrapping
+
+    const bumpTex = new THREE.CanvasTexture(bump)
+    if (typeof THREE.NoColorSpace !== 'undefined') bumpTex.colorSpace = THREE.NoColorSpace
+    bumpTex.wrapS = THREE.RepeatWrapping
+    bumpTex.wrapT = THREE.RepeatWrapping
+
+    return { mapTex, bumpTex }
+  }
+
+  function makeStuccoWallTextures({ size = 1024 } = {}) {
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    const ctx = canvas.getContext('2d')
+
+    const bump = document.createElement('canvas')
+    bump.width = size
+    bump.height = size
+    const bctx = bump.getContext('2d')
+
+    const rand = seededRand(0x57acc0)
+
+    if (ctx) {
+      // Warm plaster base (Spanish-style: warm off-white / sand).
+      ctx.fillStyle = '#d3c1a5'
+      ctx.fillRect(0, 0, size, size)
+
+      // Mottling.
+      const blobs = 520
+      for (let i = 0; i < blobs; i += 1) {
+        const x = rand() * size
+        const y = rand() * size
+        const r = (0.02 + rand() * 0.10) * size
+        const a = 0.03 + rand() * 0.06
+        const hue = 30 + rand() * 14
+        const sat = 24 + rand() * 10
+        const light = 74 + (rand() - 0.5) * 10
+        ctx.fillStyle = `hsla(${hue} ${sat}% ${light}% / ${a})`
+        ctx.beginPath()
+        ctx.arc(x, y, r, 0, Math.PI * 2)
+        ctx.fill()
+      }
+
+      // Trowel strokes.
+      ctx.globalAlpha = 0.09
+      ctx.strokeStyle = '#bfa889'
+      ctx.lineWidth = Math.max(2, Math.floor(size * 0.006))
+      const strokes = 90
+      for (let i = 0; i < strokes; i += 1) {
+        const x = rand() * size
+        const y = rand() * size
+        const rx = (0.10 + rand() * 0.25) * size
+        const ry = (0.04 + rand() * 0.12) * size
+        const rot = rand() * Math.PI
+        ctx.beginPath()
+        ctx.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2)
+        ctx.stroke()
+      }
+      ctx.globalAlpha = 1
+    }
+
+    if (bctx) {
+      bctx.fillStyle = 'rgb(128,128,128)'
+      bctx.fillRect(0, 0, size, size)
+      const img = bctx.getImageData(0, 0, size, size)
+      const d = img.data
+      for (let i = 0; i < d.length; i += 4) {
+        // Grainy bump field.
+        const n = (rand() - 0.5) * 42
+        const v = Math.max(0, Math.min(255, 128 + n))
+        d[i] = v
+        d[i + 1] = v
+        d[i + 2] = v
+        d[i + 3] = 255
+      }
+      bctx.putImageData(img, 0, 0)
+    }
+
+    const mapTex = new THREE.CanvasTexture(canvas)
+    mapTex.colorSpace = THREE.SRGBColorSpace
+    mapTex.wrapS = THREE.RepeatWrapping
+    mapTex.wrapT = THREE.RepeatWrapping
+
+    const bumpTex = new THREE.CanvasTexture(bump)
+    if (typeof THREE.NoColorSpace !== 'undefined') bumpTex.colorSpace = THREE.NoColorSpace
+    bumpTex.wrapS = THREE.RepeatWrapping
+    bumpTex.wrapT = THREE.RepeatWrapping
+
+    return { mapTex, bumpTex }
+  }
+
+  function makeCeilingStuccoTextures({ size = 1024 } = {}) {
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    const ctx = canvas.getContext('2d')
+
+    const bump = document.createElement('canvas')
+    bump.width = size
+    bump.height = size
+    const bctx = bump.getContext('2d')
+
+    const rand = seededRand(0xc3111ce)
+
+    if (ctx) {
+      // Neutral plaster base for ceilings (keeps palette color clean).
+      ctx.fillStyle = '#e7e8ea'
+      ctx.fillRect(0, 0, size, size)
+
+      // Gentle mottling with very low saturation so it reads as texture, not color.
+      const blobs = 420
+      for (let i = 0; i < blobs; i += 1) {
+        const x = rand() * size
+        const y = rand() * size
+        const r = (0.02 + rand() * 0.10) * size
+        const a = 0.02 + rand() * 0.05
+        const hue = 210 + rand() * 20
+        const sat = 3 + rand() * 4
+        const light = 90 + (rand() - 0.5) * 10
+        ctx.fillStyle = `hsla(${hue} ${sat}% ${light}% / ${a})`
+        ctx.beginPath()
+        ctx.arc(x, y, r, 0, Math.PI * 2)
+        ctx.fill()
+      }
+
+      // Trowel strokes (slightly stronger than walls so it reads on bright surfaces).
+      ctx.globalAlpha = 0.12
+      ctx.strokeStyle = 'rgba(190, 192, 196, 0.9)'
+      ctx.lineWidth = Math.max(2, Math.floor(size * 0.006))
+      const strokes = 110
+      for (let i = 0; i < strokes; i += 1) {
+        const x = rand() * size
+        const y = rand() * size
+        const rx = (0.10 + rand() * 0.26) * size
+        const ry = (0.04 + rand() * 0.13) * size
+        const rot = rand() * Math.PI
+        ctx.beginPath()
+        ctx.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2)
+        ctx.stroke()
+      }
+      ctx.globalAlpha = 1
+    }
+
+    if (bctx) {
+      bctx.fillStyle = 'rgb(128,128,128)'
+      bctx.fillRect(0, 0, size, size)
+      const img = bctx.getImageData(0, 0, size, size)
+      const d = img.data
+      for (let i = 0; i < d.length; i += 4) {
+        const n = (rand() - 0.5) * 52
+        const v = Math.max(0, Math.min(255, 128 + n))
+        d[i] = v
+        d[i + 1] = v
+        d[i + 2] = v
+        d[i + 3] = 255
+      }
+      bctx.putImageData(img, 0, 0)
+    }
+
+    const mapTex = new THREE.CanvasTexture(canvas)
+    mapTex.colorSpace = THREE.SRGBColorSpace
+    mapTex.wrapS = THREE.RepeatWrapping
+    mapTex.wrapT = THREE.RepeatWrapping
+
+    const bumpTex = new THREE.CanvasTexture(bump)
+    if (typeof THREE.NoColorSpace !== 'undefined') bumpTex.colorSpace = THREE.NoColorSpace
+    bumpTex.wrapS = THREE.RepeatWrapping
+    bumpTex.wrapT = THREE.RepeatWrapping
+
+    return { mapTex, bumpTex }
+  }
+
+  function makeMarbleTextures({ size = 1024, seed = 1 } = {}) {
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    const ctx = canvas.getContext('2d')
+
+    const bump = document.createElement('canvas')
+    bump.width = size
+    bump.height = size
+    const bctx = bump.getContext('2d')
+
+    const rand = seededRand(seed)
+
+    if (ctx) {
+      // Neutral light gray base.
+      ctx.fillStyle = '#d8d8dc'
+      ctx.fillRect(0, 0, size, size)
+
+      // Soft cloudy variation.
+      const clouds = 360
+      for (let i = 0; i < clouds; i += 1) {
+        const x = rand() * size
+        const y = rand() * size
+        const r = (0.02 + rand() * 0.12) * size
+        const a = 0.02 + rand() * 0.05
+        const g = 206 + Math.floor((rand() - 0.5) * 28)
+        ctx.fillStyle = `rgba(${g},${g},${g},${a})`
+        ctx.beginPath()
+        ctx.arc(x, y, r, 0, Math.PI * 2)
+        ctx.fill()
+      }
+
+      // Veins.
+      ctx.globalAlpha = 0.55
+      ctx.strokeStyle = 'rgba(110,110,118,0.58)'
+      ctx.lineWidth = Math.max(1, Math.floor(size * 0.004))
+      const veins = 18
+      for (let i = 0; i < veins; i += 1) {
+        const y0 = rand() * size
+        const wobble = (rand() - 0.5) * size * 0.22
+        ctx.beginPath()
+        ctx.moveTo(-size * 0.1, y0)
+        ctx.bezierCurveTo(size * 0.25, y0 + wobble, size * 0.55, y0 - wobble, size * 1.1, y0 + wobble * 0.35)
+        ctx.stroke()
+
+        // A faint companion vein.
+        if (rand() < 0.55) {
+          ctx.globalAlpha = 0.22
+          ctx.beginPath()
+          ctx.moveTo(-size * 0.1, y0 + (rand() - 0.5) * size * 0.08)
+          ctx.bezierCurveTo(size * 0.25, y0 + wobble * 0.7, size * 0.55, y0 - wobble * 0.7, size * 1.1, y0 + wobble * 0.22)
+          ctx.stroke()
+          ctx.globalAlpha = 0.55
+        }
+      }
+      ctx.globalAlpha = 1
+
+      // Slight vignette for depth.
+      const v = ctx.createRadialGradient(size / 2, size / 2, size * 0.08, size / 2, size / 2, size * 0.8)
+      v.addColorStop(0, 'rgba(255,255,255,0.02)')
+      v.addColorStop(1, 'rgba(0,0,0,0.11)')
+      ctx.fillStyle = v
+      ctx.fillRect(0, 0, size, size)
+    }
+
+    if (bctx) {
+      bctx.fillStyle = 'rgb(128,128,128)'
+      bctx.fillRect(0, 0, size, size)
+      const img = bctx.getImageData(0, 0, size, size)
+      const d = img.data
+      for (let i = 0; i < d.length; i += 4) {
+        const n = (rand() - 0.5) * 34
+        const v = Math.max(0, Math.min(255, 128 + n))
+        d[i] = v
+        d[i + 1] = v
+        d[i + 2] = v
+        d[i + 3] = 255
+      }
+      bctx.putImageData(img, 0, 0)
+    }
+
+    const mapTex = new THREE.CanvasTexture(canvas)
+    mapTex.colorSpace = THREE.SRGBColorSpace
+    mapTex.wrapS = THREE.RepeatWrapping
+    mapTex.wrapT = THREE.RepeatWrapping
+
+    const bumpTex = new THREE.CanvasTexture(bump)
+    if (typeof THREE.NoColorSpace !== 'undefined') bumpTex.colorSpace = THREE.NoColorSpace
+    bumpTex.wrapS = THREE.RepeatWrapping
+    bumpTex.wrapT = THREE.RepeatWrapping
+
+    return { mapTex, bumpTex }
+  }
+
+  const { mapTex: floorWoodMap, bumpTex: floorWoodBump } = makeWoodFloorTextures({ size: 1024 })
+  // Approx plank size: about 0.22m. Repeat by room size so planks don't stretch.
+  floorWoodMap.repeat.set(Math.max(2, Math.round(width / 2.2)), Math.max(2, Math.round(length / 2.2)))
+  floorWoodBump.repeat.copy(floorWoodMap.repeat)
+  disposables.push(floorWoodMap, floorWoodBump)
+
+  // Door wood: slightly smaller texture, stronger repetition so grain reads on doors.
+  const { mapTex: doorWoodMap, bumpTex: doorWoodBump } = makeWoodFloorTextures({ size: 512 })
+  doorWoodMap.repeat.set(2.2, 4.2)
+  doorWoodBump.repeat.copy(doorWoodMap.repeat)
+  disposables.push(doorWoodMap, doorWoodBump)
+
+  // Bench wood: lighter seat/back panels with visible wood texture.
+  const { mapTex: benchWoodMap, bumpTex: benchWoodBump } = makeLightWoodTextures({ size: 512 })
+  benchWoodMap.repeat.set(2.6, 1.6)
+  benchWoodBump.repeat.copy(benchWoodMap.repeat)
+  disposables.push(benchWoodMap, benchWoodBump)
+
+  const { mapTex: wallStuccoMap, bumpTex: wallStuccoBump } = makeStuccoWallTextures({ size: 1024 })
+  wallStuccoMap.repeat.set(4, 2)
+  wallStuccoBump.repeat.copy(wallStuccoMap.repeat)
+  disposables.push(wallStuccoMap, wallStuccoBump)
+
+  // Ceiling texture: neutral stucco map + bump so it's visible even on bright ceilings.
+  const { mapTex: ceilingStuccoMap, bumpTex: ceilingStuccoBump } = makeCeilingStuccoTextures({ size: 1024 })
+  ceilingStuccoMap.repeat.set(Math.max(3, Math.round(width / 2.2)), Math.max(3, Math.round(length / 2.2)))
+  ceilingStuccoBump.repeat.copy(ceilingStuccoMap.repeat)
+  disposables.push(ceilingStuccoMap, ceilingStuccoBump)
+
+  const { mapTex: pillarMarbleMap, bumpTex: pillarMarbleBump } = makeMarbleTextures({ size: 512, seed: 0x6d617262 })
+  // Modest repeat so veins read without looking tiled.
+  pillarMarbleMap.repeat.set(2.0, 3.0)
+  pillarMarbleBump.repeat.copy(pillarMarbleMap.repeat)
+  disposables.push(pillarMarbleMap, pillarMarbleBump)
+
+  // Marble for text/info panel backplates.
+  const { mapTex: panelMarbleMap, bumpTex: panelMarbleBump } = makeMarbleTextures({ size: 1024, seed: 0x70616e6c })
+  panelMarbleMap.repeat.set(1.4, 1.4)
+  panelMarbleBump.repeat.copy(panelMarbleMap.repeat)
+  disposables.push(panelMarbleMap, panelMarbleBump)
+
+  const panelMarbleBackMat = new THREE.MeshStandardMaterial({
+    // Keep panels dark gray (not black) while preserving marble detail.
+    color: 0x4a4a52,
+    map: panelMarbleMap,
+    bumpMap: panelMarbleBump,
+    bumpScale: 0.05,
+    roughness: 0.84,
+    metalness: 0.0,
+  })
+  disposables.push(panelMarbleBackMat)
+
   const floorGeo = new THREE.PlaneGeometry(width, length)
-  const floorMat = new THREE.MeshStandardMaterial({ color: palette.floor, roughness: 0.92, metalness: 0.0 })
+  const floorMat = new THREE.MeshStandardMaterial({
+	color: mode === 'lobby' ? palette.floor : 0xffffff,
+    map: floorWoodMap,
+    bumpMap: floorWoodBump,
+    bumpScale: 0.05,
+    roughness: 0.42,
+    metalness: 0.0,
+  })
   const floor = new THREE.Mesh(floorGeo, floorMat)
   floor.rotation.x = -Math.PI / 2
   floor.position.y = 0
@@ -80,14 +647,28 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
   disposables.push(floorGeo, floorMat)
 
   const ceilingGeo = new THREE.PlaneGeometry(width, length)
-  const ceilingMat = new THREE.MeshStandardMaterial({ color: palette.ceiling, roughness: 0.98, metalness: 0.0 })
+  const ceilingMat = new THREE.MeshStandardMaterial({
+    color: palette.ceiling,
+    map: ceilingStuccoMap,
+    bumpMap: ceilingStuccoBump,
+    bumpScale: 0.14,
+    roughness: 0.94,
+    metalness: 0.0,
+  })
   const ceiling = new THREE.Mesh(ceilingGeo, ceilingMat)
   ceiling.rotation.x = Math.PI / 2
   ceiling.position.y = height
   group.add(ceiling)
   disposables.push(ceilingGeo, ceilingMat)
 
-  const wallMat = new THREE.MeshStandardMaterial({ color: palette.wall, roughness: 0.9, metalness: 0.0 })
+  const wallMat = new THREE.MeshStandardMaterial({
+	color: mode === 'lobby' ? palette.wall : 0xffffff,
+    map: wallStuccoMap,
+    bumpMap: wallStuccoBump,
+    bumpScale: 0.09,
+    roughness: 0.92,
+    metalness: 0.0,
+  })
   const wallNSGeo = new THREE.BoxGeometry(width, height, wallThickness)
   const wallEWGeo = new THREE.BoxGeometry(wallThickness, height, length)
 
@@ -180,6 +761,20 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     walls,
   }
 
+  // Door material defaults (dark wood door with darker frame).
+  roomCtx.doorStyle = {
+    frame: { color: 0x1a0f09, roughness: 0.58, metalness: 0.0 },
+    door: {
+      color: 0xc79a6c,
+      roughness: 0.44,
+      metalness: 0.0,
+      map: doorWoodMap,
+      bumpMap: doorWoodBump,
+      bumpScale: 0.075,
+    },
+    fill: { color: 0x0d1015, roughness: 0.95, metalness: 0.0 },
+  }
+
   function addSlot(args) {
     return addSlotToRoom(roomCtx, args)
   }
@@ -205,7 +800,14 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     // Make it even thinner (2x thinner than before).
     const pillarD = roundTo(clamp(0.35, 0.28, 0.5), 0.05)
     const pillarGeo = new THREE.BoxGeometry(pillarW, colHeight, pillarD)
-    const pillarMat = new THREE.MeshStandardMaterial({ color: palette.wall, roughness: 0.85, metalness: 0.0 })
+    const pillarMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      map: pillarMarbleMap,
+      bumpMap: pillarMarbleBump,
+      bumpScale: 0.06,
+      roughness: 0.72,
+      metalness: 0.0,
+    })
     disposables.push(pillarGeo, pillarMat)
 
     const pillar = new THREE.Mesh(pillarGeo, pillarMat)
@@ -386,11 +988,16 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
     if (descCtx) {
       descCtx.clearRect(0, 0, descCanvas.width, descCanvas.height)
-      descCtx.fillStyle = 'rgba(0,0,0,0.68)'
+      descCtx.fillStyle = 'rgba(0,0,0,0.28)'
       descCtx.fillRect(0, 0, descCanvas.width, descCanvas.height)
 
-      const padX = 34
-      let y = 84
+      // Match wall text panel decoration.
+      descCtx.strokeStyle = 'rgba(255,255,255,0.16)'
+      descCtx.lineWidth = 10
+      descCtx.strokeRect(24, 24, descCanvas.width - 48, descCanvas.height - 48)
+
+      const padX = 64
+      let y = 118
 
       const safeTitle = title || 'Wikipedia'
       descCtx.font = '700 56px system-ui, -apple-system, Segoe UI, Roboto, Arial'
@@ -424,11 +1031,10 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
     const descY = Math.min(height * 0.44, 1.8)
     const descBackGeo = new THREE.BoxGeometry(descW, descH, panelDepth)
-    const descBackMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.95, metalness: 0.0 })
-    const descBack = new THREE.Mesh(descBackGeo, descBackMat)
+    const descBack = new THREE.Mesh(descBackGeo, panelMarbleBackMat)
     descBack.position.set(textX, descY, panelZ)
     group.add(descBack)
-    disposables.push(descBackGeo, descBackMat)
+    disposables.push(descBackGeo)
 
     descPanel.position.set(textX, descY, panelZ + panelDepth / 2 + 0.002)
     group.add(descPanel)
@@ -615,7 +1221,8 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
       if (ctx2) {
         ctx2.clearRect(0, 0, canvas.width, canvas.height)
-        ctx2.fillStyle = 'rgba(0,0,0,0.68)'
+        // Semi-transparent so the marble backplate reads through (like text panels).
+        ctx2.fillStyle = 'rgba(0,0,0,0.28)'
         ctx2.fillRect(0, 0, canvas.width, canvas.height)
 
         // Frame.
@@ -714,14 +1321,13 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       boardGroup.position.copy(boardCenter)
 
       const backGeo = new THREE.BoxGeometry(boardW, boardH, boardDepth)
-      const backMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.95, metalness: 0.0 })
-      const back = new THREE.Mesh(backGeo, backMat)
+      const back = new THREE.Mesh(backGeo, panelMarbleBackMat)
       back.position.set(0, 0, 0)
       boardGroup.add(back)
-      disposables.push(backGeo, backMat)
+      disposables.push(backGeo)
 
       const faceGeo = new THREE.PlaneGeometry(boardW * 0.98, boardH * 0.98)
-      const faceMat = new THREE.MeshBasicMaterial({ map: tex })
+      const faceMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true })
       const face = new THREE.Mesh(faceGeo, faceMat)
       face.position.set(0, 0, boardDepth / 2 + 0.002)
       boardGroup.add(face)
@@ -825,7 +1431,14 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       decoSouth.name = 'deco-south'
       group.add(decoSouth)
 
-      const woodMat = new THREE.MeshStandardMaterial({ color: palette.wall, roughness: 0.78, metalness: 0.0 })
+      const woodMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        map: benchWoodMap,
+        bumpMap: benchWoodBump,
+        bumpScale: 0.045,
+        roughness: 0.58,
+        metalness: 0.0,
+      })
       const metalMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.7, metalness: 0.05 })
       const potMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.95, metalness: 0.0 })
       const leafMat = new THREE.MeshStandardMaterial({ color: 0x2f6f4e, roughness: 0.85, metalness: 0.0, side: THREE.DoubleSide })
@@ -1061,9 +1674,9 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       slot.outlineObject.position.copy(slot.center).add(normal.clone().multiplyScalar(frontOffset))
     }
 
-    function addBackplate({ center, normal, w, h, depth = wallPanelDepth }) {
+    function addBackplate({ center, normal, w, h, depth = wallPanelDepth, mat = wallBackMat }) {
       const geo = new THREE.BoxGeometry(w, h, depth)
-      const mesh = new THREE.Mesh(geo, wallBackMat)
+      const mesh = new THREE.Mesh(geo, mat)
       mesh.position.copy(center).add(normal.clone().multiplyScalar(depth / 2 + 0.002))
       mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal)
       group.add(mesh)
@@ -1290,7 +1903,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
       if (ctx) {
         ctx.clearRect(0, 0, canvas.width, canvas.height)
-        ctx.fillStyle = 'rgba(0,0,0,0.68)'
+        ctx.fillStyle = 'rgba(0,0,0,0.28)'
         ctx.fillRect(0, 0, canvas.width, canvas.height)
 
         ctx.strokeStyle = 'rgba(255,255,255,0.16)'
@@ -1383,11 +1996,11 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
       const { normal, frontOffset } = slotFrontOffset(slot)
 
-      addBackplate({ center: slot.center, normal, w: baseW, h: baseH })
+      addBackplate({ center: slot.center, normal, w: baseW, h: baseH, mat: panelMarbleBackMat })
       ensureOutlineInFront(slot)
 
       const geo = new THREE.PlaneGeometry(baseW, baseH)
-      const mat = new THREE.MeshBasicMaterial({ color: 0xffffff })
+      const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true })
       const mesh = new THREE.Mesh(geo, mat)
 
       mesh.position.copy(slot.center).add(normal.clone().multiplyScalar(frontOffset + 0.004))
