@@ -309,6 +309,10 @@ export function startYourEngines({
 
       roomWidth = roundTo(randRange(rand, 10, 18), 0.25)
       roomLength = roundTo(randRange(rand, 10, 18), 0.25) + 2
+
+      // Minimum length so the gallery west-wall text panels and the corner
+      // see-also doors have comfortable spacing along the south↔north axis.
+      roomLength = Math.max(roomLength, 14)
       roomHeight = roundTo(randRange(rand, 4, 4), 0.1)
     }
 

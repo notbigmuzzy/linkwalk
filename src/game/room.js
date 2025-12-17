@@ -1126,7 +1126,11 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
             y += Math.floor(lineHeight * 0.55)
           }
 
-          if (y > canvas.height - pad) break
+          if (y > canvas.height - pad) {
+            i += 1
+            break
+          }
+
           i += 1
         }
 
