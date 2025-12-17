@@ -8,17 +8,25 @@ if (!app) {
 }
 
 app.innerHTML = `
+  <div id="scene-container">
+  	<canvas id="scene" aria-label="3D scene"></canvas>
+  </div>
   <div id="overlay" role="button" tabindex="0" aria-label="Click to start">
+	<div id="overlay-titlebar">
+		<p>VIRTUAL 3D MUSEUM</p>
+	</div>
     <div id="overlay-inner">
       <div id="overlay-title">Click to play</div>
       <div id="overlay-sub">WASD move · Mouse look · SPACE jump · Shift sprint · Esc unlock</div>
     </div>
+	<div id="overlay-footer">
+		<p>Made with ☕ by <a href="https://notbigmuzzy.github.io/" target="_blank">notbigmuzzy</a></p>
+	</div>
   </div>
   <div id="hud">
     <div id="fps" aria-label="Frames per second"></div>
     <div id="crosshair" aria-hidden="true"></div>
   </div>
-  <canvas id="scene" aria-label="3D scene"></canvas>
 `
 
 const canvas = document.querySelector('#scene')
@@ -60,8 +68,6 @@ let wikiAbortController = null
 let activeNavId = 0
 let activeDoorLabelOverride = null
 
-// Memory-only exhibit trail for the in-gallery whiteboard.
-// Keeps the last few visited exhibit titles (not including lobby).
 const TRAIL_PERSIST_KEY = 'linkwalk:trail:v1'
 const TRAIL_PERSIST_MAX = 30
 
@@ -257,7 +263,6 @@ engineApi = startYourEngines({
   canvas,
   roomSeedTitle: initialTitle ?? 'Lobby',
   roomMode: initialTitle ? 'gallery' : 'lobby',
-  // Keep spawn consistent: whether entering from a door or loading via URL, start from south wall.
   roomSpawn: { type: 'fromWall', wall: 'south' },
   lobbyCategories: ['Culture', 'Geography', 'Animals', 'History', 'Nature', 'Humanities', 'Philosophy', 'Cosmology', 'Society', 'Technology', 'Music', 'Painting' ],
   onFps(fps) {
