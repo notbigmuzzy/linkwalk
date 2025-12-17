@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { buildRoom } from '../game/room.js'
-import { hashStringToUint32, mulberry32, randRange, roundTo } from '../game/helper.js'
+import { hashStringToUint32, mulberry32, randRange, roundTo } from '../misc/helper.js'
 
 export function startYourEngines({
   canvas,
@@ -57,6 +57,7 @@ export function startYourEngines({
   let halfL = 6
   let doorById = new Map()
   let doorHitMeshes = []
+  let doorHitById = new Map()
   let roomObstacles = []
   let pickableMeshes = []
   let interactionLocked = false
@@ -347,6 +348,14 @@ export function startYourEngines({
     const doors = Array.isArray(currentRoom.doors) ? currentRoom.doors : []
     doorById = new Map(doors.map((d) => [d.id, d]))
     doorHitMeshes = Array.isArray(currentRoom.doorHitMeshes) ? currentRoom.doorHitMeshes : []
+    doorHitById = new Map(
+      doorHitMeshes
+        .map((m) => {
+          const id = m?.userData?.doorId
+          return typeof id === 'string' && id ? [id, m] : null
+        })
+        .filter(Boolean)
+    )
     roomObstacles = Array.isArray(currentRoom.obstacles) ? currentRoom.obstacles : []
     pickableMeshes = Array.isArray(currentRoom.pickableMeshes) ? currentRoom.pickableMeshes : []
 
@@ -628,6 +637,17 @@ export function startYourEngines({
   return {
     setInteractionLocked(locked) {
       interactionLocked = Boolean(locked)
+    },
+    setDoorLabelOverride(doorId, text) {
+      const id = typeof doorId === 'string' ? doorId : ''
+      if (!id) return
+      const hit = doorHitById.get(id)
+      const ctrl = hit?.userData?.labelControl
+      if (!ctrl || typeof ctrl.setOverride !== 'function' || typeof ctrl.clearOverride !== 'function') return
+
+      const t = typeof text === 'string' ? text.trim() : ''
+      if (t) ctrl.setOverride(t)
+      else ctrl.clearOverride()
     },
     setRoom({
       roomMode: nextMode,

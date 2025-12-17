@@ -62,6 +62,7 @@ let engineApi = null
 
 let wikiAbortController = null
 let activeNavId = 0
+let activeDoorLabelOverride = null
 
 function setLoading(loading) {
   crosshairEl.classList.toggle('loading', Boolean(loading))
@@ -90,14 +91,25 @@ function setUrlAndState(title, { push = false } = {}) {
   }
 }
 
-function loadAndEnterGallery(title, { pushHistory = false, spawn, updateUrlState = true } = {}) {
+function loadAndEnterGallery(title, { pushHistory = false, spawn, updateUrlState = true, loadingDoorId = null } = {}) {
   if (!title) return
+
+  if (activeDoorLabelOverride && engineApi && typeof engineApi.setDoorLabelOverride === 'function') {
+    engineApi.setDoorLabelOverride(activeDoorLabelOverride.doorId, '')
+    activeDoorLabelOverride = null
+  }
 
   if (wikiAbortController) wikiAbortController.abort()
   wikiAbortController = new AbortController()
   const navId = (activeNavId += 1)
 
   setLoading(true)
+
+  const doorId = typeof loadingDoorId === 'string' ? loadingDoorId : ''
+  if (doorId && engineApi && typeof engineApi.setDoorLabelOverride === 'function') {
+    engineApi.setDoorLabelOverride(doorId, 'Preparing exhibit')
+    activeDoorLabelOverride = { doorId, navId }
+  }
 
   fetchGalleryRoomData(title, { signal: wikiAbortController.signal })
     .then((data) => {
@@ -154,6 +166,10 @@ function loadAndEnterGallery(title, { pushHistory = false, spawn, updateUrlState
     })
     .finally(() => {
       if (navId !== activeNavId) return
+      if (activeDoorLabelOverride && activeDoorLabelOverride.navId === navId && engineApi && typeof engineApi.setDoorLabelOverride === 'function') {
+        engineApi.setDoorLabelOverride(activeDoorLabelOverride.doorId, '')
+        activeDoorLabelOverride = null
+      }
       setLoading(false)
     })
 }
@@ -165,6 +181,11 @@ function enterlobby({ push = false } = {}) {
     wikiAbortController = null
   }
   activeNavId += 1
+
+  if (activeDoorLabelOverride && engineApi && typeof engineApi.setDoorLabelOverride === 'function') {
+    engineApi.setDoorLabelOverride(activeDoorLabelOverride.doorId, '')
+    activeDoorLabelOverride = null
+  }
 
   setUrlAndState(null, { push })
   if (engineApi && typeof engineApi.setRoom === 'function') {
@@ -204,6 +225,7 @@ engineApi = startYourEngines({
       loadAndEnterGallery(door.category, {
         pushHistory: true,
         spawn: { type: 'fromWall', wall: 'south' },
+        loadingDoorId: typeof door.id === 'string' ? door.id : null,
       })
       return
     }
@@ -213,6 +235,7 @@ engineApi = startYourEngines({
       loadAndEnterGallery(title, {
         pushHistory: true,
         spawn: { type: 'fromWall', wall: 'south' },
+        loadingDoorId: typeof door.id === 'string' ? door.id : null,
       })
       return
     }

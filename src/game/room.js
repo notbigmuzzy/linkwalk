@@ -1,14 +1,5 @@
 import * as THREE from 'three'
-import { clamp, makeOutlineRect, roundTo } from './helper.js'
-
-function configureGalleryTexture(tex) {
-  if (!tex) return tex
-  tex.generateMipmaps = false
-  tex.minFilter = THREE.LinearFilter
-  tex.magFilter = THREE.LinearFilter
-  tex.needsUpdate = true
-  return tex
-}
+import { clamp, makeOutlineRect, roundTo, configureGalleryTexture} from '../misc/helper.js'
 
 export function buildRoom({ width, length, height, wallThickness = 0.2, mode = 'gallery', lobby = {}, gallery = {} }) {
   const group = new THREE.Group()
@@ -244,6 +235,8 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
           ? meta.category.trim()
           : ''
 
+    let labelControl = null
+
     if (labelText) {
       const plaqueW = Math.min(w * 0.82, 1.35)
       const plaqueH = 0.24
@@ -259,95 +252,117 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       canvas.width = 512
       canvas.height = 128
       const ctx = canvas.getContext('2d')
+      let drawLabelText = null
       if (ctx) {
         const plaqueBg = `#${new THREE.Color(color).getHexString()}`
 
-        function wrapLines(text, maxWidth, maxLines) {
-          const words = String(text).trim().split(/\s+/g)
-          const lines = []
-          let cur = ''
+        drawLabelText = function drawLabelText(nextText) {
+          function wrapLines(text, maxWidth, maxLines) {
+            const words = String(text).trim().split(/\s+/g)
+            const lines = []
+            let cur = ''
 
-          function pushLine(line) {
-            if (line.trim()) lines.push(line.trim())
-          }
-
-          for (const word of words) {
-            const next = cur ? `${cur} ${word}` : word
-            if (ctx.measureText(next).width <= maxWidth) {
-              cur = next
-              continue
+            function pushLine(line) {
+              if (line.trim()) lines.push(line.trim())
             }
 
-            if (cur) pushLine(cur)
-            cur = word
-
-            if (ctx.measureText(cur).width > maxWidth) {
-              let chunk = ''
-              for (const ch of cur) {
-                const nextChunk = chunk + ch
-                if (ctx.measureText(nextChunk).width <= maxWidth) {
-                  chunk = nextChunk
-                } else {
-                  pushLine(chunk)
-                  chunk = ch
-                }
+            for (const word of words) {
+              const next = cur ? `${cur} ${word}` : word
+              if (ctx.measureText(next).width <= maxWidth) {
+                cur = next
+                continue
               }
-              cur = chunk
+
+              if (cur) pushLine(cur)
+              cur = word
+
+              if (ctx.measureText(cur).width > maxWidth) {
+                let chunk = ''
+                for (const ch of cur) {
+                  const nextChunk = chunk + ch
+                  if (ctx.measureText(nextChunk).width <= maxWidth) {
+                    chunk = nextChunk
+                  } else {
+                    pushLine(chunk)
+                    chunk = ch
+                  }
+                }
+                cur = chunk
+              }
+
+              if (lines.length >= maxLines) break
             }
 
-            if (lines.length >= maxLines) break
-          }
+            if (lines.length < maxLines && cur) pushLine(cur)
 
-          if (lines.length < maxLines && cur) pushLine(cur)
-
-          if (lines.length > maxLines) lines.length = maxLines
-          if (lines.length === maxLines) {
-            const lastIdx = maxLines - 1
-            let last = lines[lastIdx] ?? ''
-            const ell = '…'
-            while (last && ctx.measureText(last + ell).width > maxWidth) {
-              last = last.slice(0, -1)
+            if (lines.length > maxLines) lines.length = maxLines
+            if (lines.length === maxLines) {
+              const lastIdx = maxLines - 1
+              let last = lines[lastIdx] ?? ''
+              const ell = '…'
+              while (last && ctx.measureText(last + ell).width > maxWidth) {
+                last = last.slice(0, -1)
+              }
+              lines[lastIdx] = last ? last + ell : ell
             }
-            lines[lastIdx] = last ? last + ell : ell
+
+            return lines
           }
 
-          return lines
+          const safeText = String(nextText || '').trim()
+          ctx.clearRect(0, 0, canvas.width, canvas.height)
+          ctx.fillStyle = plaqueBg
+          ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+          const padX = 18
+          const maxLines = 3
+          let fontPx = 56
+          ctx.font = `700 ${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
+          ctx.fillStyle = '#000000'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+
+          const maxWidth = canvas.width - padX * 2
+          let lines = wrapLines(safeText, maxWidth, maxLines)
+
+          if (lines.length >= 3) fontPx = 28
+          else if (lines.length === 2) fontPx = 38
+          else fontPx = 56
+
+          ctx.font = `700 ${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
+          lines = wrapLines(safeText, maxWidth, maxLines)
+
+          const lineHeight = Math.round(fontPx * 1.1)
+          const totalH = lines.length * lineHeight
+          const startY = canvas.height / 2 - totalH / 2 + lineHeight / 2
+
+          for (let i = 0; i < lines.length; i += 1) {
+            ctx.fillText(lines[i], canvas.width / 2, startY + i * lineHeight)
+          }
         }
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height)
-  		ctx.fillStyle = plaqueBg
-        ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-        const padX = 18
-        const maxLines = 3
-        let fontPx = 56
-        ctx.font = `700 ${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
-        ctx.fillStyle = '#000000'
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'middle'
-
-        const maxWidth = canvas.width - padX * 2
-        let lines = wrapLines(labelText, maxWidth, maxLines)
-
-        if (lines.length >= 3) fontPx = 28
-        else if (lines.length === 2) fontPx = 38
-        else fontPx = 56
-
-        ctx.font = `700 ${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
-        lines = wrapLines(labelText, maxWidth, maxLines)
-
-        const lineHeight = Math.round(fontPx * 1.1)
-        const totalH = lines.length * lineHeight
-        const startY = canvas.height / 2 - totalH / 2 + lineHeight / 2
-
-        for (let i = 0; i < lines.length; i += 1) {
-          ctx.fillText(lines[i], canvas.width / 2, startY + i * lineHeight)
-        }
+        drawLabelText(labelText)
       }
 
       const tex = new THREE.CanvasTexture(canvas)
       tex.colorSpace = THREE.SRGBColorSpace
       tex.needsUpdate = true
+
+      labelControl = {
+        originalText: labelText,
+        overrideText: null,
+        setOverride(nextText) {
+          const t = String(nextText || '').trim()
+          this.overrideText = t || null
+          if (typeof drawLabelText === 'function') {
+            drawLabelText(t || this.originalText)
+          }
+          tex.needsUpdate = true
+        },
+        clearOverride() {
+          this.setOverride('')
+        },
+      }
 
       const textGeo = new THREE.PlaneGeometry(plaqueW * 0.96, plaqueH * 0.78)
       const textMat = new THREE.MeshBasicMaterial({ map: tex })
@@ -382,6 +397,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     const hitMesh = new THREE.Mesh(hitGeo, hitMat)
     hitMesh.name = 'door-hit'
     hitMesh.userData.doorId = id
+    if (labelControl) hitMesh.userData.labelControl = labelControl
     hitMesh.quaternion.copy(quat)
     hitMesh.position.copy(baseCenter.clone().add(wallUp.clone().multiplyScalar(h / 2)).add(wallNormal.clone().multiplyScalar(0.02)))
     group.add(hitMesh)

@@ -45,3 +45,12 @@ export function makeOutlineRect({ width, height, center, normal, color = 0xfffff
 
   return { object: lines, disposables: [edges, mat] }
 }
+
+export function configureGalleryTexture(tex) {
+  if (!tex) return tex
+  tex.generateMipmaps = false
+  tex.minFilter = THREE.LinearFilter
+  tex.magFilter = THREE.LinearFilter
+  tex.needsUpdate = true
+  return tex
+}
