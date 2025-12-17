@@ -5,6 +5,54 @@ const WIKI_ACTION_API = 'https://en.wikipedia.org/w/api.php'
 
 const DEFAULT_TIMEOUT_MS = 8000
 
+const GALLERY_PERSIST_KEY = 'linkwalk:galleryCache:v1'
+const GALLERY_PERSIST_MAX = 80
+const GALLERY_PERSIST_TTL_MS = 24 * 60 * 60 * 1000
+
+function safeNow() {
+  return typeof Date.now === 'function' ? Date.now() : new Date().getTime()
+}
+
+function loadGalleryPersistCache() {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return new Map()
+    const raw = window.localStorage.getItem(GALLERY_PERSIST_KEY)
+    if (!raw) return new Map()
+    const parsed = JSON.parse(raw)
+    const entries = Array.isArray(parsed?.entries) ? parsed.entries : []
+    const now = safeNow()
+
+    const map = new Map()
+    for (const e of entries) {
+      const key = typeof e?.k === 'string' ? e.k : ''
+      const ts = typeof e?.t === 'number' ? e.t : 0
+      const val = e?.v
+      if (!key || !val) continue
+      if (!(ts > 0) || now - ts > GALLERY_PERSIST_TTL_MS) continue
+      map.set(key, { t: ts, v: val })
+    }
+    return map
+  } catch {
+    return new Map()
+  }
+}
+
+function saveGalleryPersistCache(map) {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return
+    const items = []
+    for (const [k, entry] of map.entries()) {
+      if (!k || !entry?.v) continue
+      items.push({ k, t: entry.t, v: entry.v })
+    }
+    items.sort((a, b) => (b.t || 0) - (a.t || 0))
+    if (items.length > GALLERY_PERSIST_MAX) items.length = GALLERY_PERSIST_MAX
+    window.localStorage.setItem(GALLERY_PERSIST_KEY, JSON.stringify({ v: 1, entries: items }))
+  } catch {
+    // ignore (quota, privacy mode, etc)
+  }
+}
+
 function makeWikiError(message, extras = {}) {
   const err = new Error(message)
   Object.assign(err, extras)
@@ -646,6 +694,15 @@ export async function fetchGalleryRoomData(title, opts = {}) {
   const cache = fetchGalleryRoomData._cache
   if (cache.has(normalizedTitle)) return cache.get(normalizedTitle)
 
+  // Persistent cache (survives reloads) to reduce request volume.
+  if (!fetchGalleryRoomData._persist) fetchGalleryRoomData._persist = loadGalleryPersistCache()
+  const persist = fetchGalleryRoomData._persist
+  const persisted = persist.get(normalizedTitle)
+  if (persisted && persisted.v) {
+    cache.set(normalizedTitle, persisted.v)
+    return persisted.v
+  }
+
   const [pageBundle, photos, related] = await Promise.all([
     fetchWikipediaPageBundle(normalizedTitle, { ...opts, maxChars: 6000, thumbSize: 640 }),
     // Fetch an extra image so we can exclude the main thumbnail without ending up short.
@@ -712,7 +769,13 @@ export async function fetchGalleryRoomData(title, opts = {}) {
   }
 
   cache.set(normalizedTitle, result)
+
+  if (persist) {
+    persist.set(normalizedTitle, { t: safeNow(), v: result })
+    saveGalleryPersistCache(persist)
+  }
   return result
 }
 
 fetchGalleryRoomData._cache = null
+fetchGalleryRoomData._persist = null
