@@ -198,39 +198,81 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
   addDoor({ id: 'entry-door', wall: 'south', w: 1.25, h: 2.25 * 1.1, u: 0, color: 0xff4455, meta: { target: 'back', label: 'Back' } })
 
   {
-    const colRadius = 0.65
     const colHeight = height
-    const colGeo = new THREE.CylinderGeometry(colRadius, colRadius, colHeight, 18, 1)
-    const colMat = new THREE.MeshStandardMaterial({ color: palette.wall, roughness: 0.85, metalness: 0.0 })
-    disposables.push(colGeo, colMat)
 
-    function addColumn({ id, x, z }) {
-      const col = new THREE.Mesh(colGeo, colMat)
-      col.name = id
-      col.position.set(x, colHeight / 2, z)
-      group.add(col)
+    // One large square center pillar. Width is about 3 of the old columns.
+    const pillarW = roundTo(clamp(3.9, 3.0, width - 3.0), 0.05)
+    // Make it even thinner (2x thinner than before).
+    const pillarD = roundTo(clamp(0.35, 0.28, 0.5), 0.05)
+    const pillarGeo = new THREE.BoxGeometry(pillarW, colHeight, pillarD)
+    const pillarMat = new THREE.MeshStandardMaterial({ color: palette.wall, roughness: 0.85, metalness: 0.0 })
+    disposables.push(pillarGeo, pillarMat)
 
-      obstacles.push({ type: 'cylinder', x, z, radius: colRadius })
-      return col
+    const pillar = new THREE.Mesh(pillarGeo, pillarMat)
+    pillar.name = 'column-center'
+    pillar.position.set(0, colHeight / 2, 0)
+    group.add(pillar)
+
+    // Collision approximation: cylinders across the width.
+    {
+      const n = 5
+      const z = 0
+      const radius = Math.max(0.35, pillarD * 0.48)
+      for (let i = 0; i < n; i += 1) {
+        const t = n === 1 ? 0.5 : i / (n - 1)
+        const x = -pillarW * 0.42 + t * (pillarW * 0.84)
+        obstacles.push({ type: 'cylinder', x, z, radius })
+      }
     }
 
-    const colOffsetX = Math.min(1.55, Math.max(1.05, width * 0.11))
-    const leftCol = addColumn({ id: 'column-left', x: -colOffsetX, z: 0 })
-    const rightCol = addColumn({ id: 'column-right', x: colOffsetX, z: 0 })
+    // Two plants behind the pillar (north side).
+    {
+      const potH = 0.34
+      const potR = 0.22
+      const plantH = 0.85
+
+      const potGeo = new THREE.CylinderGeometry(potR, potR * 1.08, potH, 14, 1)
+      const potMat = new THREE.MeshStandardMaterial({ color: 0x12161b, roughness: 0.95, metalness: 0.02 })
+      const leafGeo = new THREE.ConeGeometry(0.28, plantH, 12, 1)
+      const leafMat = new THREE.MeshStandardMaterial({ color: 0x2a8f4a, roughness: 0.9, metalness: 0.0 })
+      disposables.push(potGeo, potMat, leafGeo, leafMat)
+
+      const z = -(pillarD / 2 + 0.55)
+      const xs = [-pillarW * 0.28, pillarW * 0.28]
+
+      for (const x of xs) {
+        const plant = new THREE.Group()
+        plant.name = 'gallery-plant'
+        plant.position.set(x, 0, z)
+        group.add(plant)
+
+        const pot = new THREE.Mesh(potGeo, potMat)
+        pot.position.set(0, potH / 2, 0)
+        plant.add(pot)
+
+        const leaves = new THREE.Mesh(leafGeo, leafMat)
+        leaves.position.set(0, potH + plantH / 2 - 0.02, 0)
+        leaves.rotation.x = -0.1
+        plant.add(leaves)
+
+        obstacles.push({ type: 'cylinder', x, z, radius: potR + 0.1 })
+      }
+    }
 
     const title = typeof gallery.title === 'string' ? gallery.title.trim() : ''
     const description = typeof gallery.description === 'string' ? gallery.description.trim() : ''
     const longExtract = typeof gallery.longExtract === 'string' ? gallery.longExtract.trim() : ''
     const mainThumbnailUrl = typeof gallery.mainThumbnailUrl === 'string' ? gallery.mainThumbnailUrl.trim() : ''
 
-    const imageOnLeft = Math.random() < 0.5
-    const imageCol = imageOnLeft ? leftCol : rightCol
-    const textCol = imageOnLeft ? rightCol : leftCol
-
     const panelW = 1.55
     const panelH = 1.55
     const panelY = Math.min(height * 0.47, 1.9)
-    const panelZ = colRadius + 0.08
+    const panelZ = pillarD / 2 + 0.08
+
+    const panelGapX = 0.28
+    const panelSpan = panelW + panelGapX + 1.55
+    const photoX = -panelSpan / 2 + panelW / 2
+    const textX = panelSpan / 2 - 1.55 / 2
 
     const panelDepth = 0.06
     const panelBackGeo = new THREE.BoxGeometry(panelW, panelH, panelDepth)
@@ -238,13 +280,13 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     disposables.push(panelBackGeo, panelBackMat)
 
     const imgBack = new THREE.Mesh(panelBackGeo, panelBackMat)
-    imgBack.position.set(imageCol.position.x, panelY, panelZ)
+    imgBack.position.set(photoX, panelY, panelZ)
     group.add(imgBack)
 
     const imgGeo = new THREE.PlaneGeometry(panelW, panelH)
     const imgMat = new THREE.MeshBasicMaterial({ color: 0xffffff })
     const img = new THREE.Mesh(imgGeo, imgMat)
-    img.position.set(imageCol.position.x, panelY, panelZ + panelDepth / 2 + 0.002)
+    img.position.set(photoX, panelY, panelZ + panelDepth / 2 + 0.002)
     group.add(img)
     disposables.push(imgGeo, imgMat)
 
@@ -384,11 +426,11 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     const descBackGeo = new THREE.BoxGeometry(descW, descH, panelDepth)
     const descBackMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.95, metalness: 0.0 })
     const descBack = new THREE.Mesh(descBackGeo, descBackMat)
-    descBack.position.set(textCol.position.x, descY, panelZ)
+    descBack.position.set(textX, descY, panelZ)
     group.add(descBack)
     disposables.push(descBackGeo, descBackMat)
 
-    descPanel.position.set(textCol.position.x, descY, panelZ + panelDepth / 2 + 0.002)
+    descPanel.position.set(textX, descY, panelZ + panelDepth / 2 + 0.002)
     group.add(descPanel)
     disposables.push(descGeo, descTex, descMat)
   }
