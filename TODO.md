@@ -96,43 +96,43 @@ Goal: Desktop-only web app (Three.js) where each “room” is generated from a 
 
 **Definition of done:** Entering a room shows title/extract + at least one framed image if available.
 
---- -->
+--- 
 
 ## Milestone 5 — Entrance Lobby + Shows (Day 6–7)
-- [ ] Create a fixed “Entrance Room” that loads first
-- [ ] Create show doors (categories)
-  - [ ] Geography
-  - [ ] History
-  - [ ] Art
-  - [ ] Science
-  - [ ] Technology
-  - [ ] Music
-  - [ ] (optional) Random
-- [ ] Decide show → articles mapping (start simple)
-  - [ ] MVP: curated list per show
-  - [ ] Later: add search-based expansion
-- [ ] Door interaction
-  - [ ] Walking into door trigger loads first article room
-  - [ ] Optional: click-to-enter via raycast
+- [x] Create a fixed “Entrance Room” that loads first
+- [x] Create show doors (categories)
+  - [x] Geography
+  - [x] History
+  - [x] Art
+  - [x] Science
+  - [x] Technology
+  - [x] Music
+  - [x] (optional) Random
+- [x] Decide show → articles mapping (start simple)
+  - [x] MVP: curated list per show
+  - [x] Later: add search-based expansion
+- [x] Door interaction
+  - [x] Walking into door trigger loads first article room
+  - [x] Optional: click-to-enter via raycast
 
 **Definition of done:** On page load you start in lobby and can pick a show via doors.
 
----
+--- 
 
 ## Milestone 6 — Navigation Between Rooms (Day 7–9)
-- [ ] Add “related doors” inside article rooms
-  - [ ] MVP: pick from curated list / random from same show
-  - [ ] Later: use wiki links/search results
-- [ ] Add “Return to Lobby” option
-  - [ ] A door in each room OR keybind (keep it simple)
-- [ ] Basic state management
-  - [ ] `currentShow`
-  - [ ] `currentArticleTitle`
-  - [ ] History stack (optional)
+- [x] Add “related doors” inside article rooms
+  - [x] MVP: pick from curated list / random from same show
+  - [x] Later: use wiki links/search results
+- [x] Add “Return to Lobby” option
+  - [x] A door in each room OR keybind (keep it simple)
+- [x] Basic state management
+  - [x] `currentShow`
+  - [x] `currentArticleTitle`
+  - [x] History stack (optional)
 
 **Definition of done:** You can go lobby → article room → another room → back to lobby.
 
----
+--- -->
 
 ## Milestone 7 — Vaporwave Visual Style (Day 9–10)
 - [ ] Create 4–6 theme presets (no image textures)

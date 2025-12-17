@@ -17,7 +17,6 @@ app.innerHTML = `
   <div id="hud">
     <div id="fps" aria-label="Frames per second"></div>
     <div id="crosshair" aria-hidden="true"></div>
-    <div id="compass" aria-label="Compass heading"></div>
   </div>
   <canvas id="scene" aria-label="3D scene"></canvas>
 `
@@ -35,11 +34,6 @@ if (!(fpsEl instanceof HTMLElement)) {
 const overlayEl = document.querySelector('#overlay')
 if (!(overlayEl instanceof HTMLElement)) {
   throw new Error('Missing #overlay element')
-}
-
-const compassEl = document.querySelector('#compass')
-if (!(compassEl instanceof HTMLElement)) {
-  throw new Error('Missing #compass element')
 }
 
 const crosshairEl = document.querySelector('#crosshair')
@@ -212,9 +206,6 @@ engineApi = startYourEngines({
   lobbyCategories: ['Culture', 'Geography', 'Animals', 'History', 'Nature', 'People', 'Philosophy', 'Religion', 'Society', 'Technology'],
   onFps(fps) {
     fpsEl.textContent = `${fps.toFixed(0)} FPS`
-  },
-  onHeading({ cardinal }) {
-    compassEl.textContent = `${cardinal}`
   },
   onPointerLockChange(locked) {
     overlayEl.hidden = locked

@@ -110,20 +110,3 @@ body {
 body.locked #crosshair {
   display: block;
 }
-
-#compass {
-  display: none;
-  position: absolute;
-  top: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  color: rgba(255, 255, 255, 0.9);
-  font: 12px/1.2 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
-    'Courier New', monospace;
-  user-select: none;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
-}
-
-body.locked #compass {
-  display: block;
-}
