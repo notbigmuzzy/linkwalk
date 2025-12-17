@@ -695,14 +695,28 @@ export async function fetchGalleryRoomData(title, opts = {}) {
   const cache = fetchGalleryRoomData._cache
   const cachedBase = cache.get(normalizedTitle)
 
+  // Related pool cache: memory-only (clears on page reload).
+  // We still randomize which doors we show on each room entry.
+  if (!fetchGalleryRoomData._relatedCache) fetchGalleryRoomData._relatedCache = new Map()
+  const relatedCache = fetchGalleryRoomData._relatedCache
+
   // Persistent cache (survives reloads) to reduce request volume.
   if (!fetchGalleryRoomData._persist) fetchGalleryRoomData._persist = loadGalleryPersistCache()
   const persist = fetchGalleryRoomData._persist
   const persisted = persist.get(normalizedTitle)
   const baseFromPersist = persisted && persisted.v ? persisted.v : null
 
-  // Always fetch related fresh, but cache everything else.
-  const relatedPromise = fetchWikipediaRelatedFast(normalizedTitle, { ...opts, limit: 30 })
+  // Fetch related once per title per session; do NOT persist.
+  const cachedRelated = relatedCache.get(normalizedTitle)
+  const relatedPromise =
+    cachedRelated && Array.isArray(cachedRelated.items)
+      ? Promise.resolve(cachedRelated.items)
+      : fetchWikipediaRelatedFast(normalizedTitle, { ...opts, limit: 30 }).then((items) => {
+          if (Array.isArray(items)) {
+            relatedCache.set(normalizedTitle, { t: safeNow(), items })
+          }
+          return items
+        })
 
   let base = cachedBase || baseFromPersist
   if (!base) {
@@ -782,3 +796,4 @@ export async function fetchGalleryRoomData(title, opts = {}) {
 
 fetchGalleryRoomData._cache = null
 fetchGalleryRoomData._persist = null
+fetchGalleryRoomData._relatedCache = null
