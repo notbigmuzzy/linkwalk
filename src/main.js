@@ -57,7 +57,7 @@ overlayEl.addEventListener('keydown', (e) => {
 })
 
 const params = new URLSearchParams(window.location.search)
-const initialTitle = params.get('title')
+const initialTitle = params.get('exhibit')
 let engineApi = null
 
 let wikiAbortController = null
@@ -71,8 +71,8 @@ let historyIndex = 0
 
 function setUrlAndState(title, { push = false } = {}) {
   const nextParams = new URLSearchParams(window.location.search)
-  if (title) nextParams.set('title', title)
-  else nextParams.delete('title')
+  if (title) nextParams.set('exhibit', title)
+  else nextParams.delete('exhibit')
 
   const q = nextParams.toString()
   const url = q ? `${window.location.pathname}?${q}` : window.location.pathname
@@ -214,7 +214,7 @@ window.addEventListener('popstate', (e) => {
   }
 
   const p = new URLSearchParams(window.location.search)
-  const title = p.get('title')
+  const title = p.get('exhibit')
 
   if (title) {
     loadAndEnterGallery(title, {

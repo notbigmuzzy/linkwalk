@@ -256,6 +256,62 @@ function shuffleInPlace(arr) {
   return arr
 }
 
+async function filterOutDisambiguationPages(pages, { signal } = {}) {
+  const titles = Array.isArray(pages) ? pages.map((p) => (typeof p?.title === 'string' ? p.title.trim() : '')).filter(Boolean) : []
+  if (titles.length === 0) return pages
+
+  const disambigKeys = new Set()
+  const redirects = new Map()
+
+  try {
+    const chunkSize = 50
+    for (let i = 0; i < titles.length; i += chunkSize) {
+      const chunk = titles.slice(i, i + chunkSize)
+      const raw = await fetchActionQuery(
+        {
+          prop: 'pageprops',
+          ppprop: 'disambiguation',
+          redirects: '1',
+          titles: chunk.join('|'),
+        },
+        { signal }
+      )
+
+      const qp = raw?.query
+      const rawPages = Array.isArray(qp?.pages) ? qp.pages : []
+      for (const p of rawPages) {
+        const t = typeof p?.title === 'string' ? p.title.trim() : ''
+        if (!t) continue
+        const props = p?.pageprops
+        if (props && typeof props === 'object' && Object.prototype.hasOwnProperty.call(props, 'disambiguation')) {
+          disambigKeys.add(t.toLowerCase())
+        }
+      }
+
+      const rawRedirects = Array.isArray(qp?.redirects) ? qp.redirects : []
+      for (const r of rawRedirects) {
+        const from = typeof r?.from === 'string' ? r.from.trim().toLowerCase() : ''
+        const to = typeof r?.to === 'string' ? r.to.trim().toLowerCase() : ''
+        if (from && to) redirects.set(from, to)
+      }
+    }
+  } catch (err) {
+    console.warn('[linkwalk] Failed to filter disambiguation related pages', err)
+    return pages
+  }
+
+  return Array.isArray(pages)
+    ? pages.filter((p) => {
+        const key = typeof p?.title === 'string' ? p.title.trim().toLowerCase() : ''
+        if (!key) return false
+        if (disambigKeys.has(key)) return false
+        const redirected = redirects.get(key)
+        if (redirected && disambigKeys.has(redirected)) return false
+        return true
+      })
+    : pages
+}
+
 export async function fetchWikipediaRelatedBetter(title, { signal, limit } = {}) {
   const normalizedTitle = toWikiTitle(title)
   if (!normalizedTitle) {
@@ -306,10 +362,11 @@ export async function fetchWikipediaRelatedBetter(title, { signal, limit } = {})
     .filter((p) => !isLowSignalRelatedTitle(p.title))
 
   const merged = dedupeByTitle([...moreLike, ...backlinks])
+  const mergedNoDisambig = await filterOutDisambiguationPages(merged, { signal })
 
   const withExtract = []
   const withoutExtract = []
-  for (const p of merged) {
+  for (const p of mergedNoDisambig) {
     const extract = typeof p.extract === 'string' ? p.extract.trim() : ''
     if (extract) withExtract.push(p)
     else withoutExtract.push(p)
@@ -337,9 +394,10 @@ export async function fetchWikipediaRelatedBetter(title, { signal, limit } = {})
     .filter((p) => !isLowSignalRelatedTitle(p.title))
 
   const merged2 = dedupeByTitle([...picked, ...outgoing])
+  const merged2NoDisambig = await filterOutDisambiguationPages(merged2, { signal })
   const withExtract2 = []
   const withoutExtract2 = []
-  for (const p of merged2) {
+  for (const p of merged2NoDisambig) {
     const extract = typeof p.extract === 'string' ? p.extract.trim() : ''
     if (extract) withExtract2.push(p)
     else withoutExtract2.push(p)
@@ -432,7 +490,8 @@ export async function fetchRoomData(title, opts = {}) {
 export async function fetchGalleryRoomData(title, opts = {}) {
   const [summaryRaw, photos, relatedBetter, longExtract] = await Promise.all([
     fetchWikipediaSummary(title, opts),
-    fetchWikipediaPhotos(title, { ...opts, maxImages: 5 }),
+    // Fetch an extra image so we can exclude the main thumbnail without ending up short.
+    fetchWikipediaPhotos(title, { ...opts, maxImages: 6 }),
     fetchWikipediaRelatedBetter(title, { ...opts, limit: 7 }),
     fetchWikipediaLongExtract(title, { ...opts, maxChars: 6000 }),
   ])
@@ -453,10 +512,42 @@ export async function fetchGalleryRoomData(title, opts = {}) {
 
   const mainThumbnailUrl = room.thumbnailUrl || (Array.isArray(photos) && typeof photos[0] === 'string' ? photos[0] : null)
 
+  function canonicalImageKey(url) {
+    if (typeof url !== 'string') return ''
+    const raw = url.trim()
+    if (!raw) return ''
+    try {
+      const u = new URL(raw)
+      const parts = u.pathname.split('/').filter(Boolean)
+      const thumbIdx = parts.indexOf('thumb')
+      if (thumbIdx >= 0 && parts.length >= 2) {
+        // Thumb URLs look like: /.../thumb/<hash>/<hash>/<FileName>/<SIZE>-<FileName>
+        const fileName = parts[parts.length - 2] || parts[parts.length - 1]
+        return decodeURIComponent(fileName).toLowerCase()
+      }
+      const fileName = parts[parts.length - 1] || ''
+      return decodeURIComponent(fileName).toLowerCase()
+    } catch {
+      const parts = raw.split('?')[0].split('/').filter(Boolean)
+      return String(parts[parts.length - 1] || '').toLowerCase()
+    }
+  }
+
+  const mainKey = canonicalImageKey(mainThumbnailUrl)
+  const filteredPhotos = Array.isArray(photos)
+    ? photos
+        .filter((u) => typeof u === 'string' && u.trim())
+        .filter((u) => {
+          const k = canonicalImageKey(u)
+          return !mainKey || !k || k !== mainKey
+        })
+        .slice(0, 5)
+    : []
+
   return {
     room,
     mainThumbnailUrl,
-    photos,
+    photos: filteredPhotos,
     seeAlso,
     longExtract: typeof longExtract === 'string' ? longExtract : '',
   }

@@ -1,6 +1,17 @@
 import * as THREE from 'three'
 import { clamp, makeOutlineRect, roundTo } from './helper.js'
 
+function configureGalleryTexture(tex) {
+  if (!tex) return tex
+  // Mipmaps and trilinear filtering can cause noticeable hitches when large images finish loading.
+  // For this gallery use-case (mostly facing the camera), linear sampling is usually fine.
+  tex.generateMipmaps = false
+  tex.minFilter = THREE.LinearFilter
+  tex.magFilter = THREE.LinearFilter
+  tex.needsUpdate = true
+  return tex
+}
+
 export function buildRoom({ width, length, height, wallThickness = 0.2, mode = 'gallery', entryway = {}, gallery = {} }) {
   const group = new THREE.Group()
   group.name = 'room'
@@ -147,7 +158,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
     const tex = new THREE.CanvasTexture(canvas)
     tex.colorSpace = THREE.SRGBColorSpace
-    tex.needsUpdate = true
+    configureGalleryTexture(tex)
     return tex
   }
 
@@ -549,7 +560,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
         mainThumbnailUrl,
         (tex) => {
           tex.colorSpace = THREE.SRGBColorSpace
-          tex.needsUpdate = true
+          configureGalleryTexture(tex)
           imgMat.map = tex
           imgMat.color.setHex(0xffffff)
           imgMat.needsUpdate = true
@@ -1100,7 +1111,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       function applyTexture(tex) {
         if (!tex) return
         tex.colorSpace = THREE.SRGBColorSpace
-        tex.needsUpdate = true
+        configureGalleryTexture(tex)
         mat.map = tex
         mat.color.setHex(0xffffff)
         mat.needsUpdate = true
