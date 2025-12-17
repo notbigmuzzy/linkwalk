@@ -403,6 +403,63 @@ export function buildLobbyRoom(ctx, lobby) {
     addPlantAt(xPlant3)
   }
 
+  // Lobby decoration: plants in NE and NW corners.
+  {
+    const innerNorthZ = -halfL + wallThickness / 2
+    const innerEastX = halfW - wallThickness / 2
+    const innerWestX = -halfW + wallThickness / 2
+
+    // Keep them tucked in the corners but clear of wall doors.
+    const insetX = 0.72
+    const insetZ = 0.95
+
+    const potMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.95, metalness: 0.0 })
+    const leafMat = new THREE.MeshStandardMaterial({ color: 0x2f6f4e, roughness: 0.85, metalness: 0.0, side: THREE.DoubleSide })
+    disposables.push(potMat, leafMat)
+
+    const potR = 0.28
+    const potH = 0.42
+    const potGeo = new THREE.CylinderGeometry(potR, potR * 1.12, potH, 18, 1)
+    const soilGeo = new THREE.CylinderGeometry(potR * 0.95, potR * 1.08, 0.06, 18, 1)
+    const leafGeo = new THREE.CylinderGeometry(0.02, 0.08, 0.5, 10, 1)
+    disposables.push(potGeo, soilGeo, leafGeo)
+
+    function addCornerPlant({ x, z, name }) {
+      const plant = new THREE.Group()
+      plant.name = name
+      plant.position.set(x, 0, z)
+      group.add(plant)
+
+      const pot = new THREE.Mesh(potGeo, potMat)
+      pot.position.set(0, potH / 2, 0)
+      plant.add(pot)
+
+      const soil = new THREE.Mesh(soilGeo, potMat)
+      soil.position.set(0, potH - 0.02, 0)
+      plant.add(soil)
+
+      const leaves = new THREE.Group()
+      leaves.position.set(0, potH + 0.05, 0)
+      plant.add(leaves)
+
+      const leafCount = 10
+      for (let i = 0; i < leafCount; i += 1) {
+        const leaf = new THREE.Mesh(leafGeo, leafMat)
+        const a = (i / leafCount) * Math.PI * 2
+        leaf.rotation.y = a
+        leaf.rotation.x = -0.25 - Math.random() * 0.25
+        leaf.position.set(0, 0.25 + Math.random() * 0.12, 0)
+        leaves.add(leaf)
+      }
+
+      obstacles.push({ type: 'cylinder', x, z, radius: 0.38 })
+    }
+
+    const z = innerNorthZ + insetZ
+    addCornerPlant({ x: innerWestX + insetX, z, name: 'plant-nw-lobby' })
+    addCornerPlant({ x: innerEastX - insetX, z, name: 'plant-ne-lobby' })
+  }
+
   group.add(markers)
 
   return {
