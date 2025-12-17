@@ -653,28 +653,110 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
   }
 
   {
-    const relatedTitles = Array.isArray(gallery.relatedTitles) ? gallery.relatedTitles.filter(Boolean) : []
+    const relatedTitles = Array.isArray(gallery.relatedTitles) ? gallery.relatedTitles.filter(Boolean).slice(0, 6) : []
     const n = relatedTitles.length
     if (n > 0) {
-      const wall = 'north'
-      const gapU = 0.22
-      const usable = Math.max(1.0, width - 2.0)
-      const doorW = clamp((usable - (n - 1) * gapU) / n, 0.45, 1.25)
       const doorH = 2.25
-      const totalSpan = n * doorW + (n - 1) * gapU
-      const uStart = -totalSpan / 2 + doorW / 2
+      const cornerMargin = 1.6
+      const cornerUSouth = Math.max(-halfL + 1.0, halfL - cornerMargin)
+      const cornerUNorth = Math.min(halfL - 1.0, -halfL + cornerMargin)
+      const northCornerUEast = Math.min(halfW - 1.0, halfW - cornerMargin)
+      const northCornerUWest = Math.max(-halfW + 1.0, -halfW + cornerMargin)
 
-      for (let i = 0; i < n; i += 1) {
-        const u = uStart + i * (doorW + gapU)
-        const title = String(relatedTitles[i])
+      if (n >= 1) {
+        const title = String(relatedTitles[0])
         addDoor({
-          id: `seealso-${i}`,
-          wall,
-          w: doorW,
+          id: 'seealso-0',
+          wall: 'east',
+          w: 1.1,
           h: doorH,
-          u,
+          u: cornerUSouth,
           meta: { articleTitle: title, label: title },
         })
+      }
+
+      if (n >= 2) {
+        const title = String(relatedTitles[1])
+        addDoor({
+          id: 'seealso-1',
+          wall: 'west',
+          w: 1.1,
+          h: doorH,
+          u: cornerUSouth,
+          meta: { articleTitle: title, label: title },
+        })
+      }
+
+      if (n >= 3) {
+        const title = String(relatedTitles[2])
+        addDoor({
+          id: 'seealso-2',
+          wall: 'east',
+          w: 1.1,
+          h: doorH,
+          u: cornerUNorth,
+          meta: { articleTitle: title, label: title },
+        })
+      }
+
+      if (n >= 4) {
+        const title = String(relatedTitles[3])
+        addDoor({
+          id: 'seealso-3',
+          wall: 'west',
+          w: 1.1,
+          h: doorH,
+          u: cornerUNorth,
+          meta: { articleTitle: title, label: title },
+        })
+      }
+
+      if (n >= 5) {
+        const title = String(relatedTitles[4])
+        addDoor({
+          id: 'seealso-4',
+          wall: 'north',
+          w: 1.1,
+          h: doorH,
+          u: northCornerUEast,
+          meta: { articleTitle: title, label: title },
+        })
+      }
+
+      if (n >= 6) {
+        const title = String(relatedTitles[5])
+        addDoor({
+          id: 'seealso-5',
+          wall: 'north',
+          w: 1.1,
+          h: doorH,
+          u: northCornerUWest,
+          meta: { articleTitle: title, label: title },
+        })
+      }
+
+      const remaining = relatedTitles.slice(6)
+      const rn = remaining.length
+      if (rn > 0) {
+        const wall = 'north'
+        const gapU = 0.22
+        const usable = Math.max(1.0, width - 2.0)
+        const doorW = clamp((usable - (rn - 1) * gapU) / rn, 0.45, 1.25)
+        const totalSpan = rn * doorW + (rn - 1) * gapU
+        const uStart = -totalSpan / 2 + doorW / 2
+
+        for (let i = 0; i < rn; i += 1) {
+          const u = uStart + i * (doorW + gapU)
+          const title = String(remaining[i])
+          addDoor({
+            id: `seealso-${i + 6}`,
+            wall,
+            w: doorW,
+            h: doorH,
+            u,
+            meta: { articleTitle: title, label: title },
+          })
+        }
       }
     }
   }
