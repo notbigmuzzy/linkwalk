@@ -295,6 +295,7 @@ export function startYourEngines({
     galleryMainThumbnailUrl: nextGalleryMainThumbnailUrl,
     galleryPhotos: nextGalleryPhotos,
     galleryLongExtract: nextGalleryLongExtract,
+    galleryTrail: nextGalleryTrail,
     spawn,
   }) {
     const wallThickness = 0.2
@@ -333,6 +334,7 @@ export function startYourEngines({
         mainThumbnailUrl: nextGalleryMainThumbnailUrl,
         photos: nextGalleryPhotos,
         longExtract: nextGalleryLongExtract,
+        trail: Array.isArray(nextGalleryTrail) ? nextGalleryTrail : [],
       },
     })
 
@@ -664,6 +666,7 @@ export function startYourEngines({
       galleryMainThumbnailUrl: nextGalleryMainThumbnailUrl,
       galleryPhotos: nextGalleryPhotos,
       galleryLongExtract: nextGalleryLongExtract,
+      galleryTrail: nextGalleryTrail,
       spawn,
     } = {}) {
       const hasGalleryTitle = Object.prototype.hasOwnProperty.call(arguments.length ? arguments[0] ?? {} : {}, 'galleryTitle')
@@ -674,6 +677,7 @@ export function startYourEngines({
       )
       const hasGalleryPhotos = Object.prototype.hasOwnProperty.call(arguments.length ? arguments[0] ?? {} : {}, 'galleryPhotos')
       const hasGalleryLongExtract = Object.prototype.hasOwnProperty.call(arguments.length ? arguments[0] ?? {} : {}, 'galleryLongExtract')
+      const hasGalleryTrail = Object.prototype.hasOwnProperty.call(arguments.length ? arguments[0] ?? {} : {}, 'galleryTrail')
 
       loadRoom({
         mode: typeof nextMode === 'string' ? nextMode : roomMode,
@@ -690,6 +694,7 @@ export function startYourEngines({
           : galleryMainThumbnailUrl,
         galleryPhotos: hasGalleryPhotos ? (Array.isArray(nextGalleryPhotos) ? nextGalleryPhotos : null) : galleryPhotos,
         galleryLongExtract: hasGalleryLongExtract ? (typeof nextGalleryLongExtract === 'string' ? nextGalleryLongExtract : null) : galleryLongExtract,
+        galleryTrail: hasGalleryTrail ? (Array.isArray(nextGalleryTrail) ? nextGalleryTrail : null) : null,
         spawn,
       })
     },

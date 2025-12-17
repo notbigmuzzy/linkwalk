@@ -54,9 +54,56 @@ const params = new URLSearchParams(window.location.search)
 const initialTitle = params.get('exhibit')
 let engineApi = null
 
+const LOBBY_TITLE = 'Lobby'
+
 let wikiAbortController = null
 let activeNavId = 0
 let activeDoorLabelOverride = null
+
+// Memory-only exhibit trail for the in-gallery whiteboard.
+// Keeps the last few visited exhibit titles (not including lobby).
+const TRAIL_PERSIST_KEY = 'linkwalk:trail:v1'
+const TRAIL_PERSIST_MAX = 30
+
+function loadTrailPersist() {
+  try {
+    if (!window?.localStorage) return []
+    const raw = window.localStorage.getItem(TRAIL_PERSIST_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    const items = Array.isArray(parsed?.items) ? parsed.items : Array.isArray(parsed) ? parsed : []
+    return items
+      .map((t) => (typeof t === 'string' ? t.trim() : ''))
+      .filter(Boolean)
+      .slice(-TRAIL_PERSIST_MAX)
+  } catch {
+    return []
+  }
+}
+
+function saveTrailPersist(trail) {
+  try {
+    if (!window?.localStorage) return
+    const items = Array.isArray(trail) ? trail.slice(-TRAIL_PERSIST_MAX) : []
+    window.localStorage.setItem(TRAIL_PERSIST_KEY, JSON.stringify({ v: 1, items }))
+  } catch {
+    // ignore
+  }
+}
+
+let galleryTrail = loadTrailPersist()
+
+function pushGalleryTrail(displayTitle) {
+  const t = typeof displayTitle === 'string' ? displayTitle.trim() : ''
+  if (!t) return
+  const key = t.toLowerCase()
+  const last = galleryTrail.length ? String(galleryTrail[galleryTrail.length - 1] || '') : ''
+  if (last && last.toLowerCase() === key) return
+
+  galleryTrail = [...galleryTrail, t]
+  if (galleryTrail.length > TRAIL_PERSIST_MAX) galleryTrail = galleryTrail.slice(-TRAIL_PERSIST_MAX)
+  saveTrailPersist(galleryTrail)
+}
 
 function setLoading(loading) {
   crosshairEl.classList.toggle('loading', Boolean(loading))
@@ -109,6 +156,10 @@ function loadAndEnterGallery(title, { pushHistory = false, spawn, updateUrlState
     .then((data) => {
       if (navId !== activeNavId) return
 
+      const displayTitle = typeof data?.room?.title === 'string' ? data.room.title : title
+      pushGalleryTrail(displayTitle)
+      const trailForBoard = galleryTrail.slice(-3)
+
       const pool = Array.isArray(data?.seeAlso)
         ? data.seeAlso
             .map((p) => (p && typeof p.title === 'string' ? p.title : ''))
@@ -145,11 +196,12 @@ function loadAndEnterGallery(title, { pushHistory = false, spawn, updateUrlState
           roomSeedTitle: title,
           galleryEntryWall: 'south',
           galleryRelatedTitles: relatedTitles,
-          galleryTitle: typeof data?.room?.title === 'string' ? data.room.title : title,
+          galleryTitle: displayTitle,
           galleryDescription: typeof data?.room?.extract === 'string' ? data.room.extract : '',
           galleryMainThumbnailUrl: typeof data?.mainThumbnailUrl === 'string' ? data.mainThumbnailUrl : null,
           galleryPhotos: Array.isArray(data?.photos) ? data.photos : [],
           galleryLongExtract: typeof data?.longExtract === 'string' ? data.longExtract : '',
+          galleryTrail: trailForBoard,
           spawn,
         })
       }
@@ -175,6 +227,9 @@ function enterlobby({ push = false } = {}) {
     wikiAbortController = null
   }
   activeNavId += 1
+
+  // Track lobby in the trail so the gallery whiteboard can show where you came from.
+  pushGalleryTrail(LOBBY_TITLE)
 
   if (activeDoorLabelOverride && engineApi && typeof engineApi.setDoorLabelOverride === 'function') {
     engineApi.setDoorLabelOverride(activeDoorLabelOverride.doorId, '')
@@ -246,6 +301,11 @@ engineApi = startYourEngines({
     }
   },
 })
+
+// If the app starts in the lobby (no exhibit param), persist that in the trail.
+if (!initialTitle) {
+  pushGalleryTrail(LOBBY_TITLE)
+}
 
 setUrlAndState(initialTitle ? initialTitle : null, { push: false })
 

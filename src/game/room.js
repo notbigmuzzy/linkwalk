@@ -502,6 +502,195 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     }
   }
 
+  // Gallery north wall: breadcrumb whiteboard (2 previous + current).
+  {
+    const trailRaw = Array.isArray(gallery?.trail) ? gallery.trail : []
+    const trail = trailRaw
+      .map((t) => (typeof t === 'string' ? t.trim() : ''))
+      .filter(Boolean)
+      .slice(-3)
+
+    const fallbackTitle = typeof gallery?.title === 'string' ? gallery.title.trim() : ''
+    const steps = trail.length ? trail : (fallbackTitle ? [fallbackTitle] : [])
+
+    if (steps.length > 0) {
+      // Match the combined width of the two west-wall text panels (excluding the gap).
+      // Uses the same layout constants as the west wall: margin=1.6, gapU=0.65.
+      const textGapU = 0.65
+      const textMargin = 1.6
+      const textUsable = Math.max(2.8, length - textMargin * 2)
+      const textPanelW = clamp((textUsable - textGapU) / 2, 1.7, 3.4)
+      const desiredBoardW = 2 * textPanelW
+
+      // Explicitly shrink vs. the text panels (user request: -20%).
+      const shrunkBoardW = desiredBoardW * 0.8
+
+      // Hard clamp so it never overlaps the two north-wall doors.
+      // North doors are placed at the corners with width ~1.1.
+      const northDoorW = 1.1
+      const cornerMargin = 1.6
+      const doorCenterAbs = Math.max(0, halfW - cornerMargin)
+      const doorInnerEdgeAbs = Math.max(0, doorCenterAbs - northDoorW / 2)
+      const clearanceGap = 0.55
+      const maxBetweenDoors = Math.max(2.4, 2 * (doorInnerEdgeAbs - clearanceGap))
+
+      const boardW = roundTo(clamp(shrunkBoardW, 2.4, maxBetweenDoors), 0.05)
+      const boardH = roundTo(clamp(height * 0.46, 1.35, 2.15), 0.05)
+      const boardDepth = 0.08
+
+      const innerNorthZ = -halfL + wallThickness / 2
+      // Match the wall photos' distance from the ceiling by aligning top edges.
+      // Recompute the east-wall photo row layout (same constants as the gallery layout).
+      const photoCount = 4
+      const photoMargin = 1.75
+      const photoGapU = 0.5
+      const photoUsable = Math.max(2.8, length - photoMargin * 2)
+
+      const stdFrameH = roundTo(clamp(height * 0.36, 1.05, 1.35), 0.05)
+      const stdFrameW = roundTo(stdFrameH * 0.707, 0.05)
+      const photoAspect = stdFrameW / stdFrameH
+
+      let photoW = clamp((photoUsable - (photoCount - 1) * photoGapU) / photoCount, 0.65, 1.35)
+      let photoH = photoW / photoAspect
+      const maxPhotoH = clamp(height * 0.5, 1.15, 1.85)
+      if (photoH > maxPhotoH) {
+        photoH = maxPhotoH
+        photoW = photoH * photoAspect
+      }
+
+      const stdFrameY = height * 0.5
+      const photoY = clamp(stdFrameY, photoH / 2 + 0.25, height - photoH / 2 - 0.25)
+      const photoTopY = photoY + photoH / 2
+
+      // Align board top to photo top.
+      const boardY = clamp(photoTopY - boardH / 2, boardH / 2 + 0.25, height - boardH / 2 - 0.25)
+      const boardCenter = new THREE.Vector3(0, boardY, innerNorthZ + boardDepth / 2 + 0.01)
+
+      const canvas = document.createElement('canvas')
+      canvas.width = 2048
+      canvas.height = 768
+      const ctx2 = canvas.getContext('2d')
+
+      if (ctx2) {
+        ctx2.clearRect(0, 0, canvas.width, canvas.height)
+        ctx2.fillStyle = 'rgba(0,0,0,0.68)'
+        ctx2.fillRect(0, 0, canvas.width, canvas.height)
+
+        // Frame.
+        ctx2.strokeStyle = 'rgba(255,255,255,0.16)'
+        ctx2.lineWidth = 14
+        ctx2.strokeRect(18, 18, canvas.width - 36, canvas.height - 36)
+
+        const padX = 90
+        const padY = 70
+        const cols = steps.length
+        const colW = (canvas.width - padX * 2) / cols
+
+        function ellipsize(text, maxWidth) {
+          const s = String(text || '').trim()
+          if (!s) return ''
+          if (ctx2.measureText(s).width <= maxWidth) return s
+          const ell = '…'
+          let out = s
+          while (out.length > 0 && ctx2.measureText(out + ell).width > maxWidth) out = out.slice(0, -1)
+          return out.length ? out + ell : ell
+        }
+
+        // Titles row.
+        ctx2.textAlign = 'center'
+        ctx2.textBaseline = 'alphabetic'
+
+        const titleFont = '800 58px system-ui, -apple-system, Segoe UI, Roboto, Arial'
+        const hereFont = '900 44px system-ui, -apple-system, Segoe UI, Roboto, Arial'
+        const titleY = padY + 84
+        const hereY = padY + 34
+
+        for (let i = 0; i < cols; i += 1) {
+          const cx = padX + colW * (i + 0.5)
+          const isLast = i === cols - 1
+
+          if (isLast) {
+            ctx2.font = hereFont
+            ctx2.fillStyle = 'rgba(223,255,233,0.96)'
+            ctx2.fillText('YOU ARE HERE', cx, hereY)
+          }
+
+          ctx2.font = titleFont
+          ctx2.fillStyle = 'rgba(255,255,255,0.9)'
+          const maxW = colW * 0.92
+          ctx2.fillText(ellipsize(steps[i], maxW), cx, titleY)
+        }
+
+        // Diagram row: boxes and arrows.
+        const boxSize = 86
+        const midY = Math.round(canvas.height * 0.62)
+        const arrowY = midY
+
+        ctx2.lineWidth = 10
+        ctx2.strokeStyle = 'rgba(255,255,255,0.7)'
+        ctx2.fillStyle = 'rgba(255,255,255,0.7)'
+
+        const centers = []
+        for (let i = 0; i < cols; i += 1) {
+          const cx = padX + colW * (i + 0.5)
+          centers.push(cx)
+          ctx2.strokeRect(cx - boxSize / 2, arrowY - boxSize / 2, boxSize, boxSize)
+        }
+
+        function drawArrow(x1, x2) {
+          const y = arrowY
+          const start = x1 + boxSize / 2 + 26
+          const end = x2 - boxSize / 2 - 26
+          if (end <= start) return
+
+          ctx2.beginPath()
+          ctx2.moveTo(start, y)
+          ctx2.lineTo(end, y)
+          ctx2.stroke()
+
+          const head = 16
+          ctx2.beginPath()
+          ctx2.moveTo(end, y)
+          ctx2.lineTo(end - head, y - head * 0.7)
+          ctx2.lineTo(end - head, y + head * 0.7)
+          ctx2.closePath()
+          ctx2.fill()
+        }
+
+        for (let i = 0; i < centers.length - 1; i += 1) {
+          drawArrow(centers[i], centers[i + 1])
+        }
+      }
+
+      const tex = new THREE.CanvasTexture(canvas)
+      tex.colorSpace = THREE.SRGBColorSpace
+      configureGalleryTexture(tex)
+      tex.needsUpdate = true
+
+      const boardGroup = new THREE.Group()
+      boardGroup.name = 'gallery-trail-whiteboard'
+      boardGroup.position.copy(boardCenter)
+
+      const backGeo = new THREE.BoxGeometry(boardW, boardH, boardDepth)
+      const backMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.95, metalness: 0.0 })
+      const back = new THREE.Mesh(backGeo, backMat)
+      back.position.set(0, 0, 0)
+      boardGroup.add(back)
+      disposables.push(backGeo, backMat)
+
+      const faceGeo = new THREE.PlaneGeometry(boardW * 0.98, boardH * 0.98)
+      const faceMat = new THREE.MeshBasicMaterial({ map: tex })
+      const face = new THREE.Mesh(faceGeo, faceMat)
+      face.position.set(0, 0, boardDepth / 2 + 0.002)
+      boardGroup.add(face)
+      disposables.push(tex, faceGeo, faceMat)
+
+      // Mount on the north wall, facing into the room.
+      boardGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, 1))
+      group.add(boardGroup)
+    }
+  }
+
   const stdFrameH = roundTo(clamp(height * 0.36, 1.05, 1.35), 0.05)
   const stdFrameW = roundTo(stdFrameH * 0.707, 0.05)
   const stdFrameY = height * 0.5
