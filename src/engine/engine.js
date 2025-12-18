@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { buildRoom } from '../game/room.js'
+import { disposeSharedRoomMaterialTextures } from '../game/room/textures.js'
 import { hashStringToUint32, mulberry32, randRange, roundTo, setBodyClickableCursor } from '../misc/helper.js'
 
 export function startYourEngines({
@@ -51,6 +52,9 @@ export function startYourEngines({
   let flashlightTimeoutId = 0
 
   const staticDisposables = []
+  staticDisposables.push({
+    dispose: disposeSharedRoomMaterialTextures,
+  })
 
   let currentRoom = null
   let halfW = 6

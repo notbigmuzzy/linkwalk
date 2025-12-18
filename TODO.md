@@ -145,34 +145,34 @@ Goal: Desktop-only web app (Three.js) where each “room” is generated from a 
 
 **Definition of done:** Rooms have consistent vaporwave mood with a small set of coherent themes.
 
---- -->
+--- 
 
 ## Milestone 8 — Caching + Memory Safety (Day 10–12)
-- [ ] Data cache (small, safe)
-  - [ ] Cache `RoomData` by title in memory
-  - [ ] Optional: persist to IndexedDB later
-- [ ] Texture cache policy
-  - [ ] Start: keep only current room textures
-  - [ ] Upgrade: small LRU cache (e.g., last 10–30 textures)
-- [ ] Proper cleanup when leaving rooms
-  - [ ] Remove room group from scene
-  - [ ] Dispose geometries/materials/textures you won’t reuse
-  - [ ] Avoid GPU memory leaks
+- [x] Data cache (small, safe)
+  - [x] Cache `RoomData` by title in memory
+  - [x] Optional: persist to IndexedDB later
+- [x] Texture cache policy
+  - [x] Start: keep only current room textures
+  - [x] Upgrade: small LRU cache (e.g., last 10–30 textures)
+- [x] Proper cleanup when leaving rooms
+  - [x] Remove room group from scene
+  - [x] Dispose geometries/materials/textures you won’t reuse
+  - [x] Avoid GPU memory leaks
 
 **Definition of done:** Visiting many rooms doesn’t steadily degrade performance or crash the tab.
 
----
+--- -->
 
 ## Milestone 9 — Attribution + UX Polish (Day 12–13)
 - [ ] Display attribution
   - [ ] “Source: Wikipedia” + page link
   - [ ] Image credit strategy (minimal plaque or UI panel)
-- [ ] Nice onboarding overlay
-  - [ ] “Click to start”
-  - [ ] Controls reminder (WASD, mouse, SPACE)
-- [ ] Small UX improvements
-  - [ ] Sensitivity control (optional)
-  - [ ] Pause/help overlay (optional)
+- [x] Nice onboarding overlay
+  - [x] “Click to start”
+  - [x] Controls reminder (WASD, mouse, SPACE)
+- [x] Small UX improvements
+  - [x] Sensitivity control (optional)
+  - [x] Pause/help overlay (optional)
 
 **Definition of done:** You can show the project publicly without ignoring attribution.
 

@@ -12,6 +12,7 @@ export function buildLobbyRoom(ctx, lobby) {
     pickableMeshes,
     obstacles,
     palette,
+    textures,
     width,
     length,
     height,
@@ -281,7 +282,22 @@ export function buildLobbyRoom(ctx, lobby) {
     decoSouth.name = 'deco-south-lobby'
     group.add(decoSouth)
 
-    const woodMat = new THREE.MeshStandardMaterial({ color: palette.wall, roughness: 0.78, metalness: 0.0 })
+    const benchWoodMap = textures?.benchWoodMap
+    const benchWoodBump = textures?.benchWoodBump
+    const hasBenchTex = Boolean(benchWoodMap && benchWoodBump)
+
+    const woodMat = new THREE.MeshStandardMaterial(
+      hasBenchTex
+        ? {
+            color: 0xffffff,
+            map: benchWoodMap,
+            bumpMap: benchWoodBump,
+            bumpScale: 0.045,
+            roughness: 0.58,
+            metalness: 0.0,
+          }
+        : { color: palette.wall, roughness: 0.78, metalness: 0.0 }
+    )
     const metalMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.7, metalness: 0.05 })
     const potMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.95, metalness: 0.0 })
     const leafMat = new THREE.MeshStandardMaterial({ color: 0x2f6f4e, roughness: 0.85, metalness: 0.0, side: THREE.DoubleSide })
