@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { makeOutlineRect } from '../../misc/helper.js'
 
-export function addSlot(ctx, { id, wall, kind, w, h, y, u = 0, color }) {
+export function addSlot(ctx, { id, wall, kind, w, h, y, u = 0, color, opacity }) {
   const { walls, height, surfaceOffset, slots, markers, disposables } = ctx
 
   const wallInfo = walls[wall]
@@ -20,6 +20,7 @@ export function addSlot(ctx, { id, wall, kind, w, h, y, u = 0, color }) {
     center,
     normal: wallInfo.normal,
     color,
+    opacity,
   })
 
   markers.add(object)

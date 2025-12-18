@@ -197,21 +197,21 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     const ctx = canvas.getContext('2d')
     if (ctx) {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
-      ctx.fillStyle = '#0d1015'
+      ctx.fillStyle = '#ffffff'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-      ctx.strokeStyle = 'rgba(255,255,255,0.18)'
+      ctx.strokeStyle = 'rgba(0,0,0,0.18)'
       ctx.lineWidth = Math.max(6, Math.floor(size * 0.01))
       ctx.strokeRect(24, 24, canvas.width - 48, canvas.height - 48)
 
-      ctx.fillStyle = 'rgba(255,255,255,0.9)'
+      ctx.fillStyle = 'rgba(0,0,0,0.9)'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.font = `800 ${Math.floor(size * 0.11)}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
       ctx.fillText(String(title), canvas.width / 2, canvas.height / 2 - Math.floor(size * 0.01))
 
       ctx.font = `600 ${Math.floor(size * 0.045)}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
-      ctx.fillStyle = 'rgba(156, 144, 30, 0.74)'
+      ctx.fillStyle = 'rgba(0,0,0,0.7)'
       ctx.fillText(String(subtitle), canvas.width / 2, canvas.height / 2 + Math.floor(size * 0.09))
     }
 
@@ -359,7 +359,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
     const panelDepth = 0.06
     const panelBackGeo = new THREE.BoxGeometry(panelW, panelH, panelDepth)
-    const panelBackMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.95, metalness: 0.0 })
+    const panelBackMat = new THREE.MeshStandardMaterial({ color: 0xd9d9de, roughness: 0.86, metalness: 0.0 })
     disposables.push(panelBackGeo, panelBackMat)
 
     const imgBack = new THREE.Mesh(panelBackGeo, panelBackMat)
@@ -837,7 +837,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
         const y = stdFrameY
 
         const frameId = `${wall}-frame-${idx}`
-        addSlot({ id: frameId, wall, kind: 'frame', w: frameW, h: frameH, y, u, color: 0xffffff })
+        addSlot({ id: frameId, wall, kind: 'frame', w: frameW, h: frameH, y, u, color: 0xd9d9de, opacity: 1 })
         if (withPlaques) {
           addSlot({ id: `${wall}-plaque-${idx}`, wall, kind: 'plaque', w: stdPlaqueW, h: stdPlaqueH, y: stdPlaqueY, u, color: 0xffff88 })
         }
@@ -873,7 +873,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
       for (let i = 0; i < count; i += 1) {
         const u = uStart + i * (photoW + gapU)
-        addSlot({ id: `east-photo-${i}`, wall: 'east', kind: 'frame', w: photoW, h: photoH, y, u, color: 0xffffff })
+        addSlot({ id: `east-photo-${i}`, wall: 'east', kind: 'frame', w: photoW, h: photoH, y, u, color: 0xd9d9de, opacity: 1 })
       }
     }
 
@@ -888,8 +888,8 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       const uNeg = -(panelW / 2 + gapU / 2)
       const uPos = panelW / 2 + gapU / 2
 
-      addSlot({ id: 'west-text-0', wall: 'west', kind: 'frame', w: panelW, h: panelH, y, u: uPos, color: 0xffffff })
-      addSlot({ id: 'west-text-1', wall: 'west', kind: 'frame', w: panelW, h: panelH, y, u: uNeg, color: 0xffffff })
+      addSlot({ id: 'west-text-0', wall: 'west', kind: 'frame', w: panelW, h: panelH, y, u: uPos, color: 0xd9d9de, opacity: 1 })
+      addSlot({ id: 'west-text-1', wall: 'west', kind: 'frame', w: panelW, h: panelH, y, u: uNeg, color: 0xd9d9de, opacity: 1 })
     }
   }
 
@@ -1094,7 +1094,8 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
     const wallPanelDepth = 0.06
     const wallBackMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.95, metalness: 0.0 })
-    disposables.push(wallBackMat)
+    const wallFrameBackMat = new THREE.MeshStandardMaterial({ color: 0xd9d9de, roughness: 0.86, metalness: 0.0 })
+    disposables.push(wallBackMat, wallFrameBackMat)
 
     function isSupportedImageUrl(url) {
       const raw = typeof url === 'string' ? url.trim() : ''
@@ -1170,7 +1171,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       const baseW = slot.width * 0.96
       const baseH = slot.height * 0.96
       const { normal, frontOffset } = slotFrontOffset(slot)
-      const backplate = addBackplate({ center: slot.center, normal, w: baseW, h: baseH })
+      const backplate = addBackplate({ center: slot.center, normal, w: baseW, h: baseH, mat: wallFrameBackMat })
 
       ensureOutlineInFront(slot)
 

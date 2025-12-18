@@ -32,12 +32,17 @@ export function randRange(rand, min, max) {
   return min + (max - min) * rand()
 }
 
-export function makeOutlineRect({ width, height, center, normal, color = 0xffffff }) {
+export function makeOutlineRect({ width, height, center, normal, color = 0xffffff, opacity = 0.65 }) {
   const geo = new THREE.PlaneGeometry(width, height)
   const edges = new THREE.EdgesGeometry(geo)
   geo.dispose()
 
-  const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.65 })
+  const safeOpacity = typeof opacity === 'number' && Number.isFinite(opacity) ? Math.max(0, Math.min(1, opacity)) : 0.65
+  const mat = new THREE.LineBasicMaterial({
+    color,
+    transparent: safeOpacity < 1,
+    opacity: safeOpacity,
+  })
   const lines = new THREE.LineSegments(edges, mat)
   const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal.clone().normalize())
   lines.quaternion.copy(quat)
