@@ -10,6 +10,7 @@ export function startYourEngines({
   onHeading,
   onDoorTrigger,
   onRandomExhibitRequested,
+  onGoLobbyRequested,
   roomSeedTitle = 'Lobby',
   roomMode = 'gallery',
   lobbyCategories,
@@ -600,6 +601,19 @@ export function startYourEngines({
             }
           } else {
             console.info('[linkwalk] Random exhibit requested')
+          }
+          return
+        }
+
+        if (action === 'go-lobby') {
+          if (typeof onGoLobbyRequested === 'function') {
+            try {
+              onGoLobbyRequested()
+            } catch (err) {
+              console.warn('[linkwalk] Go lobby handler failed', err)
+            }
+          } else {
+            console.info('[linkwalk] Go lobby requested')
           }
           return
         }

@@ -294,6 +294,9 @@ engineApi = startYourEngines({
   roomSpawn: { type: 'fromWall', wall: 'south' },
   lobbyCategories: ['Culture', 'Geography', 'Animals', 'History', 'Nature', 'Humanities', 'Philosophy', 'Cosmology', 'Society', 'Technology', 'Music', 'Painting' ],
   onRandomExhibitRequested: requestRandomExhibit,
+  onGoLobbyRequested() {
+    enterlobby({ push: false })
+  },
   onFps(fps) {
     fpsEl.textContent = `${fps.toFixed(0)} FPS`
   },

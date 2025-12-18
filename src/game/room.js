@@ -377,7 +377,89 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
   const photoFrameBackTex = makePhotoFrameBackTexture({ size: 1024 })
   disposables.push(photoFrameBackTex)
 
-  addDoor({ id: 'entry-door', wall: 'south', w: 1.25, h: 2.25 * 1.1, u: 0, color: 0xff4455, meta: { target: 'back', label: 'Back' } })
+  const entryDoorW = 1.25
+  const entryDoorH = 2.25 * 1.1
+  addDoor({ id: 'entry-door', wall: 'south', w: entryDoorW, h: entryDoorH, u: 0, color: 0xff4455, meta: { target: 'back', label: 'Previous exhibit' } })
+
+  {
+    const innerSouthZ = halfL - wallThickness / 2
+    const doorW = entryDoorW
+    const doorH = entryDoorH
+    const topY = doorH - 0.36
+
+    const mountZ = innerSouthZ - 0.06
+    const mountX = -(doorW / 2 + 0.55)
+
+    const buttonGroup = new THREE.Group()
+    buttonGroup.name = 'go-lobby-button'
+    buttonGroup.position.set(mountX, 0, mountZ)
+    buttonGroup.rotation.y = Math.PI
+    group.add(buttonGroup)
+
+    const backPlateW = 0.62
+    const backPlateH = 1.05 * 0.5
+    const backPlateD = 0.03
+    const backPlateGeo = new THREE.BoxGeometry(backPlateW, backPlateH, backPlateD)
+    const backPlateMat = new THREE.MeshStandardMaterial({ color: 0x2f6f4e, roughness: 0.9, metalness: 0.0 })
+    const backPlate = new THREE.Mesh(backPlateGeo, backPlateMat)
+    const backPlateCenterY = topY - backPlateH / 2
+    backPlate.position.set(0, backPlateCenterY, 0)
+    buttonGroup.add(backPlate)
+    disposables.push(backPlateGeo, backPlateMat)
+
+    const capW = 0.28
+    const capH = 0.16 * 0.5
+    const capD = 0.08
+    const capGeo = new THREE.BoxGeometry(capW, capH, capD)
+    const capMat = new THREE.MeshStandardMaterial({ color: 0xff4455, roughness: 0.5, metalness: 0.0 })
+    const cap = new THREE.Mesh(capGeo, capMat)
+    cap.position.set(0, backPlateCenterY + backPlateH * 0.22, backPlateD / 2 + capD / 2 + 0.002)
+    buttonGroup.add(cap)
+    disposables.push(capGeo, capMat)
+
+    // Label below the button.
+    const canvas = document.createElement('canvas')
+    canvas.width = 512
+    canvas.height = 256
+    const ctx2 = canvas.getContext('2d')
+    if (ctx2) {
+      ctx2.clearRect(0, 0, canvas.width, canvas.height)
+      ctx2.fillStyle = 'rgba(0,0,0,0)'
+      ctx2.fillRect(0, 0, canvas.width, canvas.height)
+
+      ctx2.textAlign = 'center'
+      ctx2.textBaseline = 'middle'
+      ctx2.fillStyle = 'rgba(255,255,255,0.92)'
+
+      ctx2.font = '800 80px system-ui, -apple-system, Segoe UI, Roboto, Arial'
+      ctx2.fillText('Go back', canvas.width / 2, canvas.height * 0.42)
+      ctx2.font = '800 70px system-ui, -apple-system, Segoe UI, Roboto, Arial'
+      ctx2.fillText('to lobby', canvas.width / 2, canvas.height * 0.70)
+    }
+
+    const labelTex = new THREE.CanvasTexture(canvas)
+    labelTex.colorSpace = THREE.SRGBColorSpace
+    configureGalleryTexture(labelTex)
+    labelTex.needsUpdate = true
+
+    // Keep aspect ratio consistent with the 512x256 canvas (2:1) to avoid squishing.
+    const labelGeo = new THREE.PlaneGeometry(0.56 * 0.5, 0.28 * 0.5)
+    const labelMat = new THREE.MeshBasicMaterial({ map: labelTex, transparent: true })
+    const label = new THREE.Mesh(labelGeo, labelMat)
+    label.position.set(0, backPlateCenterY - backPlateH * 0.14, backPlateD / 2 + 0.006)
+    buttonGroup.add(label)
+    disposables.push(labelTex, labelGeo, labelMat)
+
+    // Invisible hit area to make it easy to click.
+    const hitGeo = new THREE.PlaneGeometry(backPlateW, backPlateH)
+    const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.0, depthWrite: false })
+    const hit = new THREE.Mesh(hitGeo, hitMat)
+    hit.position.set(0, backPlateCenterY, backPlateD / 2 + 0.02)
+    hit.userData.action = 'go-lobby'
+    buttonGroup.add(hit)
+    pickableMeshes.push(hit)
+    disposables.push(hitGeo, hitMat)
+  }
 
   {
     const colHeight = height
