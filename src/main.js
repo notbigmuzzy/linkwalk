@@ -206,6 +206,7 @@ function loadAndEnterGallery(title, { pushHistory = false, spawn, updateUrlState
           galleryDescription: typeof data?.room?.extract === 'string' ? data.room.extract : '',
           galleryMainThumbnailUrl: typeof data?.mainThumbnailUrl === 'string' ? data.mainThumbnailUrl : null,
           galleryPhotos: Array.isArray(data?.photos) ? data.photos : [],
+          galleryVideoUrl: typeof data?.videoUrl === 'string' ? data.videoUrl : null,
           galleryLongExtract: typeof data?.longExtract === 'string' ? data.longExtract : '',
           galleryTrail: trailForBoard,
           spawn,

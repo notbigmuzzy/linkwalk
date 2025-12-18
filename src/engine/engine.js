@@ -18,6 +18,7 @@ export function startYourEngines({
   galleryDescription,
   galleryMainThumbnailUrl,
   galleryPhotos,
+  galleryVideoUrl,
   galleryLongExtract,
 }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
@@ -345,6 +346,7 @@ export function startYourEngines({
     galleryDescription: nextGalleryDescription,
     galleryMainThumbnailUrl: nextGalleryMainThumbnailUrl,
     galleryPhotos: nextGalleryPhotos,
+    galleryVideoUrl: nextGalleryVideoUrl,
     galleryLongExtract: nextGalleryLongExtract,
     galleryTrail: nextGalleryTrail,
     spawn,
@@ -384,6 +386,7 @@ export function startYourEngines({
         description: nextGalleryDescription,
         mainThumbnailUrl: nextGalleryMainThumbnailUrl,
         photos: nextGalleryPhotos,
+        videoUrl: nextGalleryVideoUrl,
         longExtract: nextGalleryLongExtract,
         trail: Array.isArray(nextGalleryTrail) ? nextGalleryTrail : [],
       },
@@ -432,6 +435,7 @@ export function startYourEngines({
     galleryDescription,
     galleryMainThumbnailUrl,
     galleryPhotos,
+    galleryVideoUrl,
     galleryLongExtract,
     spawn: roomSpawn,
   })
@@ -551,6 +555,23 @@ export function startYourEngines({
     if (hitPoint && typeof hitPoint.distanceTo === 'function') {
       const d = hitPoint.distanceTo(camera.position)
       if (d > interactMaxDistance) return
+    }
+
+    // If it (or a parent) has an explicit click handler, run it.
+    {
+      let cur = hitObj
+      while (cur) {
+        const onClick = cur?.userData?.onClick
+        if (typeof onClick === 'function') {
+          try {
+            onClick({ object: cur, hitObject: hitObj, hitPoint, camera })
+          } catch (err) {
+            console.warn('[linkwalk] onClick handler failed', err)
+          }
+          return
+        }
+        cur = cur.parent
+      }
     }
 
     // If it (or a parent) is marked pickable, hold it.
@@ -746,6 +767,7 @@ export function startYourEngines({
       galleryDescription: nextGalleryDescription,
       galleryMainThumbnailUrl: nextGalleryMainThumbnailUrl,
       galleryPhotos: nextGalleryPhotos,
+      galleryVideoUrl: nextGalleryVideoUrl,
       galleryLongExtract: nextGalleryLongExtract,
       galleryTrail: nextGalleryTrail,
       spawn,
@@ -757,6 +779,7 @@ export function startYourEngines({
         'galleryMainThumbnailUrl'
       )
       const hasGalleryPhotos = Object.prototype.hasOwnProperty.call(arguments.length ? arguments[0] ?? {} : {}, 'galleryPhotos')
+      const hasGalleryVideoUrl = Object.prototype.hasOwnProperty.call(arguments.length ? arguments[0] ?? {} : {}, 'galleryVideoUrl')
       const hasGalleryLongExtract = Object.prototype.hasOwnProperty.call(arguments.length ? arguments[0] ?? {} : {}, 'galleryLongExtract')
       const hasGalleryTrail = Object.prototype.hasOwnProperty.call(arguments.length ? arguments[0] ?? {} : {}, 'galleryTrail')
 
@@ -774,6 +797,7 @@ export function startYourEngines({
             : null
           : galleryMainThumbnailUrl,
         galleryPhotos: hasGalleryPhotos ? (Array.isArray(nextGalleryPhotos) ? nextGalleryPhotos : null) : galleryPhotos,
+        galleryVideoUrl: hasGalleryVideoUrl ? (typeof nextGalleryVideoUrl === 'string' ? nextGalleryVideoUrl : null) : galleryVideoUrl,
         galleryLongExtract: hasGalleryLongExtract ? (typeof nextGalleryLongExtract === 'string' ? nextGalleryLongExtract : null) : galleryLongExtract,
         galleryTrail: hasGalleryTrail ? (Array.isArray(nextGalleryTrail) ? nextGalleryTrail : null) : null,
         spawn,

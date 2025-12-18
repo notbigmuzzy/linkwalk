@@ -385,6 +385,120 @@ function normalizeActionImageInfo(raw, { maxImages = 4 } = {}) {
   return out
 }
 
+function normalizeActionMediaInfo(raw, { maxImages = 6, maxVideos = 2 } = {}) {
+  const pages = Array.isArray(raw?.query?.pages) ? raw.query.pages : []
+  const images = []
+  const videos = []
+  const seenUrl = new Set()
+
+  for (const p of pages) {
+    const fileTitle = typeof p?.title === 'string' ? p.title : ''
+    const info = Array.isArray(p?.imageinfo) ? p.imageinfo[0] : null
+    const url = typeof info?.url === 'string' ? info.url : null
+    if (!url) continue
+    if (seenUrl.has(url)) continue
+    seenUrl.add(url)
+
+    const mime = typeof info?.mime === 'string' ? info.mime : ''
+    const mediaType = typeof info?.mediatype === 'string' ? info.mediatype : ''
+    const loweredUrl = url.toLowerCase()
+
+    // Filter out SVGs (they render differently and often look bad as textures here).
+    if (loweredUrl.endsWith('.svg')) continue
+
+    const isVideo = mediaType.toUpperCase() === 'VIDEO' || mime.toLowerCase().startsWith('video/') || loweredUrl.endsWith('.ogv')
+    if (isVideo) {
+      if (videos.length < maxVideos) {
+        videos.push({ title: fileTitle, url, mime, mediatype: mediaType })
+      }
+      continue
+    }
+
+    const isImage = mime.toLowerCase().startsWith('image/') || /\.(png|jpe?g|gif|webp|avif)$/i.test(loweredUrl)
+    if (isImage) {
+      images.push(url)
+      if (images.length >= maxImages) break
+    }
+  }
+
+  return { images, videos }
+}
+
+async function fetchWikipediaMedia(title, { signal, maxImages = 6, maxVideos = 2 } = {}) {
+  const normalizedTitle = toWikiTitle(title)
+  if (!normalizedTitle) {
+    throw makeWikiError('Missing Wikipedia title', { code: 'bad_title' })
+  }
+
+  const raw = await fetchActionQuery(
+    {
+      titles: normalizedTitle,
+      redirects: '1',
+      generator: 'images',
+      gimlimit: '30',
+      prop: 'imageinfo',
+      iiprop: 'url|mime|mediatype',
+    },
+    { signal }
+  )
+
+  return normalizeActionMediaInfo(raw, { maxImages, maxVideos })
+}
+
+function pickPlayableVideoUrlFromVideoinfo(info) {
+  const baseUrl = typeof info?.url === 'string' ? info.url : ''
+  const derivatives = Array.isArray(info?.derivatives) ? info.derivatives : []
+
+  function scoreCandidate({ src, type }) {
+    const u = typeof src === 'string' ? src : ''
+    const t = typeof type === 'string' ? type.toLowerCase() : ''
+    if (!u) return -1
+    if (t.includes('video/mp4') || u.toLowerCase().endsWith('.mp4')) return 3
+    if (t.includes('video/webm') || u.toLowerCase().endsWith('.webm')) return 2
+    if (t.includes('video/')) return 1
+    return 0
+  }
+
+  let best = null
+  let bestScore = -1
+  for (const d of derivatives) {
+    const src = typeof d?.src === 'string' ? d.src : null
+    const type = typeof d?.type === 'string' ? d.type : null
+    const s = scoreCandidate({ src, type })
+    if (s > bestScore) {
+      bestScore = s
+      best = src
+    }
+  }
+
+  if (best) return best
+
+  // Fallback: original URL if it looks playable.
+  if (typeof baseUrl === 'string' && /\.(mp4|webm)$/i.test(baseUrl)) return baseUrl
+  return typeof baseUrl === 'string' && baseUrl ? baseUrl : null
+}
+
+async function fetchWikipediaPlayableVideoUrl(fileTitle, { signal } = {}) {
+  const t = typeof fileTitle === 'string' ? fileTitle.trim() : ''
+  if (!t) return null
+
+  const raw = await fetchActionQuery(
+    {
+      titles: t,
+      redirects: '1',
+      prop: 'videoinfo',
+      viprop: 'url|mime|mediatype|derivatives',
+    },
+    { signal }
+  )
+
+  const pages = Array.isArray(raw?.query?.pages) ? raw.query.pages : []
+  const p = pages?.[0] ?? null
+  const vi = Array.isArray(p?.videoinfo) ? p.videoinfo[0] : null
+  const playable = pickPlayableVideoUrlFromVideoinfo(vi)
+  return typeof playable === 'string' && playable.trim() ? playable.trim() : null
+}
+
 export async function fetchWikipediaSeeAlso(title, { signal } = {}) {
   const normalizedTitle = toWikiTitle(title)
   if (!normalizedTitle) {
@@ -619,20 +733,8 @@ export async function fetchWikipediaPhotos(title, { signal, maxImages = 4 } = {}
     throw makeWikiError('Missing Wikipedia title', { code: 'bad_title' })
   }
 
-  // Single-request image fetch (avoids the old 2-step images->imageinfo flow).
-  const raw = await fetchActionQuery(
-    {
-      titles: normalizedTitle,
-      redirects: '1',
-      generator: 'images',
-      gimlimit: '30',
-      prop: 'imageinfo',
-      iiprop: 'url',
-    },
-    { signal }
-  )
-
-  return normalizeActionImageInfo(raw, { maxImages })
+  const media = await fetchWikipediaMedia(normalizedTitle, { signal, maxImages, maxVideos: 0 })
+  return Array.isArray(media?.images) ? media.images : []
 }
 
 export async function fetchWikipediaLongExtract(title, { signal, maxChars = 5000 } = {}) {
@@ -718,10 +820,10 @@ export async function fetchGalleryRoomData(title, opts = {}) {
 
   let base = cachedBase || baseFromPersist
   if (!base) {
-    const [pageBundle, photos] = await Promise.all([
+    const [pageBundle, media] = await Promise.all([
       fetchWikipediaPageBundle(normalizedTitle, { ...opts, maxChars: 6000, thumbSize: 640 }),
       // Fetch an extra image so we can exclude the main thumbnail without ending up short.
-      fetchWikipediaPhotos(normalizedTitle, { ...opts, maxImages: 6 }),
+      fetchWikipediaMedia(normalizedTitle, { ...opts, maxImages: 6, maxVideos: 2 }),
     ])
 
     const room = pageBundle?.room
@@ -737,6 +839,9 @@ export async function fetchGalleryRoomData(title, opts = {}) {
         data: room,
       })
     }
+
+    const photos = Array.isArray(media?.images) ? media.images : []
+    const videos = Array.isArray(media?.videos) ? media.videos : []
 
     const mainThumbnailUrl = room.thumbnailUrl || (Array.isArray(photos) && typeof photos[0] === 'string' ? photos[0] : null)
 
@@ -772,10 +877,24 @@ export async function fetchGalleryRoomData(title, opts = {}) {
           .slice(0, 5)
       : []
 
+    let videoUrl = null
+    const firstVideo = videos?.[0] ?? null
+    const candidateUrl = typeof firstVideo?.url === 'string' ? firstVideo.url.trim() : ''
+    if (candidateUrl) {
+      // Prefer direct mp4/webm URLs; otherwise resolve derivatives for ogv.
+      if (/\.(mp4|webm)$/i.test(candidateUrl)) {
+        videoUrl = candidateUrl
+      } else {
+        const fileTitle = typeof firstVideo?.title === 'string' ? firstVideo.title.trim() : ''
+        videoUrl = await fetchWikipediaPlayableVideoUrl(fileTitle, { signal: opts?.signal })
+      }
+    }
+
     base = {
       room,
       mainThumbnailUrl,
       photos: filteredPhotos,
+      videoUrl,
       longExtract: typeof longExtract === 'string' ? longExtract : '',
     }
 

@@ -7,12 +7,89 @@ import {
   getSharedRoomMaterialTextures,
 } from './room/textures.js'
 
+function labelFromImageUrl(url) {
+  const raw = typeof url === 'string' ? url.trim() : ''
+  if (!raw) return ''
+  try {
+    const file = raw.split('/').pop() ?? ''
+    const decoded = decodeURIComponent(file)
+    const withoutQuery = decoded.split('?')[0] ?? decoded
+    const withoutExt = withoutQuery.replace(/\.(jpg|jpeg|png|webp|gif|avif|svg|ogv|webm|mp4|m4v)$/i, '')
+    const cleaned = withoutExt.replace(/^File:/i, '').replace(/_/g, ' ').trim()
+    return cleaned
+  } catch {
+    return ''
+  }
+}
+
+function makePlaqueTexture({ size = 1024, text, aspect } = {}) {
+  const maxW = typeof size === 'number' && Number.isFinite(size) ? Math.max(256, Math.floor(size)) : 1024
+  const a = typeof aspect === 'number' && Number.isFinite(aspect) && aspect > 0 ? aspect : null
+
+  let canvasW = maxW
+  let canvasH = Math.floor(maxW * 0.33)
+  if (a) {
+    canvasH = Math.round(canvasW / a)
+    canvasH = Math.max(160, Math.min(512, canvasH))
+    canvasW = Math.round(canvasH * a)
+    if (canvasW > maxW) {
+      canvasW = maxW
+      canvasH = Math.round(canvasW / a)
+    }
+  }
+
+  const canvas = document.createElement('canvas')
+  canvas.width = canvasW
+  canvas.height = canvasH
+  const ctx = canvas.getContext('2d')
+  if (ctx) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.fillStyle = '#12161b'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)'
+    ctx.lineWidth = Math.max(6, Math.floor(canvas.width * 0.008))
+    const pad = Math.max(14, Math.floor(canvas.width * 0.018))
+    ctx.strokeRect(pad, pad, canvas.width - pad * 2, canvas.height - pad * 2)
+
+    const safeText = String(text || '').trim() || 'Untitled'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillStyle = 'rgba(255,255,255,0.92)'
+
+    const maxWidth = canvas.width * 0.86
+    let fontSize = Math.floor(canvas.width * 0.06)
+    ctx.font = `700 ${fontSize}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
+    while (fontSize > 18 && ctx.measureText(safeText).width > maxWidth) {
+      fontSize -= 2
+      ctx.font = `700 ${fontSize}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
+    }
+
+    function ellipsize(t) {
+      const ell = '…'
+      let out = String(t)
+      while (out.length > 0 && ctx.measureText(out + ell).width > maxWidth) out = out.slice(0, -1)
+      return out.length ? out + ell : ell
+    }
+
+    const rendered = ctx.measureText(safeText).width > maxWidth ? ellipsize(safeText) : safeText
+    ctx.fillText(rendered, canvas.width / 2, canvas.height / 2)
+  }
+
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.colorSpace = THREE.SRGBColorSpace
+  configureGalleryTexture(tex)
+  tex.needsUpdate = true
+  return tex
+}
+
 export function buildRoom({ width, length, height, wallThickness = 0.2, mode = 'gallery', lobby = {}, gallery = {} }) {
   const group = new THREE.Group()
   group.name = 'room'
 
   const disposables = []
   const deferredTextureLoads = []
+  
   let palette = {}
 
   switch (mode) {
@@ -561,6 +638,220 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     descPanel.position.set(textX, descY, panelZ + panelDepth / 2 + 0.002)
     group.add(descPanel)
     disposables.push(descGeo, descTex, descMat)
+  }
+
+  {
+    const videoUrl = typeof gallery?.videoUrl === 'string' ? gallery.videoUrl.trim() : ''
+    if (videoUrl) {
+      const pillarD = roundTo(clamp(0.35, 0.28, 0.5), 0.05)
+      const panelW = 1.55
+      const panelH = 1.05
+      const panelDepth = 0.06
+
+      const panelY = Math.min(height * 0.47, 1.9)
+      const panelZNorth = -(pillarD / 2 + 0.08)
+
+      const backGeo = new THREE.BoxGeometry(panelW, panelH, panelDepth)
+      const backMat = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.95, metalness: 0.0 })
+      disposables.push(backGeo, backMat)
+
+      const back = new THREE.Mesh(backGeo, backMat)
+      back.position.set(0, panelY, panelZNorth)
+      back.rotation.y = Math.PI
+      group.add(back)
+
+      const geo = new THREE.PlaneGeometry(panelW, panelH)
+      const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false })
+      const mesh = new THREE.Mesh(geo, mat)
+      mesh.position.set(0, panelY, panelZNorth - panelDepth / 2 - 0.002)
+      mesh.rotation.y = Math.PI
+      group.add(mesh)
+      disposables.push(geo, mat)
+
+      // Keep the frame size fixed; fit video inside with a little padding.
+      const innerW = panelW * 0.92
+      const innerH = panelH * 0.92
+      mesh.scale.set(innerW / panelW, innerH / panelH, 1)
+
+      // Overlay shown only when paused.
+      function makePlayOverlayTexture({ width = 1024, height = 512 } = {}) {
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+          // Subtle dark wash so the text is readable over any video.
+          ctx.fillStyle = 'rgba(0,0,0,0.28)'
+          ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+          ctx.strokeStyle = 'rgba(255,255,255,0.18)'
+          ctx.lineWidth = Math.max(6, Math.floor(canvas.width * 0.01))
+          ctx.strokeRect(24, 24, canvas.width - 48, canvas.height - 48)
+
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillStyle = 'rgba(255,255,255,0.95)'
+          ctx.font = `900 ${Math.floor(canvas.width * 0.09)}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
+          ctx.fillText('> PLAY VIDEO', canvas.width / 2, canvas.height / 2)
+        }
+
+        const t = new THREE.CanvasTexture(canvas)
+        t.colorSpace = THREE.SRGBColorSpace
+        configureGalleryTexture(t)
+        t.needsUpdate = true
+        return t
+      }
+
+      const overlayGeo = new THREE.PlaneGeometry(panelW, panelH)
+      const overlayTex = makePlayOverlayTexture({ width: 1024, height: 512 })
+      const overlayMat = new THREE.MeshBasicMaterial({ map: overlayTex, transparent: true, depthWrite: false })
+      const overlay = new THREE.Mesh(overlayGeo, overlayMat)
+      overlay.position.copy(mesh.position)
+      overlay.position.z -= 0.001
+      overlay.rotation.copy(mesh.rotation)
+      overlay.renderOrder = 10000
+      group.add(overlay)
+      disposables.push(overlayGeo, overlayTex, overlayMat)
+
+      // Create a browser video element and render it to the panel.
+      const video = document.createElement('video')
+      video.crossOrigin = 'anonymous'
+      video.playsInline = true
+      video.preload = 'metadata'
+      video.loop = true
+      video.src = videoUrl
+      video.load()
+
+      const tex = new THREE.VideoTexture(video)
+      tex.colorSpace = THREE.SRGBColorSpace
+      tex.needsUpdate = true
+      mat.map = tex
+      mat.needsUpdate = true
+      disposables.push(tex)
+
+      function updateOverlayVisibility() {
+        overlay.visible = Boolean(video.paused || video.ended)
+      }
+      updateOverlayVisibility()
+      video.addEventListener('play', updateOverlayVisibility)
+      video.addEventListener('pause', updateOverlayVisibility)
+      video.addEventListener('ended', updateOverlayVisibility)
+
+      function fitVideoInFrame() {
+        const vw = video.videoWidth || 0
+        const vh = video.videoHeight || 0
+        if (!(vw > 0 && vh > 0)) return
+
+        const imageAspect = vw / vh
+        const frameAspect = innerW / innerH
+
+        // Compute the display size inside the fixed inner rect.
+        let displayW = innerW
+        let displayH = innerH
+        if (imageAspect > frameAspect) {
+          displayH = innerW / imageAspect
+        } else {
+          displayW = innerH * imageAspect
+        }
+
+        mesh.scale.set(displayW / panelW, displayH / panelH, 1)
+      }
+
+      video.addEventListener('loadedmetadata', fitVideoInFrame, { once: true })
+      video.addEventListener('loadeddata', () => {
+        tex.needsUpdate = true
+        fitVideoInFrame()
+      })
+
+      async function togglePlay() {
+        try {
+          if (!video.paused && !video.ended) {
+            video.pause()
+            return
+          }
+
+          const p = video.play()
+          if (p && typeof p.then === 'function') {
+            await p
+          }
+        } catch {
+          // If autoplay policies or codec quirks block playback, retry muted.
+          try {
+            video.muted = true
+            const p2 = video.play()
+            if (p2 && typeof p2.then === 'function') await p2
+          } catch (err2) {
+            console.warn('[linkwalk] Video playback failed', err2)
+          }
+        }
+      }
+
+      mesh.userData = {
+        ...(mesh.userData || {}),
+        pickable: false,
+        pickableType: 'column-video',
+        videoUrl,
+        onClick: togglePlay,
+      }
+      pickableMeshes.push(mesh)
+
+      overlay.userData = {
+        ...(overlay.userData || {}),
+        pickable: false,
+        pickableType: 'column-video',
+        videoUrl,
+        onClick: togglePlay,
+      }
+      pickableMeshes.push(overlay)
+
+      {
+        const caption = labelFromImageUrl(videoUrl) || 'Video'
+
+        const plaqueW = panelW * 0.82
+        const plaqueH = 0.22
+        const gapFromFrame = 0.06
+        const plaqueDepth = 0.04
+
+        const plaqueBackGeo = new THREE.BoxGeometry(plaqueW, plaqueH, plaqueDepth)
+        const plaqueBackMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.95, metalness: 0.0 })
+        const plaqueBack = new THREE.Mesh(plaqueBackGeo, plaqueBackMat)
+        plaqueBack.position.set(0, panelY - panelH / 2 - plaqueH / 2 - gapFromFrame, panelZNorth)
+        plaqueBack.rotation.y = Math.PI
+        group.add(plaqueBack)
+        disposables.push(plaqueBackGeo, plaqueBackMat)
+
+        const plaqueGeo = new THREE.PlaneGeometry(plaqueW, plaqueH)
+        const plaqueMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true })
+        const plaque = new THREE.Mesh(plaqueGeo, plaqueMat)
+        plaque.position.copy(plaqueBack.position)
+        plaque.position.z -= plaqueDepth / 2 + 0.002
+        plaque.rotation.copy(plaqueBack.rotation)
+        group.add(plaque)
+        disposables.push(plaqueGeo, plaqueMat)
+
+        const plaqueTex = makePlaqueTexture({ size: 1024, text: caption, aspect: plaqueW / plaqueH })
+        plaqueMat.map = plaqueTex
+        plaqueMat.needsUpdate = true
+        disposables.push(plaqueTex)
+      }
+
+      disposables.push({
+        dispose() {
+          try {
+            video.removeEventListener('play', updateOverlayVisibility)
+            video.removeEventListener('pause', updateOverlayVisibility)
+            video.removeEventListener('ended', updateOverlayVisibility)
+            video.pause()
+            video.removeAttribute('src')
+            video.load()
+          } catch {
+            // ignore
+          }
+        },
+      })
+    }
   }
 
   {
@@ -1287,82 +1578,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
           },
         })
       }
-    }
-
-    function labelFromImageUrl(url) {
-      const raw = typeof url === 'string' ? url.trim() : ''
-      if (!raw) return ''
-      try {
-        const file = raw.split('/').pop() ?? ''
-        const decoded = decodeURIComponent(file)
-        const withoutQuery = decoded.split('?')[0] ?? decoded
-        const withoutExt = withoutQuery.replace(/\.(jpg|jpeg|png|webp|gif|avif|svg)$/i, '')
-        const cleaned = withoutExt.replace(/^File:/i, '').replace(/_/g, ' ').trim()
-        return cleaned
-      } catch {
-        return ''
-      }
-    }
-
-    function makePlaqueTexture({ size = 1024, text, aspect } = {}) {
-      const maxW = typeof size === 'number' && Number.isFinite(size) ? Math.max(256, Math.floor(size)) : 1024
-      const a = typeof aspect === 'number' && Number.isFinite(aspect) && aspect > 0 ? aspect : null
-
-      let canvasW = maxW
-      let canvasH = Math.floor(maxW * 0.33)
-      if (a) {
-        canvasH = Math.round(canvasW / a)
-        canvasH = Math.max(160, Math.min(512, canvasH))
-        canvasW = Math.round(canvasH * a)
-        if (canvasW > maxW) {
-          canvasW = maxW
-          canvasH = Math.round(canvasW / a)
-        }
-      }
-
-      const canvas = document.createElement('canvas')
-      canvas.width = canvasW
-      canvas.height = canvasH
-      const ctx = canvas.getContext('2d')
-      if (ctx) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height)
-        ctx.fillStyle = '#12161b'
-        ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-        ctx.strokeStyle = 'rgba(255,255,255,0.18)'
-        ctx.lineWidth = Math.max(6, Math.floor(canvas.width * 0.008))
-        const pad = Math.max(14, Math.floor(canvas.width * 0.018))
-        ctx.strokeRect(pad, pad, canvas.width - pad * 2, canvas.height - pad * 2)
-
-        const safeText = String(text || '').trim() || 'Untitled'
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'middle'
-        ctx.fillStyle = 'rgba(255,255,255,0.92)'
-
-        const maxWidth = canvas.width * 0.86
-        let fontSize = Math.floor(canvas.width * 0.06)
-        ctx.font = `700 ${fontSize}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
-        while (fontSize > 18 && ctx.measureText(safeText).width > maxWidth) {
-          fontSize -= 2
-          ctx.font = `700 ${fontSize}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
-        }
-
-        function ellipsize(t) {
-          const ell = '…'
-          let out = String(t)
-          while (out.length > 0 && ctx.measureText(out + ell).width > maxWidth) out = out.slice(0, -1)
-          return out.length ? out + ell : ell
-        }
-
-        const rendered = ctx.measureText(safeText).width > maxWidth ? ellipsize(safeText) : safeText
-        ctx.fillText(rendered, canvas.width / 2, canvas.height / 2)
-      }
-
-      const tex = new THREE.CanvasTexture(canvas)
-      tex.colorSpace = THREE.SRGBColorSpace
-      configureGalleryTexture(tex)
-      tex.needsUpdate = true
-      return tex
     }
 
     function placeCaptionUnderSlot(slot, caption) {
