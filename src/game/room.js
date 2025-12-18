@@ -499,6 +499,16 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       return lines
     }
 
+    function ellipsizeText(ctx, text, maxWidth) {
+      const s = String(text || '').trim()
+      if (!s) return ''
+      if (ctx.measureText(s).width <= maxWidth) return s
+      const ell = '…'
+      let out = s
+      while (out.length > 0 && ctx.measureText(out + ell).width > maxWidth) out = out.slice(0, -1)
+      return out.length ? out + ell : ell
+    }
+
     if (descCtx) {
       descCtx.clearRect(0, 0, descCanvas.width, descCanvas.height)
       descCtx.fillStyle = 'rgba(0,0,0,0.28)'
@@ -518,11 +528,10 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       descCtx.textAlign = 'left'
       descCtx.textBaseline = 'alphabetic'
 
-      const titleLines = wrapText(descCtx, safeTitle, descCanvas.width - padX * 2, 2)
-      for (const line of titleLines) {
-        descCtx.fillText(line, padX, y)
-        y += 64
-      }
+      const twoCharPad = descCtx.measureText('MM').width
+      const titleMaxW = Math.max(10, descCanvas.width - padX * 1.5 - twoCharPad)
+      descCtx.fillText(ellipsizeText(descCtx, safeTitle, titleMaxW), padX, y)
+      y += 64
 
       if (description) {
         y += 18
@@ -1434,7 +1443,18 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
         if (withTitle) {
           ctx.fillStyle = 'rgba(223,255,233,0.96)'
           ctx.font = `800 ${Math.floor(maxW * 0.072)}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
-          ctx.fillText(safeTitle, pad, y)
+          const titleMaxWidth = canvas.width - pad * 1.5
+          const ell = '…'
+          const twoCharPad = ctx.measureText('MM').width
+          const maxTitleW = Math.max(10, titleMaxWidth - twoCharPad)
+
+          let titleOut = safeTitle
+          if (ctx.measureText(titleOut).width > maxTitleW) {
+            while (titleOut.length > 0 && ctx.measureText(titleOut + ell).width > maxTitleW) titleOut = titleOut.slice(0, -1)
+            titleOut = titleOut.length ? titleOut + ell : ell
+          }
+
+          ctx.fillText(titleOut, pad, y)
           y += Math.floor(maxW * 0.09)
         }
 
