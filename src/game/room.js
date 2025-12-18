@@ -190,7 +190,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     west: { center: new THREE.Vector3(-halfW, height / 2, 0), normal: new THREE.Vector3(1, 0, 0), wallWidth: length, wallHeight: height },
   }
 
-  function makeNoPhotoTexture({ size = 1024, title = 'NO PHOTO', subtitle = 'No image available' } = {}) {
+  function makeNoPhotoTexture({ size = 512, title = 'NO PHOTO', subtitle = 'No image available' } = {}) {
     const canvas = document.createElement('canvas')
     canvas.width = size
     canvas.height = size
@@ -228,7 +228,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     const ctx = canvas.getContext('2d')
     if (ctx) {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
-      ctx.fillStyle = '#c0c0a9ff'
+      ctx.fillStyle = '#e0e0d4ff'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
       ctx.strokeStyle = 'rgba(0,0,0,0.18)'
