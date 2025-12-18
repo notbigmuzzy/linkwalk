@@ -161,12 +161,12 @@ Goal: Desktop-only web app (Three.js) where each “room” is generated from a 
 
 **Definition of done:** Visiting many rooms doesn’t steadily degrade performance or crash the tab.
 
---- -->
+--- 
 
 ## Milestone 9 — Attribution + UX Polish (Day 12–13)
-- [ ] Display attribution
-  - [ ] “Source: Wikipedia” + page link
-  - [ ] Image credit strategy (minimal plaque or UI panel)
+- [x] Display attribution
+  - [x] “Source: Wikipedia” + page link
+  - [x] Image credit strategy (minimal plaque or UI panel)
 - [x] Nice onboarding overlay
   - [x] “Click to start”
   - [x] Controls reminder (WASD, mouse, SPACE)
@@ -176,16 +176,16 @@ Goal: Desktop-only web app (Three.js) where each “room” is generated from a 
 
 **Definition of done:** You can show the project publicly without ignoring attribution.
 
----
+--- -->
 
 ## Milestone 10 — Hardening + Edge Cases (Day 13–14)
-- [ ] Handle missing/odd Wikipedia content gracefully
-  - [ ] No image → typography wall layout
-  - [ ] Short extract → larger hero title + decor
+- [x] Handle missing/odd Wikipedia content gracefully
+  - [x] No image → typography wall layout
+  - [x] Short extract → larger hero title + decor
   - [ ] Fetch failure → retry + fallback article
 - [ ] Prevent infinite loading
   - [ ] Timeouts + fallback UI
-- [ ] Basic logging for debugging
+- [x] Basic logging for debugging
 
 **Definition of done:** The app feels stable even when Wikipedia data is imperfect.
 
@@ -198,9 +198,3 @@ Goal: Desktop-only web app (Three.js) where each “room” is generated from a 
 - [ ] Simple minimap / compass (optional)
 
 ---
-
-## Notes / Guardrails
-- Keep it desktop-only (don’t chase mobile/touch).
-- Avoid heavy physics early; axis-aligned collisions are enough for MVP.
-- Text readability: prefer HTML overlays over 3D text geometry.
-- Avoid keeping unlimited rooms in memory; dispose GPU resources.
