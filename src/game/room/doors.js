@@ -136,6 +136,8 @@ export function addDoor(ctx, { id, wall, w, h, y = 0, u = 0, color = 0x22ffee, m
 
   const frameW = 0.08
   const frameDepth = 0.08
+  // Small inward inset to prevent the wall edge from peeking through as a hairline.
+  const frameInsetX = 0.012
 
   const fillGeo = new THREE.PlaneGeometry(w, h)
   const fillMat = new THREE.MeshStandardMaterial({
@@ -306,15 +308,15 @@ export function addDoor(ctx, { id, wall, w, h, y = 0, u = 0, color = 0x22ffee, m
   }
 
   const jambGeo = new THREE.BoxGeometry(frameW, h, frameDepth)
-  const headerGeo = new THREE.BoxGeometry(w + frameW * 2, frameW, frameDepth)
+  const headerGeo = new THREE.BoxGeometry(w + frameW * 2 - frameInsetX * 2, frameW, frameDepth)
   disposables.push(jambGeo, headerGeo)
 
   const leftJamb = new THREE.Mesh(jambGeo, frameMat)
-  leftJamb.position.set(-(w / 2 + frameW / 2), h / 2, 0)
+  leftJamb.position.set(-(w / 2 + frameW / 2 - frameInsetX), h / 2, 0)
   doorFrameGroup.add(leftJamb)
 
   const rightJamb = new THREE.Mesh(jambGeo, frameMat)
-  rightJamb.position.set(w / 2 + frameW / 2, h / 2, 0)
+  rightJamb.position.set(w / 2 + frameW / 2 - frameInsetX, h / 2, 0)
   doorFrameGroup.add(rightJamb)
 
   const header = new THREE.Mesh(headerGeo, frameMat)

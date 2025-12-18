@@ -13,7 +13,7 @@ app.innerHTML = `
   </div>
   <div id="overlay" role="button" tabindex="0" aria-label="Click to start">
 	<div id="overlay-titlebar">
-		<p>VIRTUAL 3D MUSEUM</p>
+		<p>VIRTUAL MUSEUM</p>
 	</div>
     <div id="overlay-inner">
       <div id="overlay-title">Click to play</div>
