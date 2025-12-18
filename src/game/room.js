@@ -221,6 +221,28 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     return tex
   }
 
+  function makePhotoFrameBackTexture({ size = 1024 } = {}) {
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    const ctx = canvas.getContext('2d')
+    if (ctx) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.fillStyle = '#c0c0a9ff'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+      ctx.strokeStyle = 'rgba(0,0,0,0.18)'
+      ctx.lineWidth = Math.max(6, Math.floor(size * 0.01))
+      ctx.strokeRect(24, 24, canvas.width - 48, canvas.height - 48)
+    }
+
+    const tex = new THREE.CanvasTexture(canvas)
+    tex.colorSpace = THREE.SRGBColorSpace
+    tex.premultiplyAlpha = true
+    configureGalleryTexture(tex)
+    return tex
+  }
+
   const roomCtx = {
     group,
     disposables,
@@ -274,6 +296,9 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     const lobbyRoom = buildLobbyRoom(roomCtx, lobby)
     return { ...lobbyRoom, deferredTextureLoads }
   }
+
+  const photoFrameBackTex = makePhotoFrameBackTexture({ size: 1024 })
+  disposables.push(photoFrameBackTex)
 
   addDoor({ id: 'entry-door', wall: 'south', w: 1.25, h: 2.25 * 1.1, u: 0, color: 0xff4455, meta: { target: 'back', label: 'Back' } })
 
@@ -359,7 +384,12 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
     const panelDepth = 0.06
     const panelBackGeo = new THREE.BoxGeometry(panelW, panelH, panelDepth)
-    const panelBackMat = new THREE.MeshStandardMaterial({ color: 0xd9d9de, roughness: 0.86, metalness: 0.0 })
+    const panelBackMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      map: photoFrameBackTex,
+      roughness: 0.86,
+      metalness: 0.0,
+    })
     disposables.push(panelBackGeo, panelBackMat)
 
     const imgBack = new THREE.Mesh(panelBackGeo, panelBackMat)
@@ -367,7 +397,12 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     group.add(imgBack)
 
     const imgGeo = new THREE.PlaneGeometry(panelW, panelH)
-    const imgMat = new THREE.MeshBasicMaterial({ color: 0xffffff })
+    const imgMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      depthWrite: false,
+      premultipliedAlpha: true,
+    })
     const img = new THREE.Mesh(imgGeo, imgMat)
     img.position.set(photoX, panelY, panelZ + panelDepth / 2 + 0.002)
     group.add(img)
@@ -414,6 +449,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
         url: mainThumbnailUrl,
         onLoad(tex) {
           tex.colorSpace = THREE.SRGBColorSpace
+          tex.premultiplyAlpha = true
           configureGalleryTexture(tex)
           imgMat.map = tex
           imgMat.color.setHex(0xffffff)
@@ -1094,7 +1130,12 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
     const wallPanelDepth = 0.06
     const wallBackMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.95, metalness: 0.0 })
-    const wallFrameBackMat = new THREE.MeshStandardMaterial({ color: 0xd9d9de, roughness: 0.86, metalness: 0.0 })
+    const wallFrameBackMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      map: photoFrameBackTex,
+      roughness: 0.86,
+      metalness: 0.0,
+    })
     disposables.push(wallBackMat, wallFrameBackMat)
 
     function isSupportedImageUrl(url) {
@@ -1176,7 +1217,12 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       ensureOutlineInFront(slot)
 
       const geo = new THREE.PlaneGeometry(1, 1)
-      const mat = new THREE.MeshBasicMaterial({ color: 0xffffff })
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        depthWrite: false,
+        premultipliedAlpha: true,
+      })
       const mesh = new THREE.Mesh(geo, mat)
       mesh.scale.set(baseW, baseH, 1)
       mesh.position.copy(slot.center).add(normal.clone().multiplyScalar(frontOffset + 0.004))
@@ -1195,6 +1241,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       function applyTexture(tex) {
         if (!tex) return
         tex.colorSpace = THREE.SRGBColorSpace
+        tex.premultiplyAlpha = true
         configureGalleryTexture(tex)
         mat.map = tex
         mat.color.setHex(0xffffff)
@@ -1213,14 +1260,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
             sx = imageAspect / frameAspect
           }
           mesh.scale.set(baseW * sx, baseH * sy, 1)
-
-          if (backplate) {
-            backplate.scale.set(sx, sy, 1)
-          }
-
-          if (slot.outlineObject) {
-            slot.outlineObject.scale.set(0.96 * sx, 0.96 * sy, 1)
-          }
+          backplate.scale.set(sx, sy, 1)
         }
 
         disposables.push(tex)
