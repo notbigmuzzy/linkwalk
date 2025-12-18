@@ -239,8 +239,9 @@ export function buildLobbyRoom(ctx, lobby) {
   const doorH = 2.25 * 1.1
 
   const gapU = 1.1
+  const endMarginTotal = 4.0
   const totalSpan = perWall * doorW + (perWall - 1) * gapU
-  const span = Math.max(perWall * doorW, Math.min(totalSpan, length - 2.0))
+  const span = Math.max(perWall * doorW, Math.min(totalSpan, length - endMarginTotal))
   const actualGap = perWall > 1 ? (span - perWall * doorW) / (perWall - 1) : 0
   const uStart = -span / 2 + doorW / 2
 

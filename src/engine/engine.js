@@ -357,7 +357,25 @@ export function startYourEngines({
     let roomLength = 18
     let roomHeight = 4
 
-    if (mode !== 'lobby') {
+    if (mode === 'lobby') {
+      // Lobby doors are placed along the east and west walls, spaced along the
+      // north↔south axis (roomLength). Size the lobby so there is enough span
+      // for roughly half the categories per side, plus comfortable margins.
+      const catCount = Array.isArray(categories) ? categories.length : 0
+      const doorsPerSide = Math.max(1, Math.ceil(catCount / 2))
+
+      // Keep in sync with lobby door layout in src/game/room/lobby.js
+      const doorW = 1.25
+      const gapU = 1.1
+      // Extra run-length added to BOTH the north and south ends.
+      const extraEachSide = 2.0
+
+      const spanNeeded = doorsPerSide * doorW + Math.max(0, doorsPerSide - 1) * gapU
+      roomLength = roundTo(spanNeeded + extraEachSide * 2, 0.25)
+
+      // Small safety minimum to avoid a cramped lobby when there are very few doors.
+      roomLength = Math.max(roomLength, 10)
+    } else {
       const seed = hashStringToUint32(String(seedTitle))
       const rand = mulberry32(seed)
 
