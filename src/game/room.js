@@ -414,13 +414,32 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     {
       const potH = 0.34
       const potR = 0.22
-      const plantH = 0.85
+      const trunkH = 0.72
+
+      const frondW = 0.105
+      const frondL = 0.74
 
       const potGeo = new THREE.CylinderGeometry(potR, potR * 1.08, potH, 14, 1)
       const potMat = new THREE.MeshStandardMaterial({ color: 0x12161b, roughness: 0.95, metalness: 0.02 })
-      const leafGeo = new THREE.ConeGeometry(0.28, plantH, 12, 1)
-      const leafMat = new THREE.MeshStandardMaterial({ color: 0x2a8f4a, roughness: 0.9, metalness: 0.0 })
-      disposables.push(potGeo, potMat, leafGeo, leafMat)
+      const trunkGeo = new THREE.CylinderGeometry(0.045, 0.06, trunkH, 12, 1)
+      const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4b2a, roughness: 0.92, metalness: 0.0 })
+
+      const frondGeo = new THREE.PlaneGeometry(frondL, frondW, 7, 1)
+      {
+        const pos = frondGeo.attributes.position
+        for (let i = 0; i < pos.count; i += 1) {
+          const x = pos.getX(i)
+          const t = (x + frondL / 2) / frondL
+          const bend = Math.sin(t * Math.PI) * 0.11
+          pos.setZ(i, bend)
+        }
+        pos.needsUpdate = true
+        frondGeo.computeVertexNormals()
+      }
+      frondGeo.translate(frondL / 2, 0, 0)
+
+      const leafMat = new THREE.MeshStandardMaterial({ color: 0x2a8f4a, roughness: 0.9, metalness: 0.0, side: THREE.DoubleSide })
+      disposables.push(potGeo, potMat, trunkGeo, trunkMat, frondGeo, leafMat)
 
       const z = -(pillarD / 2 + 0.55)
       const xs = [-pillarW * 0.28, pillarW * 0.28]
@@ -435,10 +454,24 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
         pot.position.set(0, potH / 2, 0)
         plant.add(pot)
 
-        const leaves = new THREE.Mesh(leafGeo, leafMat)
-        leaves.position.set(0, potH + plantH / 2 - 0.02, 0)
-        leaves.rotation.x = -0.1
-        plant.add(leaves)
+        const trunk = new THREE.Mesh(trunkGeo, trunkMat)
+        trunk.position.set(0, potH + trunkH / 2 - 0.02, 0)
+        plant.add(trunk)
+
+        const fronds = new THREE.Group()
+        fronds.position.set(0, potH + trunkH - 0.02, 0)
+        plant.add(fronds)
+
+        const frondCount = 9
+        for (let i = 0; i < frondCount; i += 1) {
+          const f = new THREE.Mesh(frondGeo, leafMat)
+          const a = (i / frondCount) * Math.PI * 2
+          f.rotation.y = a
+          f.rotation.x = -0.55
+          f.rotation.z = (Math.random() - 0.5) * 0.18
+          f.position.set(0, 0.045, 0)
+          fronds.add(f)
+        }
 
         obstacles.push({ type: 'cylinder', x, z, radius: potR + 0.1 })
       }
