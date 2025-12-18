@@ -1,6 +1,6 @@
 import './style.css'
 import { startYourEngines } from './engine/engine.js'
-import { fetchGalleryRoomData } from './wiki/wiki.js'
+import { fetchGalleryRoomData, fetchWikipediaRandomTitle } from './wiki/wiki.js'
 
 const app = document.querySelector('#app')
 if (!app) {
@@ -65,6 +65,7 @@ let engineApi = null
 const LOBBY_TITLE = 'Lobby'
 
 let wikiAbortController = null
+let randomAbortController = null
 let activeNavId = 0
 let activeDoorLabelOverride = null
 
@@ -260,12 +261,39 @@ function goBackInApp() {
   setLoading(false)
 }
 
+function requestRandomExhibit() {
+  // Cancel any in-flight random request.
+  if (randomAbortController) {
+    randomAbortController.abort()
+    randomAbortController = null
+  }
+
+  setLoading(true)
+  randomAbortController = new AbortController()
+  const signal = randomAbortController.signal
+
+  fetchWikipediaRandomTitle({ signal })
+    .then((title) => {
+      if (signal.aborted) return
+      loadAndEnterGallery(title, {
+        pushHistory: true,
+        spawn: { type: 'fromWall', wall: 'south' },
+      })
+    })
+    .catch((err) => {
+      if (err && err.code === 'aborted') return
+      console.warn('[linkwalk] Random exhibit failed', err)
+      setLoading(false)
+    })
+}
+
 engineApi = startYourEngines({
   canvas,
   roomSeedTitle: initialTitle ?? 'Lobby',
   roomMode: initialTitle ? 'gallery' : 'lobby',
   roomSpawn: { type: 'fromWall', wall: 'south' },
   lobbyCategories: ['Culture', 'Geography', 'Animals', 'History', 'Nature', 'Humanities', 'Philosophy', 'Cosmology', 'Society', 'Technology', 'Music', 'Painting' ],
+  onRandomExhibitRequested: requestRandomExhibit,
   onFps(fps) {
     fpsEl.textContent = `${fps.toFixed(0)} FPS`
   },

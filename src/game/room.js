@@ -1084,7 +1084,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
 
         const boxSize = 86
-        const midY = Math.round(canvas.height * 0.62)
+        const midY = Math.round(canvas.height * 0.48)
         const arrowY = midY
 
         ctx2.lineWidth = 10
@@ -1144,6 +1144,140 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       face.position.set(0, 0, boardDepth / 2 + 0.002)
       boardGroup.add(face)
       disposables.push(tex, faceGeo, faceMat)
+
+      // Bottom-middle in-world control: industrial push button + label
+      {
+        const controlY = -boardH / 2 + 0.28
+        const controlZ = boardDepth / 2 + 0.04
+
+        const controlGroup = new THREE.Group()
+        controlGroup.name = 'random-exhibit-control'
+        controlGroup.position.set(0, controlY, controlZ)
+
+        // Mounting plate
+        const plateW = clamp(boardW * 0.58, 1.9, 2.8) * 0.64
+        const plateH = 0.36
+        const plateD = 0.05
+
+        const plateGeo = new THREE.BoxGeometry(plateW, plateH, plateD)
+        const plateMat = new THREE.MeshStandardMaterial({
+          // Green like the plants.
+          color: 0x2f6f4e,
+          roughness: 0.85,
+          metalness: 0.0,
+        })
+        const plate = new THREE.Mesh(plateGeo, plateMat)
+        plate.position.set(0, 0, 0)
+        controlGroup.add(plate)
+        disposables.push(plateGeo, plateMat)
+
+        // Button + label layout: center the whole content block within the plate.
+        const capR = 0.22
+        const capH = 0.085
+        const collarR = 0.18
+        const collarH = 0.06
+        const labelH = 0.28
+        const gapBetween = 0.10
+        const plateSidePad = 0.14
+        const usableW = Math.max(0.8, plateW - plateSidePad * 2)
+
+        let labelW = clamp(boardW * 0.42, 1.45, 2.2)
+        const requiredW = capR * 2 + gapBetween + labelW
+        if (requiredW > usableW) {
+          labelW = Math.max(0.9, usableW - (capR * 2 + gapBetween))
+        }
+
+        const contentW = capR * 2 + gapBetween + labelW
+        const leftEdge = -contentW / 2
+        const buttonCenterX = leftEdge + capR
+        const labelCenterX = leftEdge + capR * 2 + gapBetween + labelW / 2
+
+        // Metal bezel / collar
+        const collarGeo = new THREE.CylinderGeometry(collarR, collarR, collarH, 28, 1)
+        const collarMat = new THREE.MeshStandardMaterial({ color: 0xb8c2cc, roughness: 0.35, metalness: 0.6 })
+        const collar = new THREE.Mesh(collarGeo, collarMat)
+        collar.rotation.x = Math.PI / 2
+        collar.position.set(buttonCenterX, 0, plateD / 2 + collarH / 2 - 0.01)
+        controlGroup.add(collar)
+        disposables.push(collarGeo, collarMat)
+
+        // Red mushroom cap (industrial-looking)
+        const capGeo = new THREE.CylinderGeometry(capR, capR * 0.92, capH, 32, 1)
+        const capMat = new THREE.MeshStandardMaterial({ color: 0xff4455, roughness: 0.38, metalness: 0.02 })
+        const cap = new THREE.Mesh(capGeo, capMat)
+        cap.rotation.x = Math.PI / 2
+        cap.position.copy(collar.position)
+        cap.position.z += collarH / 2 + capH / 2 - 0.015
+        controlGroup.add(cap)
+        disposables.push(capGeo, capMat)
+
+        // Label (text-only)
+        const labelGeo = new THREE.PlaneGeometry(labelW, labelH)
+        const labelMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true })
+        const label = new THREE.Mesh(labelGeo, labelMat)
+        label.position.set(labelCenterX, 0, plateD / 2 + 0.014)
+        controlGroup.add(label)
+        disposables.push(labelGeo, labelMat)
+
+        {
+          const canvasLabel = document.createElement('canvas')
+          canvasLabel.width = 1024
+          canvasLabel.height = 256
+          const ctxLabel = canvasLabel.getContext('2d')
+          if (ctxLabel) {
+            ctxLabel.clearRect(0, 0, canvasLabel.width, canvasLabel.height)
+            const line1 = 'Hit button for'
+            const line2 = 'random exhibit'
+            ctxLabel.textAlign = 'center'
+            ctxLabel.textBaseline = 'middle'
+
+            const cx = canvasLabel.width / 2
+            const cy = canvasLabel.height / 2 + 2
+            const dy = 46
+
+            // Slight dark stroke for readability, but no filled background.
+            ctxLabel.lineWidth = 10
+            ctxLabel.strokeStyle = 'rgba(0,0,0,0.45)'
+            ctxLabel.fillStyle = 'rgba(255,255,255,0.94)'
+
+            ctxLabel.font = '750 72px system-ui, -apple-system, Segoe UI, Roboto, Arial'
+            ctxLabel.strokeText(line1, cx, cy - dy)
+            ctxLabel.fillText(line1, cx, cy - dy)
+
+            ctxLabel.font = '900 86px system-ui, -apple-system, Segoe UI, Roboto, Arial'
+            ctxLabel.strokeText(line2, cx, cy + dy)
+            ctxLabel.fillText(line2, cx, cy + dy)
+          }
+
+          const labelTex = new THREE.CanvasTexture(canvasLabel)
+          labelTex.colorSpace = THREE.SRGBColorSpace
+          configureGalleryTexture(labelTex)
+          labelTex.needsUpdate = true
+          labelMat.map = labelTex
+          labelMat.needsUpdate = true
+          disposables.push(labelTex)
+        }
+
+        // Forgiving invisible hit target for clicking.
+        const hitGeo = new THREE.BoxGeometry(plateW, plateH, 0.18)
+        const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.0 })
+        // Make it raycastable but non-rendering to avoid any sorting/blending artifacts.
+        hitMat.colorWrite = false
+        hitMat.depthWrite = false
+        hitMat.depthTest = false
+        const hit = new THREE.Mesh(hitGeo, hitMat)
+        hit.position.set(0, 0, plateD / 2 + 0.08)
+        hit.userData = {
+          ...(hit.userData || {}),
+          pickable: false,
+          action: 'random-exhibit',
+        }
+        controlGroup.add(hit)
+        pickableMeshes.push(hit)
+        disposables.push(hitGeo, hitMat)
+
+        boardGroup.add(controlGroup)
+      }
 
 
       boardGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, 1))

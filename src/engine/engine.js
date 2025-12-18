@@ -9,6 +9,7 @@ export function startYourEngines({
   onPointerLockChange,
   onHeading,
   onDoorTrigger,
+  onRandomExhibitRequested,
   roomSeedTitle = 'Lobby',
   roomMode = 'gallery',
   lobbyCategories,
@@ -585,6 +586,20 @@ export function startYourEngines({
             onClick({ object: cur, hitObject: hitObj, hitPoint, camera })
           } catch (err) {
             console.warn('[linkwalk] onClick handler failed', err)
+          }
+          return
+        }
+
+        const action = cur?.userData?.action
+        if (action === 'random-exhibit') {
+          if (typeof onRandomExhibitRequested === 'function') {
+            try {
+              onRandomExhibitRequested()
+            } catch (err) {
+              console.warn('[linkwalk] Random exhibit handler failed', err)
+            }
+          } else {
+            console.info('[linkwalk] Random exhibit requested')
           }
           return
         }

@@ -319,6 +319,24 @@ export async function fetchWikipediaSummary(title, { signal } = {}) {
   }
 }
 
+export async function fetchWikipediaRandomTitle({ signal } = {}) {
+  const raw = await fetchActionQuery(
+    {
+      list: 'random',
+      rnnamespace: '0',
+      rnlimit: '1',
+    },
+    { signal }
+  )
+
+  const title = raw?.query?.random?.[0]?.title
+  if (typeof title !== 'string' || !title.trim()) {
+    throw makeWikiError('Wikipedia random response missing title', { code: 'bad_response', raw })
+  }
+
+  return title.trim()
+}
+
 async function fetchActionQuery(params, { signal } = {}) {
   const url = buildActionApiUrl({ action: 'query', ...params })
   const json = await fetchJsonWithTimeout(url, { signal })
