@@ -197,7 +197,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     const ctx = canvas.getContext('2d')
     if (ctx) {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
-      ctx.fillStyle = '#ffffff'
+      ctx.fillStyle = '#c0c0a9ff'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
       ctx.strokeStyle = 'rgba(0,0,0,0.18)'
