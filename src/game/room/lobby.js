@@ -220,14 +220,15 @@ export function buildLobbyRoom(ctx, lobby) {
 
     group.add(boardGroup)
 
-    // Collision approximation: a few cylinders across the width.
-    const obstacleZ = boardCenter.z + 0.05
-    const n = 5
-    for (let i = 0; i < n; i += 1) {
-      const t = n === 1 ? 0.5 : i / (n - 1)
-      const x = -boardW * 0.42 + t * (boardW * 0.84)
-      obstacles.push({ type: 'cylinder', x, z: obstacleZ, radius: 0.32 })
-    }
+    // Collision approximation: a solid footprint so you can't slip between legs.
+    // Engine supports axis-aligned box obstacles (x,z,w,d).
+    obstacles.push({
+      type: 'box',
+      x: boardCenter.x,
+      z: boardCenter.z + 0.05,
+      w: boardW * 0.95,
+      d: 0.9,
+    })
   }
 
   addLobbyWhiteboard({

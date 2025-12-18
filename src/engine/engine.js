@@ -695,6 +695,32 @@ export function startYourEngines({
         }
       }
 
+      for (const o of roomObstacles) {
+        if (!o || o.type !== 'box') continue
+        const ox = typeof o.x === 'number' ? o.x : 0
+        const oz = typeof o.z === 'number' ? o.z : 0
+        const w = typeof o.w === 'number' ? o.w : 0
+        const d = typeof o.d === 'number' ? o.d : 0
+        if (!(w > 0 && d > 0)) continue
+
+        const buffer = playerRadius + 0.05
+        const hx = w / 2 + buffer
+        const hz = d / 2 + buffer
+
+        const dx = x - ox
+        const dz = z - oz
+
+        if (Math.abs(dx) < hx && Math.abs(dz) < hz) {
+          const pushX = hx - Math.abs(dx)
+          const pushZ = hz - Math.abs(dz)
+          if (pushX < pushZ) {
+            x += (dx === 0 ? 1 : Math.sign(dx)) * pushX
+          } else {
+            z += (dz === 0 ? 1 : Math.sign(dz)) * pushZ
+          }
+        }
+      }
+
       camera.position.x = x
       camera.position.z = z
     }
