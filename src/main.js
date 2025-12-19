@@ -143,12 +143,9 @@ function savePersistedLanguage(lang) {
   try {
     if (!window?.localStorage) return
     window.localStorage.setItem(LANGUAGE_PERSIST_KEY, String(lang || ''))
-  } catch {
-    // ignore
-  }
+  } catch {}
 }
 
-// URL is the source-of-truth when present; otherwise fall back to localStorage; default to English.
 const initialUrlLang = loadUrlLanguage()
 const initialPersistedLang = loadPersistedLanguage()
 let activeLanguage = setWikipediaLanguage(initialUrlLang || initialPersistedLang || 'en')
@@ -163,7 +160,6 @@ function syncLanguageFromUrlOrStorage() {
     savePersistedLanguage(activeLanguage)
     return { changed: true, value: activeLanguage }
   }
-  // Keep localStorage aligned even if URL is missing.
   savePersistedLanguage(activeLanguage)
   return { changed: false, value: activeLanguage }
 }
@@ -174,7 +170,6 @@ function applyLanguage(nextLang, { persist = true, updateUrl = true, reloadToLob
   if (persist) savePersistedLanguage(activeLanguage)
 
   if (updateUrl) {
-    // Reset to lobby on language change by clearing the exhibit param.
     setUrlAndState(null, { push: false })
   }
 
@@ -224,7 +219,6 @@ function saveTrailPersist(trail) {
     const items = Array.isArray(trail) ? trail.slice(-TRAIL_PERSIST_MAX) : []
     window.localStorage.setItem(TRAIL_PERSIST_KEY, JSON.stringify({ v: 1, items }))
   } catch {
-    // ignore
   }
 }
 
@@ -307,7 +301,7 @@ function loadAndEnterGallery(title, { pushHistory = false, spawn, updateUrlState
             .filter(Boolean)
         : []
 
-      // Pick a random set of doors each time we enter.
+
       const seen = new Set()
       const uniquePool = []
       for (const t of pool) {
@@ -362,14 +356,12 @@ function loadAndEnterGallery(title, { pushHistory = false, spawn, updateUrlState
 }
 
 function enterlobby({ push = false } = {}) {
-  // Lobby is immediate (no network), so ensure we cancel any in-flight fetch and clear loading.
   if (wikiAbortController) {
     wikiAbortController.abort()
     wikiAbortController = null
   }
   activeNavId += 1
 
-  // Track lobby in the trail so the gallery whiteboard can show where you came from.
   pushGalleryTrail(LOBBY_TITLE)
 
   if (activeDoorLabelOverride && engineApi && typeof engineApi.setDoorLabelOverride === 'function') {
@@ -395,7 +387,6 @@ function goBackInApp() {
 }
 
 function requestRandomExhibit() {
-  // Cancel any in-flight random request.
   if (randomAbortController) {
     randomAbortController.abort()
     randomAbortController = null
@@ -497,7 +488,6 @@ window.addEventListener('popstate', (e) => {
   }
 
   if (changed && engineApi && typeof engineApi.setRoom === 'function') {
-    // Ensure lobby door labels reflect the active language when navigating history.
     engineApi.setRoom({ roomMode: 'lobby', lobbyCategories: lobbyCategoriesForLanguage(activeLanguage) })
   }
   enterlobby({ push: false })

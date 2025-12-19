@@ -202,12 +202,12 @@ canvas:focus {
 }
 
 #language-select:active {
-	background: rgba(0, 0, 0, 0.55);
+	background: rgba(0, 0, 0, 0.5);
 }
 
 #language-select option {
-	background: rgba(0, 0, 0, 0.95);
-	color: rgba(255, 255, 255, 0.92);
+	background: rgb(30, 30, 30);
+	color: rgba(255, 255, 255, 1);
 }
 
 #language-select:focus-visible {
