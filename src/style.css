@@ -149,25 +149,59 @@ canvas:focus {
 
 #language-picker {
   position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
+  display: inline-block;
   font-size: 16px;
 }
 
-#language-label {
-  font: 600 16px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  color: rgba(255, 255, 255, 0.92);
+#language-icon,
+#language-caret {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.9;
+}
+
+#language-icon svg {
+  display: block;
+}
+
+#language-icon {
+  left: 14px;
+}
+
+#language-caret {
+  right: 14px;
 }
 
 #language-select {
   appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(0, 0, 0, 0.35);
   color: rgba(255, 255, 255, 0.92);
   border-radius: 999px;
   padding: 10px 50px;
+  font: inherit;
+  line-height: 1.5;
+  transition: background 120ms ease, border-color 120ms ease;
   cursor: pointer;
+}
+
+#language-select:hover {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(0, 0, 0, 0.45);
+}
+
+#language-select:active {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+#language-select option {
+  background: rgba(0, 0, 0, 0.95);
+  color: rgba(255, 255, 255, 0.92);
 }
 
 #language-select:focus-visible {

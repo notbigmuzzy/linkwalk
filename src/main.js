@@ -16,10 +16,28 @@ app.innerHTML = `
     <div id="overlay-titlebar-inner">
       <p>VIRTUAL MUSEUM</p>
       <div id="language-picker" aria-label="Language">
-        <select id="language-select" aria-label="Language">
-          <option value="en">English</option>
-          <option value="sh">Srpski</option>
-        </select>
+        <span id="language-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+            <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" />
+            <path d="M3 12h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            <path d="M12 3c3.5 3.5 3.5 14 0 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            <path d="M12 3c-3.5 3.5-3.5 14 0 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+        </span>
+		<select id="language-select" aria-label="Language">
+			<option value="en">English</option>
+			<option value="de">Deutsch</option>
+			<option value="es">Español</option>
+			<option value="fr">Français</option>
+			<option value="it">Italiano</option>
+			<option value="ja">日本語</option>
+			<option value="pl">Polski</option>
+			<option value="pt">Português</option>
+			<option value="ru">Русский</option>
+			<option value="sr">Српски</option>
+			<option value="zh">中文</option>
+		</select>
+        <span id="language-caret" aria-hidden="true">▾</span>
       </div>
     </div>
 	</div>
@@ -68,19 +86,46 @@ overlayEl.addEventListener('keydown', (e) => {
 const LANGUAGE_PERSIST_KEY = 'linkwalk:language:v1'
 
 const LOBBY_CATEGORIES_EN = ['Culture', 'Geography', 'Animals', 'History', 'Nature', 'Humanities', 'Philosophy', 'Cosmology', 'Society', 'Technology', 'Music', 'Painting']
-const LOBBY_CATEGORIES_SH = ['Kultura', 'Geografija', 'Životinje', 'Istorija', 'Priroda', 'Humanizam', 'Filozofija', 'Kosmologija', 'Društvo', 'Tehnologija', 'Muzika', 'Slikarstvo']
+const LOBBY_CATEGORIES_SR = ['Култура', 'Географија', 'Животиње', 'Историја', 'Природа', 'Хуманистичке науке', 'Филозофија', 'Космологија', 'Друштво', 'Технологија', 'Музика', 'Сликарство']
+const LOBBY_CATEGORIES_RU = ['Культура', 'География', 'Животные', 'История', 'Природа', 'Гуманитарные науки', 'Философия', 'Космология', 'Общество', 'Технологии', 'Музыка', 'Живопись']
+const LOBBY_CATEGORIES_FR = ['Culture', 'Géographie', 'Animaux', 'Histoire', 'Nature', 'Sciences humaines', 'Philosophie', 'Cosmologie', 'Société', 'Technologie', 'Musique', 'Peinture']
+const LOBBY_CATEGORIES_ZH = ['文化', '地理', '动物', '历史', '自然', '人文', '哲学', '宇宙学', '社会', '科技', '音乐', '绘画']
+const LOBBY_CATEGORIES_PL = ['Kultura', 'Geografia', 'Zwierzęta', 'Historia', 'Przyroda', 'Nauki humanistyczne', 'Filozofia', 'Kosmologia', 'Społeczeństwo', 'Technologia', 'Muzyka', 'Malarstwo']
+const LOBBY_CATEGORIES_JA = ['文化', '地理', '動物', '歴史', '自然', '人文科学', '哲学', '宇宙論', '社会', 'テクノロジー', '音楽', '絵画']
+const LOBBY_CATEGORIES_DE = ['Kultur', 'Geografie', 'Tiere', 'Geschichte', 'Natur', 'Geisteswissenschaften', 'Philosophie', 'Kosmologie', 'Gesellschaft', 'Technologie', 'Musik', 'Malerei']
+const LOBBY_CATEGORIES_ES = ['Cultura', 'Geografía', 'Animales', 'Historia', 'Naturaleza', 'Humanidades', 'Filosofía', 'Cosmología', 'Sociedad', 'Tecnología', 'Música', 'Pintura']
+const LOBBY_CATEGORIES_IT = ['Cultura', 'Geografia', 'Animali', 'Storia', 'Natura', 'Smanistiche', 'Filosofia', 'Cosmologia', 'Società', 'Tecnologia', 'Musica', 'Pittura']
+const LOBBY_CATEGORIES_PT = ['Cultura', 'Geografia', 'Animais', 'História', 'Natureza', 'Humanidades', 'Filosofia', 'Cosmologia', 'Sociedade', 'Tecnologia', 'Música', 'Pintura']
 
 function lobbyCategoriesForLanguage(lang) {
-  const code = String(lang || '').trim().toLowerCase()
+  	const code = String(lang || '').trim().toLowerCase()
 
-  switch (code) {
-    case 'en':
-      return LOBBY_CATEGORIES_EN
-    case 'sh':
-      return LOBBY_CATEGORIES_SH
-    default:
-      return LOBBY_CATEGORIES_EN
-  }
+	switch (code) {
+	case 'en':
+		return LOBBY_CATEGORIES_EN;
+	case 'de':
+		return LOBBY_CATEGORIES_DE;
+	case 'es':
+		return LOBBY_CATEGORIES_ES;
+	case 'fr':
+		return LOBBY_CATEGORIES_FR;
+	case 'it':
+		return LOBBY_CATEGORIES_IT;
+	case 'ja':
+		return LOBBY_CATEGORIES_JA;
+	case 'pl':
+		return LOBBY_CATEGORIES_PL;
+	case 'pt':
+		return LOBBY_CATEGORIES_PT;
+	case 'ru':
+		return LOBBY_CATEGORIES_RU;
+	case 'sr':
+		return LOBBY_CATEGORIES_SR;
+	case 'zh':
+		return LOBBY_CATEGORIES_ZH;
+	default:
+		return LOBBY_CATEGORIES_EN;
+	}
 }
 
 function loadUrlLanguage() {
