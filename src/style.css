@@ -14,6 +14,14 @@ body {
   overflow: hidden;
 }
 
+canvas {
+  outline: none;
+}
+
+canvas:focus {
+    outline: none;
+}
+
 #app {
   height: 100%;
   width: 100%;
@@ -36,7 +44,6 @@ body {
   justify-content: center;
   background: rgba(0, 0, 0, 0.55);
   color: rgba(255, 255, 255, 0.92);
-  cursor: pointer;
 }
 
 #overlay-titlebar {
@@ -51,6 +58,7 @@ body {
 	transform: translateY(0);
 	transition: transform 0.2s ease, opacity 0.4s ease;
 	animation-delay: 50ms;
+	cursor: pointer;
 }
 
 #overlay-footer {
@@ -70,6 +78,12 @@ body {
 
 .locked #overlay-inner {
 	transform: translateY(20px);
+}
+
+.locked #overlay {
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
 }
 
 .locked #overlay-titlebar,
@@ -107,12 +121,6 @@ body {
 	}
 }
 
-#overlay[hidden]{
-  opacity: 0;
-  pointer-events: none;
-  z-index: -1;
-}
-
 #overlay-inner {
   border-radius: 25px;
   padding: 20px 40px;
@@ -132,9 +140,39 @@ body {
   font: 600 16px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
 }
 
-#overlay-titlebar,
-#overlay-footer {
-	pointer-events: none;
+#overlay-titlebar-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+#language-picker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+}
+
+#language-label {
+  font: 600 16px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+#language-select {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.35);
+  color: rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  padding: 10px 50px;
+  cursor: pointer;
+}
+
+#language-select:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.35);
+  outline-offset: 2px;
 }
 
 #overlay-titlebar {

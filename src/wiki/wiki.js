@@ -1,20 +1,61 @@
-const WIKI_REST_BASE = 'https://en.wikipedia.org/api/rest_v1'
-const WIKI_SUMMARY_ENDPOINT = `${WIKI_REST_BASE}/page/summary/`
-const WIKI_ACTION_API = 'https://en.wikipedia.org/w/api.php'
+const DEFAULT_WIKI_LANG = 'en'
+
+let wikiLang = DEFAULT_WIKI_LANG
+
+function normalizeWikiLang(lang) {
+  const raw = typeof lang === 'string' ? lang.trim().toLowerCase() : ''
+  if (!raw) return DEFAULT_WIKI_LANG
+  if (!/^[a-z0-9-]{1,20}$/.test(raw)) return DEFAULT_WIKI_LANG
+  return raw
+}
+
+export function setWikipediaLanguage(lang) {
+  wikiLang = normalizeWikiLang(lang)
+  return wikiLang
+}
+
+export function getWikipediaLanguage() {
+  return wikiLang
+}
+
+function wikiHost() {
+  return `https://${wikiLang}.wikipedia.org`
+}
+
+function wikiRestBase() {
+  return `${wikiHost()}/api/rest_v1`
+}
+
+function wikiSummaryEndpoint() {
+  return `${wikiRestBase()}/page/summary/`
+}
+
+function wikiActionApi() {
+  return `${wikiHost()}/w/api.php`
+}
 
 const DEFAULT_TIMEOUT_MS = 8000
-const GALLERY_PERSIST_KEY = 'linkwalk:galleryCache:v2'
+const GALLERY_PERSIST_KEY_PREFIX = 'linkwalk:galleryCache:v2'
 const GALLERY_PERSIST_MAX = 80
 const GALLERY_PERSIST_TTL_MS = 24 * 60 * 60 * 1000
+
+function wikiCachePartitionKey() {
+  return wikiLang
+}
+
+function galleryPersistKey() {
+  return `${GALLERY_PERSIST_KEY_PREFIX}:${wikiCachePartitionKey()}`
+}
 
 function safeNow() {
   return typeof Date.now === 'function' ? Date.now() : new Date().getTime()
 }
 
-function loadGalleryPersistCache() {
+function loadGalleryPersistCache(storageKey) {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return new Map()
-    const raw = window.localStorage.getItem(GALLERY_PERSIST_KEY)
+    const key = typeof storageKey === 'string' && storageKey ? storageKey : GALLERY_PERSIST_KEY_PREFIX
+    const raw = window.localStorage.getItem(key)
     if (!raw) return new Map()
     const parsed = JSON.parse(raw)
     const entries = Array.isArray(parsed?.entries) ? parsed.entries : []
@@ -35,9 +76,10 @@ function loadGalleryPersistCache() {
   }
 }
 
-function saveGalleryPersistCache(map) {
+function saveGalleryPersistCache(storageKey, map) {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return
+    const key = typeof storageKey === 'string' && storageKey ? storageKey : GALLERY_PERSIST_KEY_PREFIX
     const items = []
     for (const [k, entry] of map.entries()) {
       if (!k || !entry?.v) continue
@@ -45,7 +87,7 @@ function saveGalleryPersistCache(map) {
     }
     items.sort((a, b) => (b.t || 0) - (a.t || 0))
     if (items.length > GALLERY_PERSIST_MAX) items.length = GALLERY_PERSIST_MAX
-    window.localStorage.setItem(GALLERY_PERSIST_KEY, JSON.stringify({ v: 1, entries: items }))
+    window.localStorage.setItem(key, JSON.stringify({ v: 1, entries: items }))
   } catch {
     // ignore (quota, privacy mode, etc)
   }
@@ -132,13 +174,15 @@ async function fetchJsonWithTimeout(url, { signal } = {}) {
 }
 
 function buildActionApiUrl(params) {
+  const langParams = wikiLang && wikiLang !== DEFAULT_WIKI_LANG ? { uselang: wikiLang } : {}
   const search = new URLSearchParams({
     format: 'json',
     formatversion: '2',
     origin: '*',
+    ...langParams,
     ...params,
   })
-  return `${WIKI_ACTION_API}?${search.toString()}`
+  return `${wikiActionApi()}?${search.toString()}`
 }
 
 function firstSentences(text, maxSentences = 2) {
@@ -307,7 +351,7 @@ export async function fetchWikipediaSummary(title, { signal } = {}) {
     throw makeWikiError('Missing Wikipedia title', { code: 'bad_title' })
   }
 
-  const url = `${WIKI_SUMMARY_ENDPOINT}${encodeURIComponent(normalizedTitle)}`
+  const url = `${wikiSummaryEndpoint()}${encodeURIComponent(normalizedTitle)}`
 
   try {
     return await fetchJsonWithTimeout(url, { signal })
@@ -806,21 +850,35 @@ export async function fetchGalleryRoomData(title, opts = {}) {
     throw makeWikiError('Missing Wikipedia title', { code: 'bad_title' })
   }
 
+  const partition = wikiCachePartitionKey()
+
   // Cache successful BASE results by title so revisiting an exhibit doesn't refetch.
   // NOTE: related/seeAlso links are intentionally NOT cached.
   // Aborted/failed requests are not cached.
   if (!fetchGalleryRoomData._cache) fetchGalleryRoomData._cache = new Map()
-  const cache = fetchGalleryRoomData._cache
+  let cache = fetchGalleryRoomData._cache.get(partition)
+  if (!cache) {
+    cache = new Map()
+    fetchGalleryRoomData._cache.set(partition, cache)
+  }
   const cachedBase = cache.get(normalizedTitle)
 
   // Related pool cache: memory-only (clears on page reload).
   // We still randomize which doors we show on each room entry.
   if (!fetchGalleryRoomData._relatedCache) fetchGalleryRoomData._relatedCache = new Map()
-  const relatedCache = fetchGalleryRoomData._relatedCache
+  let relatedCache = fetchGalleryRoomData._relatedCache.get(partition)
+  if (!relatedCache) {
+    relatedCache = new Map()
+    fetchGalleryRoomData._relatedCache.set(partition, relatedCache)
+  }
 
   // Persistent cache (survives reloads) to reduce request volume.
-  if (!fetchGalleryRoomData._persist) fetchGalleryRoomData._persist = loadGalleryPersistCache()
-  const persist = fetchGalleryRoomData._persist
+  if (!fetchGalleryRoomData._persist) fetchGalleryRoomData._persist = new Map()
+  let persist = fetchGalleryRoomData._persist.get(partition)
+  if (!persist) {
+    persist = loadGalleryPersistCache(galleryPersistKey())
+    fetchGalleryRoomData._persist.set(partition, persist)
+  }
   const persisted = persist.get(normalizedTitle)
   const baseFromPersist = persisted && persisted.v ? persisted.v : null
 
@@ -919,7 +977,7 @@ export async function fetchGalleryRoomData(title, opts = {}) {
     cache.set(normalizedTitle, base)
     if (persist) {
       persist.set(normalizedTitle, { t: safeNow(), v: base })
-      saveGalleryPersistCache(persist)
+      saveGalleryPersistCache(galleryPersistKey(), persist)
     }
   } else if (!cachedBase && baseFromPersist) {
     cache.set(normalizedTitle, baseFromPersist)

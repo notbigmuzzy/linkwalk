@@ -1,6 +1,6 @@
 import './style.css'
 import { startYourEngines } from './engine/engine.js'
-import { fetchGalleryRoomData, fetchWikipediaRandomTitle } from './wiki/wiki.js'
+import { fetchGalleryRoomData, fetchWikipediaRandomTitle, setWikipediaLanguage } from './wiki/wiki.js'
 
 const app = document.querySelector('#app')
 if (!app) {
@@ -13,7 +13,15 @@ app.innerHTML = `
   </div>
   <div id="overlay" role="button" tabindex="0" aria-label="Click to start">
 	<div id="overlay-titlebar">
-		<p>VIRTUAL MUSEUM</p>
+    <div id="overlay-titlebar-inner">
+      <p>VIRTUAL MUSEUM</p>
+      <div id="language-picker" aria-label="Language">
+        <select id="language-select" aria-label="Language">
+          <option value="en">English</option>
+          <option value="sh">Srpski</option>
+        </select>
+      </div>
+    </div>
 	</div>
     <div id="overlay-inner">
       <div id="overlay-title">Click to play</div>
@@ -24,7 +32,6 @@ app.innerHTML = `
 	</div>
   </div>
   <div id="hud">
-    <div id="fps" aria-label="Frames per second"></div>
     <div id="crosshair" aria-hidden="true"></div>
   </div>
 `
@@ -34,12 +41,7 @@ if (!(canvas instanceof HTMLCanvasElement)) {
   throw new Error('Missing canvas#scene')
 }
 
-const fpsEl = document.querySelector('#fps')
-if (!(fpsEl instanceof HTMLElement)) {
-  throw new Error('Missing #fps element')
-}
-
-const overlayEl = document.querySelector('#overlay')
+const overlayEl = document.querySelector('#overlay-inner')
 if (!(overlayEl instanceof HTMLElement)) {
   throw new Error('Missing #overlay element')
 }
@@ -49,6 +51,11 @@ if (!(crosshairEl instanceof HTMLElement)) {
   throw new Error('Missing #crosshair element')
 }
 
+const languageSelectEl = document.querySelector('#language-select')
+if (!(languageSelectEl instanceof HTMLSelectElement)) {
+  throw new Error('Missing #language-select element')
+}
+
 function requestPlay() {
   canvas.requestPointerLock()
 }
@@ -56,6 +63,87 @@ function requestPlay() {
 overlayEl.addEventListener('click', requestPlay)
 overlayEl.addEventListener('keydown', (e) => {
   if (e.code === 'Enter' || e.code === 'Space') requestPlay()
+})
+
+const LANGUAGE_PERSIST_KEY = 'linkwalk:language:v1'
+
+const LOBBY_CATEGORIES_EN = ['Culture', 'Geography', 'Animals', 'History', 'Nature', 'Humanities', 'Philosophy', 'Cosmology', 'Society', 'Technology', 'Music', 'Painting']
+const LOBBY_CATEGORIES_SH = ['Kultura', 'Geografija', 'Životinje', 'Istorija', 'Priroda', 'Humanizam', 'Filozofija', 'Kosmologija', 'Društvo', 'Tehnologija', 'Muzika', 'Slikarstvo']
+
+function lobbyCategoriesForLanguage(lang) {
+  const code = String(lang || '').trim().toLowerCase()
+
+  switch (code) {
+    case 'en':
+      return LOBBY_CATEGORIES_EN
+    case 'sh':
+      return LOBBY_CATEGORIES_SH
+    default:
+      return LOBBY_CATEGORIES_EN
+  }
+}
+
+function loadUrlLanguage() {
+  const raw = new URLSearchParams(window.location.search).get('language')
+  return typeof raw === 'string' ? raw.trim() : ''
+}
+
+function loadPersistedLanguage() {
+  try {
+    const raw = window?.localStorage?.getItem(LANGUAGE_PERSIST_KEY)
+    return typeof raw === 'string' ? raw.trim() : ''
+  } catch {
+    return ''
+  }
+}
+
+function savePersistedLanguage(lang) {
+  try {
+    if (!window?.localStorage) return
+    window.localStorage.setItem(LANGUAGE_PERSIST_KEY, String(lang || ''))
+  } catch {
+    // ignore
+  }
+}
+
+// URL is the source-of-truth when present; otherwise fall back to localStorage; default to English.
+const initialUrlLang = loadUrlLanguage()
+const initialPersistedLang = loadPersistedLanguage()
+let activeLanguage = setWikipediaLanguage(initialUrlLang || initialPersistedLang || 'en')
+savePersistedLanguage(activeLanguage)
+
+function syncLanguageFromUrlOrStorage() {
+  const urlLang = loadUrlLanguage()
+  const persistedLang = loadPersistedLanguage()
+  const next = setWikipediaLanguage(urlLang || persistedLang || 'en')
+  if (next !== activeLanguage) {
+    activeLanguage = next
+    savePersistedLanguage(activeLanguage)
+    return { changed: true, value: activeLanguage }
+  }
+  // Keep localStorage aligned even if URL is missing.
+  savePersistedLanguage(activeLanguage)
+  return { changed: false, value: activeLanguage }
+}
+
+function applyLanguage(nextLang, { persist = true, updateUrl = true, reloadToLobby = false } = {}) {
+  const normalized = setWikipediaLanguage(nextLang)
+  activeLanguage = normalized
+  if (persist) savePersistedLanguage(activeLanguage)
+
+  if (updateUrl) {
+    // Reset to lobby on language change by clearing the exhibit param.
+    setUrlAndState(null, { push: false })
+  }
+
+  if (reloadToLobby) {
+    window.location.reload()
+  }
+}
+
+languageSelectEl.value = activeLanguage
+languageSelectEl.addEventListener('change', () => {
+  applyLanguage(languageSelectEl.value, { persist: true, updateUrl: true, reloadToLobby: true })
 })
 
 const params = new URLSearchParams(window.location.search)
@@ -123,6 +211,7 @@ let historyIndex = 0
 
 function setUrlAndState(title, { push = false } = {}) {
   const nextParams = new URLSearchParams(window.location.search)
+  nextParams.set('language', activeLanguage)
   if (title) nextParams.set('exhibit', title)
   else nextParams.delete('exhibit')
 
@@ -141,6 +230,8 @@ function setUrlAndState(title, { push = false } = {}) {
 
 function loadAndEnterGallery(title, { pushHistory = false, spawn, updateUrlState = true, loadingDoorId = null } = {}) {
   if (!title) return
+
+  syncLanguageFromUrlOrStorage()
 
   if (activeDoorLabelOverride && engineApi && typeof engineApi.setDoorLabelOverride === 'function') {
     engineApi.setDoorLabelOverride(activeDoorLabelOverride.doorId, '')
@@ -246,7 +337,7 @@ function enterlobby({ push = false } = {}) {
 
   setUrlAndState(null, { push })
   if (engineApi && typeof engineApi.setRoom === 'function') {
-    engineApi.setRoom({ roomMode: 'lobby', spawn: { type: 'fromWall', wall: 'south' } })
+    engineApi.setRoom({ roomMode: 'lobby', lobbyCategories: lobbyCategoriesForLanguage(activeLanguage), spawn: { type: 'fromWall', wall: 'south' } })
   }
   setLoading(false)
 }
@@ -292,13 +383,10 @@ engineApi = startYourEngines({
   roomSeedTitle: initialTitle ?? 'Lobby',
   roomMode: initialTitle ? 'gallery' : 'lobby',
   roomSpawn: { type: 'fromWall', wall: 'south' },
-  lobbyCategories: ['Culture', 'Geography', 'Animals', 'History', 'Nature', 'Humanities', 'Philosophy', 'Cosmology', 'Society', 'Technology', 'Music', 'Painting' ],
+  lobbyCategories: lobbyCategoriesForLanguage(activeLanguage),
   onRandomExhibitRequested: requestRandomExhibit,
   onGoLobbyRequested() {
     enterlobby({ push: false })
-  },
-  onFps(fps) {
-    fpsEl.textContent = `${fps.toFixed(0)} FPS`
   },
   onPointerLockChange(locked) {
     overlayEl.hidden = locked
@@ -340,7 +428,6 @@ engineApi = startYourEngines({
   },
 })
 
-// If the app starts in the lobby (no exhibit param), persist that in the trail.
 if (!initialTitle) {
   pushGalleryTrail(LOBBY_TITLE)
 }
@@ -348,6 +435,8 @@ if (!initialTitle) {
 setUrlAndState(initialTitle ? initialTitle : null, { push: false })
 
 window.addEventListener('popstate', (e) => {
+  const { changed } = syncLanguageFromUrlOrStorage()
+
   const st = e?.state
   if (st && st.linkwalk && typeof st.idx === 'number') {
     historyIndex = st.idx
@@ -365,6 +454,10 @@ window.addEventListener('popstate', (e) => {
     return
   }
 
+  if (changed && engineApi && typeof engineApi.setRoom === 'function') {
+    // Ensure lobby door labels reflect the active language when navigating history.
+    engineApi.setRoom({ roomMode: 'lobby', lobbyCategories: lobbyCategoriesForLanguage(activeLanguage) })
+  }
   enterlobby({ push: false })
   setLoading(false)
 })
