@@ -383,8 +383,8 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
   {
     const colHeight = height
 
-    const pillarW = roundTo(clamp(3.9, 3.0, width - 3.0), 0.05)
-    const pillarD = roundTo(clamp(0.35, 0.28, 0.5), 0.05)
+    const pillarW = roundTo(clamp(5, 3.0, width - 3.0), 0.05)
+    const pillarD = roundTo(clamp(0.3, 0.25, 0.5), 0.05)
     const pillarGeo = new THREE.BoxGeometry(pillarW, colHeight, pillarD)
     const pillarMat = new THREE.MeshStandardMaterial({
       color: 0xffffff,
