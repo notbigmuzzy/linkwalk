@@ -11,7 +11,7 @@ app.innerHTML = `
   <div id="scene-container">
   	<canvas id="scene" aria-label="3D scene"></canvas>
   </div>
-  <div id="overlay" role="button" tabindex="0" aria-label="Click to start">
+  <div id="overlay" aria-label="Click to start">
 	<div id="overlay-titlebar">
     <div id="overlay-titlebar-inner">
       <p>VIRTUAL MUSEUM</p>
@@ -36,6 +36,9 @@ app.innerHTML = `
 			<option value="ru">Русский</option>
 			<option value="sr">Српски</option>
 			<option value="zh">中文</option>
+			<option value="ceb">Cebuano</option>
+			<option value="sv">Svenska</option>
+			<option value="nl">Nederlands</option>
 		</select>
         <span id="language-caret" aria-hidden="true">▾</span>
       </div>
@@ -43,7 +46,7 @@ app.innerHTML = `
 	</div>
     <div id="overlay-inner">
       <div id="overlay-title">Click to play</div>
-      <div id="overlay-sub">WASD move · Mouse look · SPACE jump · Shift sprint · Esc unlock</div>
+      <div id="overlay-sub">WASD/Arrows move · Mouse look · SPACE jump · SHIFT sprint · ESCAPE unlock</div>
     </div>
 	<div id="overlay-footer">
 		<p>Made with ☕ by <a href="https://notbigmuzzy.github.io/" target="_blank">notbigmuzzy</a></p>
@@ -55,24 +58,9 @@ app.innerHTML = `
 `
 
 const canvas = document.querySelector('#scene')
-if (!(canvas instanceof HTMLCanvasElement)) {
-  throw new Error('Missing canvas#scene')
-}
-
 const overlayEl = document.querySelector('#overlay-inner')
-if (!(overlayEl instanceof HTMLElement)) {
-  throw new Error('Missing #overlay element')
-}
-
 const crosshairEl = document.querySelector('#crosshair')
-if (!(crosshairEl instanceof HTMLElement)) {
-  throw new Error('Missing #crosshair element')
-}
-
 const languageSelectEl = document.querySelector('#language-select')
-if (!(languageSelectEl instanceof HTMLSelectElement)) {
-  throw new Error('Missing #language-select element')
-}
 
 function requestPlay() {
   canvas.requestPointerLock()
@@ -96,6 +84,9 @@ const LOBBY_CATEGORIES_DE = ['Kultur', 'Geografie', 'Tiere', 'Geschichte', 'Natu
 const LOBBY_CATEGORIES_ES = ['Cultura', 'Geografía', 'Animales', 'Historia', 'Naturaleza', 'Humanidades', 'Filosofía', 'Cosmología', 'Sociedad', 'Tecnología', 'Música', 'Pintura']
 const LOBBY_CATEGORIES_IT = ['Cultura', 'Geografia', 'Animali', 'Storia', 'Natura', 'Smanistiche', 'Filosofia', 'Cosmologia', 'Società', 'Tecnologia', 'Musica', 'Pittura']
 const LOBBY_CATEGORIES_PT = ['Cultura', 'Geografia', 'Animais', 'História', 'Natureza', 'Humanidades', 'Filosofia', 'Cosmologia', 'Sociedade', 'Tecnologia', 'Música', 'Pintura']
+const LOBBY_CATEGORIES_CEB = ['Kultura', 'Heograpiya', 'Mga Mananap', 'Kasaysayan', 'Kinaiyahan', 'Humanidades', 'Pilosopiya', 'Kosmolohiya', 'Sosyedad', 'Teknolohiya', 'Musika', 'Pamintal']
+const LOBBY_CATEGORIES_SV = ['Kultur', 'Geografi', 'Djur', 'Historia', 'Natur', 'Humaniora', 'Filosofi', 'Kosmologi', 'Samhälle', 'Teknik', 'Musik', 'Måleri']
+const LOBBY_CATEGORIES_NL = ['Cultuur', 'Geografie', 'Dieren', 'Geschiedenis', 'Natuur', 'Geesteswetenschappen', 'Filosofie', 'Kosmologie', 'Samenleving', 'Technologie', 'Muziek', 'Schilderkunst']
 
 function lobbyCategoriesForLanguage(lang) {
   	const code = String(lang || '').trim().toLowerCase()
@@ -123,6 +114,12 @@ function lobbyCategoriesForLanguage(lang) {
 		return LOBBY_CATEGORIES_SR;
 	case 'zh':
 		return LOBBY_CATEGORIES_ZH;
+	case 'ceb':
+		return LOBBY_CATEGORIES_CEB;
+	case 'sv':
+		return LOBBY_CATEGORIES_SV;
+	case 'nl':
+		return LOBBY_CATEGORIES_NL;
 	default:
 		return LOBBY_CATEGORIES_EN;
 	}

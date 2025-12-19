@@ -69,7 +69,7 @@ export function buildLobbyRoom(ctx, lobby) {
       const itemColor = 'rgba(0,0,0,0.92)'
 
       function drawWelcome() {
-        const lines = ['WELCOME TO', 'WIKIPEDIA', 'MUSEUM']
+        const lines = ['WELCOME TO', 'VIRTUAL', 'MUSEUM']
         const centerX = canvas.width / 2
         const maxWidth = Math.max(260, midW * 0.92)
 
@@ -130,14 +130,12 @@ export function buildLobbyRoom(ctx, lobby) {
 
         const safeItems = Array.isArray(items) ? items.map((s) => String(s || '').trim()).filter(Boolean) : []
 
-        // Layout constants (baseline-oriented).
         const lineH = 66
         const headerLineH = 118
         const headerGap = 68
         const yMargin = Math.max(70, padY)
         const contentMaxH = Math.max(240, canvas.height - yMargin * 2)
 
-        // Reserve room for an optional "… +N more" line.
         let maxItemLines = Math.max(1, Math.floor((contentMaxH - headerLineH - headerGap) / lineH))
         let shown = safeItems.slice(0, maxItemLines)
         let hasMore = safeItems.length > shown.length
@@ -172,8 +170,8 @@ export function buildLobbyRoom(ctx, lobby) {
         }
       }
 
-      drawList(padX, 'Left wall', leftItems, { align: 'left' })
-      drawList(canvas.width - padX, 'Right wall', rightItems, { align: 'right' })
+      drawList(padX, '←←←←', leftItems, { align: 'left' })
+      drawList(canvas.width - padX, '→→→→', rightItems, { align: 'right' })
 
       drawWikipediaWatermark()
       drawWelcome()
