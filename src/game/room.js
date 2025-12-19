@@ -3,85 +3,7 @@ import { clamp, roundTo, configureGalleryTexture } from '../misc/helper.js'
 import { buildLobbyRoom } from './room/lobby.js'
 import { addDoor as addDoorToRoom } from './room/doors.js'
 import { addSlot as addSlotToRoom } from './room/slots.js'
-import {
-  getSharedRoomMaterialTextures,
-} from './room/textures.js'
-
-function labelFromImageUrl(url) {
-  const raw = typeof url === 'string' ? url.trim() : ''
-  if (!raw) return ''
-  try {
-    const file = raw.split('/').pop() ?? ''
-    const decoded = decodeURIComponent(file)
-    const withoutQuery = decoded.split('?')[0] ?? decoded
-    const withoutExt = withoutQuery.replace(/\.(jpg|jpeg|png|webp|gif|avif|svg|ogv|webm|mp4|m4v)$/i, '')
-    const cleaned = withoutExt.replace(/^File:/i, '').replace(/_/g, ' ').trim()
-    return cleaned
-  } catch {
-    return ''
-  }
-}
-
-function makePlaqueTexture({ size = 1024, text, aspect } = {}) {
-  const maxW = typeof size === 'number' && Number.isFinite(size) ? Math.max(256, Math.floor(size)) : 1024
-  const a = typeof aspect === 'number' && Number.isFinite(aspect) && aspect > 0 ? aspect : null
-
-  let canvasW = maxW
-  let canvasH = Math.floor(maxW * 0.33)
-  if (a) {
-    canvasH = Math.round(canvasW / a)
-    canvasH = Math.max(160, Math.min(512, canvasH))
-    canvasW = Math.round(canvasH * a)
-    if (canvasW > maxW) {
-      canvasW = maxW
-      canvasH = Math.round(canvasW / a)
-    }
-  }
-
-  const canvas = document.createElement('canvas')
-  canvas.width = canvasW
-  canvas.height = canvasH
-  const ctx = canvas.getContext('2d')
-  if (ctx) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    ctx.fillStyle = '#12161b'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-    ctx.strokeStyle = 'rgba(255,255,255,0.18)'
-    ctx.lineWidth = Math.max(6, Math.floor(canvas.width * 0.008))
-    const pad = Math.max(14, Math.floor(canvas.width * 0.018))
-    ctx.strokeRect(pad, pad, canvas.width - pad * 2, canvas.height - pad * 2)
-
-    const safeText = String(text || '').trim() || 'Untitled'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillStyle = 'rgba(255,255,255,0.92)'
-
-    const maxWidth = canvas.width * 0.86
-    let fontSize = Math.floor(canvas.width * 0.06)
-    ctx.font = `700 ${fontSize}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
-    while (fontSize > 18 && ctx.measureText(safeText).width > maxWidth) {
-      fontSize -= 2
-      ctx.font = `700 ${fontSize}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
-    }
-
-    function ellipsize(t) {
-      const ell = '…'
-      let out = String(t)
-      while (out.length > 0 && ctx.measureText(out + ell).width > maxWidth) out = out.slice(0, -1)
-      return out.length ? out + ell : ell
-    }
-
-    const rendered = ctx.measureText(safeText).width > maxWidth ? ellipsize(safeText) : safeText
-    ctx.fillText(rendered, canvas.width / 2, canvas.height / 2)
-  }
-
-  const tex = new THREE.CanvasTexture(canvas)
-  tex.colorSpace = THREE.SRGBColorSpace
-  configureGalleryTexture(tex)
-  tex.needsUpdate = true
-  return tex
-}
+import { getSharedRoomMaterialTextures,labelFromImageUrl,makePlaqueTexture } from './room/textures.js'
 
 export function buildRoom({ width, length, height, wallThickness = 0.2, mode = 'gallery', lobby = {}, gallery = {} }) {
   const group = new THREE.Group()
@@ -417,7 +339,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     buttonGroup.add(cap)
     disposables.push(capGeo, capMat)
 
-    // Label below the button.
     const canvas = document.createElement('canvas')
     canvas.width = 512
     canvas.height = 256
@@ -442,7 +363,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     configureGalleryTexture(labelTex)
     labelTex.needsUpdate = true
 
-    // Keep aspect ratio consistent with the 512x256 canvas (2:1) to avoid squishing.
     const labelGeo = new THREE.PlaneGeometry(0.56 * 0.5, 0.28 * 0.5)
     const labelMat = new THREE.MeshBasicMaterial({ map: labelTex, transparent: true })
     const label = new THREE.Mesh(labelGeo, labelMat)
@@ -450,7 +370,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     buttonGroup.add(label)
     disposables.push(labelTex, labelGeo, labelMat)
 
-    // Invisible hit area to make it easy to click.
     const hitGeo = new THREE.PlaneGeometry(backPlateW, backPlateH)
     const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.0, depthWrite: false })
     const hit = new THREE.Mesh(hitGeo, hitMat)
@@ -783,12 +702,12 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       group.add(mesh)
       disposables.push(geo, mat)
 
-      // Keep the frame size fixed; fit video inside with a little padding.
+
       const innerW = panelW * 0.92
       const innerH = panelH * 0.92
       mesh.scale.set(innerW / panelW, innerH / panelH, 1)
 
-      // Overlay shown only when paused.
+
       function makePlayOverlayTexture({ width = 1024, height = 512 } = {}) {
         const canvas = document.createElement('canvas')
         canvas.width = width
@@ -797,7 +716,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
         if (ctx) {
           ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-          // Subtle dark wash so the text is readable over any video.
+    
           ctx.fillStyle = 'rgba(0,0,0,0.28)'
           ctx.fillRect(0, 0, canvas.width, canvas.height)
 
@@ -830,7 +749,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       group.add(overlay)
       disposables.push(overlayGeo, overlayTex, overlayMat)
 
-      // Create a browser video element and render it to the panel.
+
       const video = document.createElement('video')
       video.crossOrigin = 'anonymous'
       video.playsInline = true
@@ -862,7 +781,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
         const imageAspect = vw / vh
         const frameAspect = innerW / innerH
 
-        // Compute the display size inside the fixed inner rect.
+
         let displayW = innerW
         let displayH = innerH
         if (imageAspect > frameAspect) {
@@ -892,7 +811,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
             await p
           }
         } catch {
-          // If autoplay policies or codec quirks block playback, retry muted.
+    
           try {
             video.muted = true
             const p2 = video.play()
@@ -962,7 +881,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
             video.removeAttribute('src')
             video.load()
           } catch {
-            // ignore
+    
           }
         },
       })
@@ -1260,7 +1179,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       boardGroup.add(face)
       disposables.push(tex, faceGeo, faceMat)
 
-      // Bottom-middle in-world control: industrial push button + label
+
       {
         const controlY = -boardH / 2 + 0.28
         const controlZ = boardDepth / 2 + 0.04
@@ -1269,14 +1188,14 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
         controlGroup.name = 'random-exhibit-control'
         controlGroup.position.set(0, controlY, controlZ)
 
-        // Mounting plate
+
         const plateW = clamp(boardW * 0.58, 1.9, 2.8) * 0.64
         const plateH = 0.36
         const plateD = 0.05
 
         const plateGeo = new THREE.BoxGeometry(plateW, plateH, plateD)
         const plateMat = new THREE.MeshStandardMaterial({
-          // Green like the plants.
+    
           color: 0x2f6f4e,
           roughness: 0.85,
           metalness: 0.0,
@@ -1286,7 +1205,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
         controlGroup.add(plate)
         disposables.push(plateGeo, plateMat)
 
-        // Button + label layout: center the whole content block within the plate.
+
         const capR = 0.22
         const capH = 0.085
         const collarR = 0.18
@@ -1307,7 +1226,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
         const buttonCenterX = leftEdge + capR
         const labelCenterX = leftEdge + capR * 2 + gapBetween + labelW / 2
 
-        // Metal bezel / collar
+
         const collarGeo = new THREE.CylinderGeometry(collarR, collarR, collarH, 28, 1)
         const collarMat = new THREE.MeshStandardMaterial({ color: 0xb8c2cc, roughness: 0.35, metalness: 0.6 })
         const collar = new THREE.Mesh(collarGeo, collarMat)
@@ -1316,7 +1235,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
         controlGroup.add(collar)
         disposables.push(collarGeo, collarMat)
 
-        // Red mushroom cap (industrial-looking)
+
         const capGeo = new THREE.CylinderGeometry(capR, capR * 0.92, capH, 32, 1)
         const capMat = new THREE.MeshStandardMaterial({ color: 0xff4455, roughness: 0.38, metalness: 0.02 })
         const cap = new THREE.Mesh(capGeo, capMat)
@@ -1326,7 +1245,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
         controlGroup.add(cap)
         disposables.push(capGeo, capMat)
 
-        // Label (text-only)
+
         const labelGeo = new THREE.PlaneGeometry(labelW, labelH)
         const labelMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true })
         const label = new THREE.Mesh(labelGeo, labelMat)
@@ -1350,7 +1269,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
             const cy = canvasLabel.height / 2 + 2
             const dy = 46
 
-            // Slight dark stroke for readability, but no filled background.
+    
             ctxLabel.lineWidth = 10
             ctxLabel.strokeStyle = 'rgba(0,0,0,0.45)'
             ctxLabel.fillStyle = 'rgba(255,255,255,0.94)'
@@ -1373,10 +1292,10 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
           disposables.push(labelTex)
         }
 
-        // Forgiving invisible hit target for clicking.
+
         const hitGeo = new THREE.BoxGeometry(plateW, plateH, 0.18)
         const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.0 })
-        // Make it raycastable but non-rendering to avoid any sorting/blending artifacts.
+
         hitMat.colorWrite = false
         hitMat.depthWrite = false
         hitMat.depthTest = false

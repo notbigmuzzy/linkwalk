@@ -288,7 +288,7 @@ function loadAndEnterGallery(title, { pushHistory = false, spawn, updateUrlState
 
   const doorId = typeof loadingDoorId === 'string' ? loadingDoorId : ''
   if (doorId && engineApi && typeof engineApi.setDoorLabelOverride === 'function') {
-    engineApi.setDoorLabelOverride(doorId, 'Preparing exhibit')
+    engineApi.setDoorLabelOverride(doorId, 'Loading...')
     activeDoorLabelOverride = { doorId, navId }
   }
 

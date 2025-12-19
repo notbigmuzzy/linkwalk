@@ -1,14 +1,7 @@
 import * as THREE from 'three'
+import { configureGalleryTexture, seededRand } from '../../misc/helper.js'
 
-function seededRand(seed) {
-  let s = (seed >>> 0) || 1
-  return function rand() {
-    s ^= s << 13
-    s ^= s >>> 17
-    s ^= s << 5
-    return (s >>> 0) / 0xffffffff
-  }
-}
+let sharedRoomMaterialTextures = null
 
 export function makeWoodFloorTextures({ size = 1024 } = {}) {
   const canvas = document.createElement('canvas')
@@ -24,7 +17,6 @@ export function makeWoodFloorTextures({ size = 1024 } = {}) {
   const rand = seededRand(0x51f00d)
 
   if (ctx) {
-    // Base warm brown.
     ctx.fillStyle = '#6a4a2e'
     ctx.fillRect(0, 0, size, size)
 
@@ -40,11 +32,11 @@ export function makeWoodFloorTextures({ size = 1024 } = {}) {
       ctx.fillStyle = `hsl(${hue} ${sat}% ${light}%)`
       ctx.fillRect(x, 0, plankW - gap, size)
 
-      // Plank seams.
+
       ctx.fillStyle = 'rgba(0,0,0,0.35)'
       ctx.fillRect(x + plankW - gap, 0, gap, size)
 
-      // Subtle plank highlight.
+
       const grad = ctx.createLinearGradient(x, 0, x + plankW, 0)
       grad.addColorStop(0.0, 'rgba(255,255,255,0.06)')
       grad.addColorStop(0.5, 'rgba(255,255,255,0.00)')
@@ -52,7 +44,7 @@ export function makeWoodFloorTextures({ size = 1024 } = {}) {
       ctx.fillStyle = grad
       ctx.fillRect(x, 0, plankW - gap, size)
 
-      // Knots.
+
       const knots = 1 + Math.floor(rand() * 2)
       for (let k = 0; k < knots; k += 1) {
         const cx = x + Math.floor(rand() * (plankW - gap))
@@ -66,7 +58,6 @@ export function makeWoodFloorTextures({ size = 1024 } = {}) {
       }
     }
 
-    // Grain.
     ctx.globalAlpha = 0.18
     ctx.strokeStyle = '#2b1a10'
     ctx.lineWidth = 1
@@ -80,7 +71,6 @@ export function makeWoodFloorTextures({ size = 1024 } = {}) {
     }
     ctx.globalAlpha = 1
 
-    // Slight vignette for depth.
     const v = ctx.createRadialGradient(size / 2, size / 2, size * 0.1, size / 2, size / 2, size * 0.75)
     v.addColorStop(0, 'rgba(255,255,255,0.02)')
     v.addColorStop(1, 'rgba(0,0,0,0.10)')
@@ -89,7 +79,6 @@ export function makeWoodFloorTextures({ size = 1024 } = {}) {
   }
 
   if (bctx) {
-    // Bump: plank seams + noise.
     bctx.fillStyle = 'rgb(128,128,128)'
     bctx.fillRect(0, 0, size, size)
 
@@ -140,7 +129,6 @@ export function makeLightWoodTextures({ size = 1024 } = {}) {
   const rand = seededRand(0x11a7be)
 
   if (ctx) {
-    // Light warm wood base.
     ctx.fillStyle = '#c9aa7f'
     ctx.fillRect(0, 0, size, size)
 
@@ -156,11 +144,11 @@ export function makeLightWoodTextures({ size = 1024 } = {}) {
       ctx.fillStyle = `hsl(${hue} ${sat}% ${light}%)`
       ctx.fillRect(x, 0, plankW - gap, size)
 
-      // Plank seams (subtle).
+
       ctx.fillStyle = 'rgba(0,0,0,0.18)'
       ctx.fillRect(x + plankW - gap, 0, gap, size)
 
-      // Soft highlight.
+
       const grad = ctx.createLinearGradient(x, 0, x + plankW, 0)
       grad.addColorStop(0.0, 'rgba(255,255,255,0.09)')
       grad.addColorStop(0.5, 'rgba(255,255,255,0.02)')
@@ -168,7 +156,7 @@ export function makeLightWoodTextures({ size = 1024 } = {}) {
       ctx.fillStyle = grad
       ctx.fillRect(x, 0, plankW - gap, size)
 
-      // A couple of faint knots.
+
       const knots = Math.floor(rand() * 2)
       for (let k = 0; k < knots; k += 1) {
         const cx = x + Math.floor(rand() * (plankW - gap))
@@ -182,7 +170,6 @@ export function makeLightWoodTextures({ size = 1024 } = {}) {
       }
     }
 
-    // Grain (low contrast).
     ctx.globalAlpha = 0.12
     ctx.strokeStyle = 'rgba(70,45,28,0.55)'
     ctx.lineWidth = 1
@@ -196,7 +183,6 @@ export function makeLightWoodTextures({ size = 1024 } = {}) {
     }
     ctx.globalAlpha = 1
 
-    // Very gentle vignette.
     const v = ctx.createRadialGradient(size / 2, size / 2, size * 0.12, size / 2, size / 2, size * 0.78)
     v.addColorStop(0, 'rgba(255,255,255,0.03)')
     v.addColorStop(1, 'rgba(0,0,0,0.08)')
@@ -255,11 +241,9 @@ export function makeStuccoWallTextures({ size = 1024 } = {}) {
   const rand = seededRand(0x57acc0)
 
   if (ctx) {
-    // Warm plaster base (Spanish-style: warm off-white / sand).
     ctx.fillStyle = '#d3c1a5'
     ctx.fillRect(0, 0, size, size)
 
-    // Mottling.
     const blobs = 520
     for (let i = 0; i < blobs; i += 1) {
       const x = rand() * size
@@ -275,7 +259,6 @@ export function makeStuccoWallTextures({ size = 1024 } = {}) {
       ctx.fill()
     }
 
-    // Trowel strokes.
     ctx.globalAlpha = 0.09
     ctx.strokeStyle = '#bfa889'
     ctx.lineWidth = Math.max(2, Math.floor(size * 0.006))
@@ -299,7 +282,7 @@ export function makeStuccoWallTextures({ size = 1024 } = {}) {
     const img = bctx.getImageData(0, 0, size, size)
     const d = img.data
     for (let i = 0; i < d.length; i += 4) {
-      // Grainy bump field.
+
       const n = (rand() - 0.5) * 42
       const v = Math.max(0, Math.min(255, 128 + n))
       d[i] = v
@@ -337,11 +320,9 @@ export function makeCeilingStuccoTextures({ size = 1024 } = {}) {
   const rand = seededRand(0xc3111ce)
 
   if (ctx) {
-    // Neutral plaster base for ceilings (keeps palette color clean).
     ctx.fillStyle = '#e7e8ea'
     ctx.fillRect(0, 0, size, size)
 
-    // Gentle mottling with very low saturation so it reads as texture, not color.
     const blobs = 420
     for (let i = 0; i < blobs; i += 1) {
       const x = rand() * size
@@ -357,7 +338,6 @@ export function makeCeilingStuccoTextures({ size = 1024 } = {}) {
       ctx.fill()
     }
 
-    // Trowel strokes (slightly stronger than walls so it reads on bright surfaces).
     ctx.globalAlpha = 0.12
     ctx.strokeStyle = 'rgba(190, 192, 196, 0.9)'
     ctx.lineWidth = Math.max(2, Math.floor(size * 0.006))
@@ -418,11 +398,9 @@ export function makeMarbleTextures({ size = 1024, seed = 1 } = {}) {
   const rand = seededRand(seed)
 
   if (ctx) {
-    // Neutral light gray base.
     ctx.fillStyle = '#d8d8dc'
     ctx.fillRect(0, 0, size, size)
 
-    // Soft cloudy variation.
     const clouds = 360
     for (let i = 0; i < clouds; i += 1) {
       const x = rand() * size
@@ -436,7 +414,6 @@ export function makeMarbleTextures({ size = 1024, seed = 1 } = {}) {
       ctx.fill()
     }
 
-    // Veins.
     ctx.globalAlpha = 0.55
     ctx.strokeStyle = 'rgba(110,110,118,0.58)'
     ctx.lineWidth = Math.max(1, Math.floor(size * 0.004))
@@ -449,7 +426,7 @@ export function makeMarbleTextures({ size = 1024, seed = 1 } = {}) {
       ctx.bezierCurveTo(size * 0.25, y0 + wobble, size * 0.55, y0 - wobble, size * 1.1, y0 + wobble * 0.35)
       ctx.stroke()
 
-      // A faint companion vein.
+
       if (rand() < 0.55) {
         ctx.globalAlpha = 0.22
         ctx.beginPath()
@@ -461,7 +438,6 @@ export function makeMarbleTextures({ size = 1024, seed = 1 } = {}) {
     }
     ctx.globalAlpha = 1
 
-    // Slight vignette for depth.
     const v = ctx.createRadialGradient(size / 2, size / 2, size * 0.08, size / 2, size / 2, size * 0.8)
     v.addColorStop(0, 'rgba(255,255,255,0.02)')
     v.addColorStop(1, 'rgba(0,0,0,0.11)')
@@ -498,8 +474,6 @@ export function makeMarbleTextures({ size = 1024, seed = 1 } = {}) {
   return { mapTex, bumpTex }
 }
 
-let sharedRoomMaterialTextures = null
-
 export function getSharedRoomMaterialTextures({ width = 14, length = 18 } = {}) {
   if (!sharedRoomMaterialTextures) {
     const { mapTex: floorWoodMap, bumpTex: floorWoodBump } = makeWoodFloorTextures({ size: 1024 })
@@ -511,7 +485,6 @@ export function getSharedRoomMaterialTextures({ width = 14, length = 18 } = {}) 
     const { mapTex: pillarMarbleMap, bumpTex: pillarMarbleBump } = makeMarbleTextures({ size: 512, seed: 0x6d617262 })
     const { mapTex: panelMarbleMap, bumpTex: panelMarbleBump } = makeMarbleTextures({ size: 1024, seed: 0x70616e6c })
 
-    // Defaults that don't depend on room dimensions.
     doorWoodMap.repeat.set(2.2, 4.2)
     doorWoodBump.repeat.copy(doorWoodMap.repeat)
 
@@ -521,11 +494,9 @@ export function getSharedRoomMaterialTextures({ width = 14, length = 18 } = {}) 
     wallStuccoMap.repeat.set(4, 2)
     wallStuccoBump.repeat.copy(wallStuccoMap.repeat)
 
-    // Modest repeat so veins read without looking tiled.
     pillarMarbleMap.repeat.set(2.0, 3.0)
     pillarMarbleBump.repeat.copy(pillarMarbleMap.repeat)
 
-    // Marble for text/info panel backplates.
     panelMarbleMap.repeat.set(1.4, 1.4)
     panelMarbleBump.repeat.copy(panelMarbleMap.repeat)
 
@@ -547,10 +518,8 @@ export function getSharedRoomMaterialTextures({ width = 14, length = 18 } = {}) 
     }
   }
 
-  // Repeats that depend on room dimensions (safe because only one room is active at a time).
   const { floorWoodMap, floorWoodBump, ceilingStuccoMap, ceilingStuccoBump } = sharedRoomMaterialTextures
 
-  // Approx plank size: about 0.22m. Repeat by room size so planks don't stretch.
   floorWoodMap.repeat.set(Math.max(2, Math.round(width / 2.2)), Math.max(2, Math.round(length / 2.2)))
   floorWoodBump.repeat.copy(floorWoodMap.repeat)
 
@@ -568,4 +537,80 @@ export function disposeSharedRoomMaterialTextures() {
   }
 
   sharedRoomMaterialTextures = null
+}
+
+export function labelFromImageUrl(url) {
+  const raw = typeof url === 'string' ? url.trim() : ''
+  if (!raw) return ''
+  try {
+	const file = raw.split('/').pop() ?? ''
+	const decoded = decodeURIComponent(file)
+	const withoutQuery = decoded.split('?')[0] ?? decoded
+	const withoutExt = withoutQuery.replace(/\.(jpg|jpeg|png|webp|gif|avif|svg|ogv|webm|mp4|m4v)$/i, '')
+	const cleaned = withoutExt.replace(/^File:/i, '').replace(/_/g, ' ').trim()
+	return cleaned
+  } catch {
+	return ''
+  }
+}
+
+export function makePlaqueTexture({ size = 1024, text, aspect } = {}) {
+  const maxW = typeof size === 'number' && Number.isFinite(size) ? Math.max(256, Math.floor(size)) : 1024
+  const a = typeof aspect === 'number' && Number.isFinite(aspect) && aspect > 0 ? aspect : null
+
+  let canvasW = maxW
+  let canvasH = Math.floor(maxW * 0.33)
+  if (a) {
+	canvasH = Math.round(canvasW / a)
+	canvasH = Math.max(160, Math.min(512, canvasH))
+	canvasW = Math.round(canvasH * a)
+	if (canvasW > maxW) {
+	  canvasW = maxW
+	  canvasH = Math.round(canvasW / a)
+	}
+  }
+
+  const canvas = document.createElement('canvas')
+  canvas.width = canvasW
+  canvas.height = canvasH
+  const ctx = canvas.getContext('2d')
+  if (ctx) {
+	ctx.clearRect(0, 0, canvas.width, canvas.height)
+	ctx.fillStyle = '#12161b'
+	ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+	ctx.strokeStyle = 'rgba(255,255,255,0.18)'
+	ctx.lineWidth = Math.max(6, Math.floor(canvas.width * 0.008))
+	const pad = Math.max(14, Math.floor(canvas.width * 0.018))
+	ctx.strokeRect(pad, pad, canvas.width - pad * 2, canvas.height - pad * 2)
+
+	const safeText = String(text || '').trim() || 'Untitled'
+	ctx.textAlign = 'center'
+	ctx.textBaseline = 'middle'
+	ctx.fillStyle = 'rgba(255,255,255,0.92)'
+
+	const maxWidth = canvas.width * 0.86
+	let fontSize = Math.floor(canvas.width * 0.06)
+	ctx.font = `700 ${fontSize}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
+	while (fontSize > 18 && ctx.measureText(safeText).width > maxWidth) {
+	  fontSize -= 2
+	  ctx.font = `700 ${fontSize}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
+	}
+
+	function ellipsize(t) {
+	  const ell = '…'
+	  let out = String(t)
+	  while (out.length > 0 && ctx.measureText(out + ell).width > maxWidth) out = out.slice(0, -1)
+	  return out.length ? out + ell : ell
+	}
+
+	const rendered = ctx.measureText(safeText).width > maxWidth ? ellipsize(safeText) : safeText
+	ctx.fillText(rendered, canvas.width / 2, canvas.height / 2)
+  }
+
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.colorSpace = THREE.SRGBColorSpace
+  configureGalleryTexture(tex)
+  tex.needsUpdate = true
+  return tex
 }

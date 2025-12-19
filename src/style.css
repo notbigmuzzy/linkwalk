@@ -64,10 +64,15 @@ canvas:focus {
 	background: rgba(0, 0, 0, 0.35);
 	z-index: initial;
 	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45) inset;
+	transition: box-shadow 0.25s ease-in-out;
 
 	#overlay-title {
 		font-size: 20px;
 		font-weight: bold;
+	}
+
+	&:hover {
+		box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45) inset;
 	}
 }
 
@@ -182,7 +187,7 @@ canvas:focus {
 	-moz-appearance: none;
 	border: 1px solid rgba(255, 255, 255, 0.18);
 	background: rgba(0, 0, 0, 0.35);
-	color: rgba(255, 255, 255, 0.92);
+	color: rgba(255, 255, 255, 1);
 	border-radius: 999px;
 	padding: 10px 50px;
 	font: inherit;

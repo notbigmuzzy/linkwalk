@@ -66,3 +66,13 @@ export function setBodyClickableCursor(isClickable) {
   if (!body || !body.classList) return
   body.classList.toggle('cursor-clickable', Boolean(isClickable))
 }
+
+export function seededRand(seed) {
+  let s = (seed >>> 0) || 1
+  return function rand() {
+    s ^= s << 13
+    s ^= s >>> 17
+    s ^= s << 5
+    return (s >>> 0) / 0xffffffff
+  }
+}
