@@ -33,7 +33,6 @@ function makeMarbleTexture({ size = 512, seed = 1 } = {}) {
     ctx.fillStyle = '#d8d8dc'
     ctx.fillRect(0, 0, size, size)
 
-    // Soft cloudy variation.
     const clouds = 340
     for (let i = 0; i < clouds; i += 1) {
       const x = rand() * size
@@ -47,7 +46,6 @@ function makeMarbleTexture({ size = 512, seed = 1 } = {}) {
       ctx.fill()
     }
 
-    // Veins.
     ctx.globalAlpha = 0.6
     ctx.strokeStyle = 'rgba(115,115,122,0.55)'
     ctx.lineWidth = Math.max(1, Math.floor(size * 0.004))
@@ -60,7 +58,7 @@ function makeMarbleTexture({ size = 512, seed = 1 } = {}) {
       ctx.bezierCurveTo(size * 0.25, y0 + wobble, size * 0.55, y0 - wobble, size * 1.1, y0 + wobble * 0.35)
       ctx.stroke()
 
-      // A faint companion vein.
+
       if (rand() < 0.55) {
         ctx.globalAlpha = 0.28
         ctx.beginPath()
@@ -72,7 +70,6 @@ function makeMarbleTexture({ size = 512, seed = 1 } = {}) {
     }
     ctx.globalAlpha = 1
 
-    // Slight edge vignette for depth.
     const v = ctx.createRadialGradient(size / 2, size / 2, size * 0.08, size / 2, size / 2, size * 0.8)
     v.addColorStop(0, 'rgba(255,255,255,0.02)')
     v.addColorStop(1, 'rgba(0,0,0,0.10)')
@@ -136,7 +133,6 @@ export function addDoor(ctx, { id, wall, w, h, y = 0, u = 0, color = 0x22ffee, m
 
   const frameW = 0.08
   const frameDepth = 0.08
-  // Small inward inset to prevent the wall edge from peeking through as a hairline.
   const frameInsetX = 0.012
 
   const fillGeo = new THREE.PlaneGeometry(w, h)
@@ -150,7 +146,6 @@ export function addDoor(ctx, { id, wall, w, h, y = 0, u = 0, color = 0x22ffee, m
   doorFrameGroup.add(fill)
   disposables.push(fillGeo, fillMat)
 
-  // Door panel on top of the fill.
   const panelInset = 0.05
   const panelGeo = new THREE.PlaneGeometry(Math.max(0.2, w - panelInset * 2), Math.max(0.2, h - panelInset * 2))
   const panel = new THREE.Mesh(panelGeo, doorPanelMat)
@@ -173,7 +168,6 @@ export function addDoor(ctx, { id, wall, w, h, y = 0, u = 0, color = 0x22ffee, m
     const plaqueCenterY = Math.min(h - 0.25, 1.4)
     const plaqueGeo = new THREE.PlaneGeometry(plaqueW, plaqueH)
 
-    // Neutral gray marble plaque.
     const marbleTex = makeMarbleTexture({ size: 512, seed: hashStringToSeed(id) ^ 0x6d617262 })
     const plaqueMat = new THREE.MeshStandardMaterial({
       color: 0xffffff,
@@ -247,7 +241,7 @@ export function addDoor(ctx, { id, wall, w, h, y = 0, u = 0, color = 0x22ffee, m
 
         const safeText = String(nextText || '').trim()
         ctx2.clearRect(0, 0, canvas.width, canvas.height)
-        // Transparent background so the marble plaque shows through.
+
 
         const padX = 18
         const maxLines = 3

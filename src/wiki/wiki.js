@@ -89,7 +89,7 @@ function saveGalleryPersistCache(storageKey, map) {
     if (items.length > GALLERY_PERSIST_MAX) items.length = GALLERY_PERSIST_MAX
     window.localStorage.setItem(key, JSON.stringify({ v: 1, entries: items }))
   } catch {
-    // ignore (quota, privacy mode, etc)
+
   }
 }
 
@@ -465,7 +465,7 @@ function normalizeActionMediaInfo(raw, { maxImages = 6, maxVideos = 2 } = {}) {
     const mediaType = typeof info?.mediatype === 'string' ? info.mediatype : ''
     const loweredUrl = url.toLowerCase()
 
-    // Filter out SVGs (they render differently and often look bad as textures here).
+
     if (loweredUrl.endsWith('.svg')) continue
 
     const isVideo = mediaType.toUpperCase() === 'VIDEO' || mime.toLowerCase().startsWith('video/') || loweredUrl.endsWith('.ogv')
@@ -535,7 +535,7 @@ function pickPlayableVideoUrlFromVideoinfo(info) {
 
   if (best) return best
 
-  // Fallback: original URL if it looks playable.
+
   if (typeof baseUrl === 'string' && /\.(mp4|webm)$/i.test(baseUrl)) return baseUrl
   return typeof baseUrl === 'string' && baseUrl ? baseUrl : null
 }
@@ -852,9 +852,9 @@ export async function fetchGalleryRoomData(title, opts = {}) {
 
   const partition = wikiCachePartitionKey()
 
-  // Cache successful BASE results by title so revisiting an exhibit doesn't refetch.
-  // NOTE: related/seeAlso links are intentionally NOT cached.
-  // Aborted/failed requests are not cached.
+
+
+
   if (!fetchGalleryRoomData._cache) fetchGalleryRoomData._cache = new Map()
   let cache = fetchGalleryRoomData._cache.get(partition)
   if (!cache) {
@@ -863,8 +863,6 @@ export async function fetchGalleryRoomData(title, opts = {}) {
   }
   const cachedBase = cache.get(normalizedTitle)
 
-  // Related pool cache: memory-only (clears on page reload).
-  // We still randomize which doors we show on each room entry.
   if (!fetchGalleryRoomData._relatedCache) fetchGalleryRoomData._relatedCache = new Map()
   let relatedCache = fetchGalleryRoomData._relatedCache.get(partition)
   if (!relatedCache) {
@@ -872,7 +870,6 @@ export async function fetchGalleryRoomData(title, opts = {}) {
     fetchGalleryRoomData._relatedCache.set(partition, relatedCache)
   }
 
-  // Persistent cache (survives reloads) to reduce request volume.
   if (!fetchGalleryRoomData._persist) fetchGalleryRoomData._persist = new Map()
   let persist = fetchGalleryRoomData._persist.get(partition)
   if (!persist) {
@@ -882,7 +879,6 @@ export async function fetchGalleryRoomData(title, opts = {}) {
   const persisted = persist.get(normalizedTitle)
   const baseFromPersist = persisted && persisted.v ? persisted.v : null
 
-  // Fetch related once per title per session; do NOT persist.
   const cachedRelated = relatedCache.get(normalizedTitle)
   const relatedPromise =
     cachedRelated && Array.isArray(cachedRelated.items)
@@ -898,7 +894,7 @@ export async function fetchGalleryRoomData(title, opts = {}) {
   if (!base) {
     const [pageBundle, media] = await Promise.all([
       fetchWikipediaPageBundle(normalizedTitle, { ...opts, maxChars: 6000, thumbSize: 640 }),
-      // Fetch an extra image so we can exclude the main thumbnail without ending up short.
+    
       fetchWikipediaMedia(normalizedTitle, { ...opts, maxImages: 6, maxVideos: 2 }),
     ])
 
@@ -930,7 +926,7 @@ export async function fetchGalleryRoomData(title, opts = {}) {
       const parts = u.pathname.split('/').filter(Boolean)
       const thumbIdx = parts.indexOf('thumb')
       if (thumbIdx >= 0 && parts.length >= 2) {
-        // Thumb URLs look like: /.../thumb/<hash>/<hash>/<FileName>/<SIZE>-<FileName>
+    
         const fileName = parts[parts.length - 2] || parts[parts.length - 1]
         return decodeURIComponent(fileName).toLowerCase()
       }
@@ -957,7 +953,7 @@ export async function fetchGalleryRoomData(title, opts = {}) {
     const firstVideo = videos?.[0] ?? null
     const candidateUrl = typeof firstVideo?.url === 'string' ? firstVideo.url.trim() : ''
     if (candidateUrl) {
-      // Prefer direct mp4/webm URLs; otherwise resolve derivatives for ogv.
+    
       if (/\.(mp4|webm)$/i.test(candidateUrl)) {
         videoUrl = candidateUrl
       } else {

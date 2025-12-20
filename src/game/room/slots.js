@@ -23,9 +23,6 @@ export function addSlot(ctx, { id, wall, kind, w, h, y, u = 0, color, opacity })
     opacity,
   })
 
-  // Frame slots now draw their own border as part of the backplate texture.
-  // Keep the outline object for positioning/debug, but hide it to avoid a
-  // second, brighter outline around photo frames.
   if (kind === 'frame') object.visible = false
 
   markers.add(object)

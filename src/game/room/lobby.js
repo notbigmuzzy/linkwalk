@@ -27,7 +27,6 @@ export function buildLobbyRoom(ctx, lobby) {
       ? lobby.categories
       : ['Category 1', 'Category 2', 'Category 3', 'Category 4', 'Category 5', 'Category 6', 'Category 7', 'Category 8', 'Category 9', 'Category 10']
 
-  // Lobby north wall: big whiteboard listing categories by side.
   const perWall = Math.ceil(categories.length / 2)
   const eastCategories = categories.slice(0, perWall).map((c) => String(c))
   const westCategories = categories.slice(perWall).map((c) => String(c))
@@ -54,7 +53,7 @@ export function buildLobbyRoom(ctx, lobby) {
       ctx2.fillStyle = '#ffffff'
       ctx2.fillRect(0, 0, canvas.width, canvas.height)
 
-      // Simple border like a whiteboard frame.
+
       ctx2.strokeStyle = 'rgba(0,0,0,0.22)'
       ctx2.lineWidth = 14
       ctx2.strokeRect(18, 18, canvas.width - 36, canvas.height - 36)
@@ -148,13 +147,13 @@ export function buildLobbyRoom(ctx, lobby) {
         const totalH = headerLineH + headerGap + (shown.length + moreLineCount) * lineH
         const yTop = (canvas.height - totalH) / 2
 
-        // Header
+
         let y = yTop + headerLineH
         ctx2.font = headerFont
         ctx2.fillStyle = 'rgba(0,0,0,0.92)'
         ctx2.fillText(String(title), x0, y)
 
-        // Items
+
         y += headerGap
         ctx2.font = itemFont
         ctx2.fillStyle = itemColor
@@ -200,7 +199,6 @@ export function buildLobbyRoom(ctx, lobby) {
     boardGroup.add(face)
     disposables.push(tex, faceGeo, faceMat)
 
-    // Legs
     const metalMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.7, metalness: 0.05 })
     disposables.push(metalMat)
     const legGeo = new THREE.CylinderGeometry(0.05, 0.05, legH, 12, 1)
@@ -213,13 +211,10 @@ export function buildLobbyRoom(ctx, lobby) {
       boardGroup.add(leg)
     }
 
-    // Slight backward tilt like a real whiteboard stand.
     boardGroup.rotation.x = -0.06
 
     group.add(boardGroup)
 
-    // Collision approximation: a solid footprint so you can't slip between legs.
-    // Engine supports axis-aligned box obstacles (x,z,w,d).
     obstacles.push({
       type: 'box',
       x: boardCenter.x,
@@ -272,7 +267,6 @@ export function buildLobbyRoom(ctx, lobby) {
     }
   }
 
-  // Lobby decoration on south wall: PLANT – BENCH – PLANT – BENCH – PLANT
   {
     const innerSouthZ = halfL - wallThickness / 2
     const benchZ = innerSouthZ - 0.42
@@ -304,7 +298,6 @@ export function buildLobbyRoom(ctx, lobby) {
     const leafMat = new THREE.MeshStandardMaterial({ color: 0x2f6f4e, roughness: 0.85, metalness: 0.0, side: THREE.DoubleSide })
     disposables.push(woodMat, metalMat, potMat, trunkMat, leafMat)
 
-    // Bench geometry (same as gallery benches)
     const seatW = 2.6
     const seatD = 0.55
     const seatH = 0.12
@@ -329,7 +322,7 @@ export function buildLobbyRoom(ctx, lobby) {
       const b = new THREE.Group()
       b.name = 'bench-south-lobby'
       b.position.set(x, 0, benchZ)
-      // Face into the room (toward north / -Z)
+
       b.rotation.y = Math.PI
       decoSouth.add(b)
 
@@ -354,7 +347,6 @@ export function buildLobbyRoom(ctx, lobby) {
       obstacles.push({ type: 'box', x, z: benchZ, w: seatW * 0.95, d: seatD * 1.15 })
     }
 
-    // Plant geometry
     const potR = 0.28
     const potH = 0.42
     const potGeo = new THREE.CylinderGeometry(potR, potR * 1.12, potH, 18, 1)
@@ -364,20 +356,18 @@ export function buildLobbyRoom(ctx, lobby) {
 
     const frondW = 0.12
     const frondL = 0.86
-    // Plane extends along +X (length) so we can rotate around trunk (Y) to spread fronds.
     const frondGeo = new THREE.PlaneGeometry(frondL, frondW, 7, 1)
     {
       const pos = frondGeo.attributes.position
       for (let i = 0; i < pos.count; i += 1) {
         const x = pos.getX(i)
-        const t = (x + frondL / 2) / frondL // 0..1
+        const t = (x + frondL / 2) / frond
         const bend = Math.sin(t * Math.PI) * 0.13
         pos.setZ(i, bend)
       }
       pos.needsUpdate = true
       frondGeo.computeVertexNormals()
     }
-    // Move pivot to frond base so rotations spread cleanly.
     frondGeo.translate(frondL / 2, 0, 0)
 
     disposables.push(potGeo, soilGeo, trunkGeo, frondGeo)
@@ -418,7 +408,6 @@ export function buildLobbyRoom(ctx, lobby) {
       obstacles.push({ type: 'cylinder', x, z: plantZ, radius: 0.38 })
     }
 
-    // Compute positions to fit the fixed lobby width.
     const margin = 1.0
     const usable = Math.max(6.0, width - margin * 2)
     const plantSpan = 0.9
@@ -445,13 +434,11 @@ export function buildLobbyRoom(ctx, lobby) {
     addPlantAt(xPlant3)
   }
 
-  // Lobby decoration: plants in NE and NW corners.
   {
     const innerNorthZ = -halfL + wallThickness / 2
     const innerEastX = halfW - wallThickness / 2
     const innerWestX = -halfW + wallThickness / 2
 
-    // Keep them tucked in the corners but clear of wall doors.
     const insetX = 0.72
     const insetZ = 0.95
 
@@ -489,7 +476,7 @@ export function buildLobbyRoom(ctx, lobby) {
       const plant = new THREE.Group()
       plant.name = name
       plant.position.set(x, 0, z)
-      // On the north wall, flip the plant to face the other way.
+
       plant.rotation.y = Math.PI
       group.add(plant)
 
