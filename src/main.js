@@ -1,6 +1,6 @@
 import './style.css'
 import { startYourEngines } from './engine/engine.js'
-import { fetchGalleryRoomData, fetchWikipediaRandomTitle, setWikipediaLanguage } from './wiki/wiki.js'
+import { fetchGalleryRoomData, fetchGalleryRoomRelated, fetchWikipediaRandomTitle, setWikipediaLanguage } from './wiki/wiki.js'
 
 const app = document.querySelector('#app')
 if (!app) {
@@ -290,35 +290,38 @@ function loadAndEnterGallery(title, { pushHistory = false, spawn, updateUrlState
     .then((data) => {
       if (navId !== activeNavId) return
 
+      function pickRelatedTitles(items) {
+        const pool = Array.isArray(items)
+          ? items
+              .map((p) => (p && typeof p.title === 'string' ? p.title : ''))
+              .map((t) => t.trim())
+              .filter(Boolean)
+          : []
+
+        const seen = new Set()
+        const uniquePool = []
+        for (const t of pool) {
+          const k = t.toLowerCase()
+          if (seen.has(k)) continue
+          seen.add(k)
+          uniquePool.push(t)
+        }
+
+        for (let i = uniquePool.length - 1; i > 0; i -= 1) {
+          const j = Math.floor(Math.random() * (i + 1))
+          const tmp = uniquePool[i]
+          uniquePool[i] = uniquePool[j]
+          uniquePool[j] = tmp
+        }
+
+        return uniquePool.slice(0, 6)
+      }
+
       const displayTitle = typeof data?.room?.title === 'string' ? data.room.title : title
       pushGalleryTrail(displayTitle)
       const trailForBoard = galleryTrail.slice(-3)
 
-      const pool = Array.isArray(data?.seeAlso)
-        ? data.seeAlso
-            .map((p) => (p && typeof p.title === 'string' ? p.title : ''))
-            .map((t) => t.trim())
-            .filter(Boolean)
-        : []
-
-
-      const seen = new Set()
-      const uniquePool = []
-      for (const t of pool) {
-        const k = t.toLowerCase()
-        if (seen.has(k)) continue
-        seen.add(k)
-        uniquePool.push(t)
-      }
-
-      for (let i = uniquePool.length - 1; i > 0; i -= 1) {
-        const j = Math.floor(Math.random() * (i + 1))
-        const tmp = uniquePool[i]
-        uniquePool[i] = uniquePool[j]
-        uniquePool[j] = tmp
-      }
-
-      const relatedTitles = uniquePool.slice(0, 6)
+      const relatedTitles = pickRelatedTitles(data?.seeAlso)
 
       if (updateUrlState) {
         setUrlAndState(title, { push: Boolean(pushHistory) })
@@ -340,6 +343,28 @@ function loadAndEnterGallery(title, { pushHistory = false, spawn, updateUrlState
           spawn,
         })
       }
+
+      // Fetch and populate related titles in the background so room load isn't blocked.
+      fetchGalleryRoomRelated(displayTitle, { signal: wikiAbortController.signal })
+        .then((items) => {
+          if (navId !== activeNavId) return
+
+          const titles = pickRelatedTitles(items)
+          if (!engineApi) return
+          if (typeof engineApi.setDoorMeta !== 'function' || typeof engineApi.setDoorLabelOverride !== 'function') return
+
+          for (let i = 0; i < 6; i += 1) {
+            const doorId = `seealso-${i}`
+            const t = typeof titles[i] === 'string' ? titles[i].trim() : ''
+            if (!t) continue
+            engineApi.setDoorMeta(doorId, { articleTitle: t })
+            engineApi.setDoorLabelOverride(doorId, t)
+          }
+        })
+        .catch((err) => {
+          if (err && err.code === 'aborted') return
+          // Related is best-effort; ignore failures.
+        })
     })
     .catch((err) => {
       if (err && err.code === 'aborted') return

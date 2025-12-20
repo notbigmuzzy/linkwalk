@@ -482,6 +482,12 @@ export function startYourEngines({
       const d = hitPoint.distanceTo(camera.position)
       if (d > interactMaxDistance) return false
     }
+
+    const doorId = findDoorId(hits[0]?.object)
+    if (doorId) {
+      const door = doorById.get(doorId)
+      if (!doorHasTriggerTarget(door)) return false
+    }
     return true
   }
 
@@ -545,6 +551,14 @@ export function startYourEngines({
       cur = cur.parent
     }
     return null
+  }
+
+  function doorHasTriggerTarget(door) {
+    if (!door || typeof door !== 'object') return false
+    const articleTitle = typeof door.articleTitle === 'string' ? door.articleTitle.trim() : ''
+    const category = typeof door.category === 'string' ? door.category.trim() : ''
+    const target = typeof door.target === 'string' ? door.target.trim() : ''
+    return Boolean(articleTitle || category || target)
   }
 
   function onMouseDown(e) {
@@ -637,6 +651,11 @@ export function startYourEngines({
     if (!doorId) return
 
     const door = doorById.get(doorId) ?? { id: doorId }
+
+    // Some doors (e.g. gallery see-also placeholders) exist before their targets are populated.
+    // Ignore clicks until a navigation target is set.
+    if (!doorHasTriggerTarget(door)) return
+
     if (typeof onDoorTrigger === 'function') {
       onDoorTrigger(door)
     } else {
@@ -818,6 +837,19 @@ export function startYourEngines({
   return {
     setInteractionLocked(locked) {
       interactionLocked = Boolean(locked)
+    },
+    setDoorMeta(doorId, patch = null) {
+      const id = typeof doorId === 'string' ? doorId : ''
+      if (!id) return
+      const door = doorById.get(id)
+      if (!door) return
+      if (!patch || typeof patch !== 'object') return
+
+      try {
+        Object.assign(door, patch)
+      } catch {
+        // ignore
+      }
     },
     setDoorLabelOverride(doorId, text) {
       const id = typeof doorId === 'string' ? doorId : ''

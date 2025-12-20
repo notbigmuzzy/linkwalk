@@ -889,91 +889,39 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
   }
 
   {
-    const relatedTitles = Array.isArray(gallery.relatedTitles) ? gallery.relatedTitles.filter(Boolean).slice(0, 6) : []
-    const n = relatedTitles.length
-    if (n > 0) {
-      const doorH = 2.25 * 1.1
-      const cornerMargin = 1.6
-      const cornerUSouth = Math.max(-halfL + 1.0, halfL - cornerMargin)
-      const cornerUNorth = Math.min(halfL - 1.0, -halfL + cornerMargin)
-      const northCornerUEast = Math.min(halfW - 1.0, halfW - cornerMargin)
-      const northCornerUWest = Math.max(-halfW + 1.0, -halfW + cornerMargin)
+    const relatedTitles = Array.isArray(gallery.relatedTitles) ? gallery.relatedTitles.filter(Boolean) : []
+    const doorH = 2.25 * 1.1
+    const cornerMargin = 1.6
+    const cornerUSouth = Math.max(-halfL + 1.0, halfL - cornerMargin)
+    const cornerUNorth = Math.min(halfL - 1.0, -halfL + cornerMargin)
+    const northCornerUEast = Math.min(halfW - 1.0, halfW - cornerMargin)
+    const northCornerUWest = Math.max(-halfW + 1.0, -halfW + cornerMargin)
 
-      if (n >= 1) {
-        const title = String(relatedTitles[0])
-        addDoor({
-          id: 'seealso-0',
-          wall: 'east',
-          w: 1.1,
-          h: doorH,
-          u: cornerUSouth,
-          meta: { articleTitle: title, label: title },
-        })
-      }
+    const baseDoors = [
+      { id: 'seealso-0', wall: 'east', u: cornerUSouth },
+      { id: 'seealso-1', wall: 'west', u: cornerUSouth },
+      { id: 'seealso-2', wall: 'east', u: cornerUNorth },
+      { id: 'seealso-3', wall: 'west', u: cornerUNorth },
+      { id: 'seealso-4', wall: 'north', u: northCornerUEast },
+      { id: 'seealso-5', wall: 'north', u: northCornerUWest },
+    ]
 
-      if (n >= 2) {
-        const title = String(relatedTitles[1])
-        addDoor({
-          id: 'seealso-1',
-          wall: 'west',
-          w: 1.1,
-          h: doorH,
-          u: cornerUSouth,
-          meta: { articleTitle: title, label: title },
-        })
-      }
+    for (let i = 0; i < baseDoors.length; i++) {
+      const spec = baseDoors[i]
+      const title = relatedTitles[i] ? String(relatedTitles[i]) : ''
+      addDoor({
+        id: spec.id,
+        wall: spec.wall,
+        w: 1.1,
+        h: doorH,
+        u: spec.u,
+        meta: title ? { articleTitle: title, label: title } : { label: '...' },
+      })
+    }
 
-      if (n >= 3) {
-        const title = String(relatedTitles[2])
-        addDoor({
-          id: 'seealso-2',
-          wall: 'east',
-          w: 1.1,
-          h: doorH,
-          u: cornerUNorth,
-          meta: { articleTitle: title, label: title },
-        })
-      }
-
-      if (n >= 4) {
-        const title = String(relatedTitles[3])
-        addDoor({
-          id: 'seealso-3',
-          wall: 'west',
-          w: 1.1,
-          h: doorH,
-          u: cornerUNorth,
-          meta: { articleTitle: title, label: title },
-        })
-      }
-
-      if (n >= 5) {
-        const title = String(relatedTitles[4])
-        addDoor({
-          id: 'seealso-4',
-          wall: 'north',
-          w: 1.1,
-          h: doorH,
-          u: northCornerUEast,
-          meta: { articleTitle: title, label: title },
-        })
-      }
-
-      if (n >= 6) {
-        const title = String(relatedTitles[5])
-        addDoor({
-          id: 'seealso-5',
-          wall: 'north',
-          w: 1.1,
-          h: doorH,
-          u: northCornerUWest,
-          meta: { articleTitle: title, label: title },
-        })
-      }
-
-      const remaining = relatedTitles.slice(6)
-      const rn = remaining.length
-      if (rn > 0) {
+    const remaining = relatedTitles.slice(baseDoors.length)
+    const rn = remaining.length
+    if (rn > 0) {
         const wall = 'north'
         const gapU = 0.22
         const usable = Math.max(1.0, width - 2.0)
@@ -994,7 +942,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
           })
         }
       }
-    }
   }
 
   {
@@ -1269,7 +1216,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
             const cy = canvasLabel.height / 2 + 2
             const dy = 46
 
-    
             ctxLabel.lineWidth = 10
             ctxLabel.strokeStyle = 'rgba(0,0,0,0.45)'
             ctxLabel.fillStyle = 'rgba(255,255,255,0.94)'

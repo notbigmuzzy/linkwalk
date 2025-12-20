@@ -861,6 +861,33 @@ export async function fetchRoomData(title, opts = {}) {
   return data
 }
 
+export async function fetchGalleryRoomRelated(title, opts = {}) {
+  const normalizedTitle = toWikiTitle(title)
+  if (!normalizedTitle) {
+    throw makeWikiError('Missing Wikipedia title', { code: 'bad_title' })
+  }
+
+  const partition = wikiCachePartitionKey()
+
+  if (!fetchGalleryRoomRelated._relatedCache) fetchGalleryRoomRelated._relatedCache = new Map()
+  let relatedCache = fetchGalleryRoomRelated._relatedCache.get(partition)
+  if (!relatedCache) {
+    relatedCache = new Map()
+    fetchGalleryRoomRelated._relatedCache.set(partition, relatedCache)
+  }
+
+  const cached = relatedCache.get(normalizedTitle)
+  if (cached && Array.isArray(cached.items)) {
+    return cached.items
+  }
+
+  const items = await fetchWikipediaRelatedFast(normalizedTitle, { ...opts, limit: 30 })
+  if (Array.isArray(items)) {
+    relatedCache.set(normalizedTitle, { t: safeNow(), items })
+  }
+  return items
+}
+
 export async function fetchGalleryRoomData(title, opts = {}) {
 
   const normalizedTitle = toWikiTitle(title)
@@ -881,13 +908,6 @@ export async function fetchGalleryRoomData(title, opts = {}) {
   }
   const cachedBase = cache.get(normalizedTitle)
 
-  if (!fetchGalleryRoomData._relatedCache) fetchGalleryRoomData._relatedCache = new Map()
-  let relatedCache = fetchGalleryRoomData._relatedCache.get(partition)
-  if (!relatedCache) {
-    relatedCache = new Map()
-    fetchGalleryRoomData._relatedCache.set(partition, relatedCache)
-  }
-
   if (!fetchGalleryRoomData._persist) fetchGalleryRoomData._persist = new Map()
   let persist = fetchGalleryRoomData._persist.get(partition)
   if (!persist) {
@@ -896,17 +916,6 @@ export async function fetchGalleryRoomData(title, opts = {}) {
   }
   const persisted = persist.get(normalizedTitle)
   const baseFromPersist = persisted && persisted.v ? persisted.v : null
-
-  const cachedRelated = relatedCache.get(normalizedTitle)
-  const relatedPromise =
-    cachedRelated && Array.isArray(cachedRelated.items)
-      ? Promise.resolve(cachedRelated.items)
-      : fetchWikipediaRelatedFast(normalizedTitle, { ...opts, limit: 30 }).then((items) => {
-          if (Array.isArray(items)) {
-            relatedCache.set(normalizedTitle, { t: safeNow(), items })
-          }
-          return items
-        })
 
   let base = cachedBase || baseFromPersist
   if (!base) {
@@ -997,10 +1006,16 @@ export async function fetchGalleryRoomData(title, opts = {}) {
     cache.set(normalizedTitle, baseFromPersist)
   }
 
-  const seeAlso = await relatedPromise
+  const includeRelated = Boolean(opts?.includeRelated)
+  if (!includeRelated) {
+    return { ...base, seeAlso: [] }
+  }
+
+  const seeAlso = await fetchGalleryRoomRelated(normalizedTitle, { signal: opts?.signal })
   return { ...base, seeAlso }
 }
 
 fetchGalleryRoomData._cache = null
 fetchGalleryRoomData._persist = null
-fetchGalleryRoomData._relatedCache = null
+
+fetchGalleryRoomRelated._relatedCache = null
