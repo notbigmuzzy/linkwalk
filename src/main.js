@@ -396,7 +396,7 @@ function requestRandomExhibit() {
   randomAbortController = new AbortController()
   const signal = randomAbortController.signal
 
-  fetchWikipediaRandomTitle({ signal })
+  fetchWikipediaRandomTitle({ signal, allow_disambiguation: false })
     .then((title) => {
       if (signal.aborted) return
       loadAndEnterGallery(title, {

@@ -38,7 +38,7 @@ export function startYourEngines({
   scene.background = new THREE.Color(0x05030a)
 
   const camera = new THREE.PerspectiveCamera(70, 1, 0.1, 200)
-  const eyeHeight = 1.6
+  const eyeHeight = 1.7
   camera.position.set(0, eyeHeight, 3)
   camera.rotation.order = 'YXZ'
   scene.add(camera)

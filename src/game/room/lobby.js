@@ -361,7 +361,7 @@ export function buildLobbyRoom(ctx, lobby) {
       const pos = frondGeo.attributes.position
       for (let i = 0; i < pos.count; i += 1) {
         const x = pos.getX(i)
-        const t = (x + frondL / 2) / frond
+        const t = (x + frondL / 2) / frondL
         const bend = Math.sin(t * Math.PI) * 0.13
         pos.setZ(i, bend)
       }

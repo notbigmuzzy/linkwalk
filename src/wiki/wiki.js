@@ -313,7 +313,7 @@ export async function fetchWikipediaRelatedFast(title, { signal, limit } = {}) {
       generator: 'search',
       gsrsearch: `morelike:${normalizedTitle}`,
       gsrnamespace: '0',
-      gsrlimit: '25',
+      gsrlimit: '12',
       redirects: '1',
       prop: 'extracts|pageimages|info|pageprops',
       exintro: '1',
@@ -363,22 +363,40 @@ export async function fetchWikipediaSummary(title, { signal } = {}) {
   }
 }
 
-export async function fetchWikipediaRandomTitle({ signal } = {}) {
-  const raw = await fetchActionQuery(
-    {
-      list: 'random',
-      rnnamespace: '0',
-      rnlimit: '1',
-    },
-    { signal }
-  )
+export async function fetchWikipediaRandomTitle({ signal, allow_disambiguation, allowDisambiguation } = {}) {
+  const allowDisambig =
+    typeof allowDisambiguation === 'boolean' ? allowDisambiguation : typeof allow_disambiguation === 'boolean' ? allow_disambiguation : false
 
-  const title = raw?.query?.random?.[0]?.title
-  if (typeof title !== 'string' || !title.trim()) {
-    throw makeWikiError('Wikipedia random response missing title', { code: 'bad_response', raw })
+  const maxAttempts = allowDisambig ? 1 : 6
+  let lastRaw = null
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const raw = await fetchActionQuery(
+      {
+        list: 'random',
+        rnnamespace: '0',
+        rnlimit: '12',
+      },
+      { signal }
+    )
+    lastRaw = raw
+
+    const items = Array.isArray(raw?.query?.random) ? raw.query.random : []
+    let pages = items
+      .map((r) => ({ title: typeof r?.title === 'string' ? r.title.trim() : '' }))
+      .filter((p) => Boolean(p.title))
+
+    if (!allowDisambig) {
+      pages = await filterOutDisambiguationPages(pages, { signal })
+    }
+
+    if (pages.length > 0) {
+      shuffleInPlace(pages)
+      return pages[0].title
+    }
   }
 
-  return title.trim()
+  throw makeWikiError('Wikipedia random response missing non-disambiguation title', { code: 'bad_response', raw: lastRaw })
 }
 
 async function fetchActionQuery(params, { signal } = {}) {
@@ -718,7 +736,7 @@ export async function fetchWikipediaRelatedBetter(title, { signal, limit } = {})
         generator: 'search',
         gsrsearch: `morelike:${normalizedTitle}`,
         gsrnamespace: '0',
-        gsrlimit: '20',
+        gsrlimit: '12',
         ...commonProps,
       },
       { signal }
@@ -728,7 +746,7 @@ export async function fetchWikipediaRelatedBetter(title, { signal, limit } = {})
         generator: 'linkshere',
         titles: normalizedTitle,
         glhnamespace: '0',
-        glhlimit: '20',
+        glhlimit: '12',
         ...commonProps,
       },
       { signal }
