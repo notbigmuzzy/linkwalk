@@ -48,16 +48,12 @@ export function buildLobbyRoom(ctx, lobby) {
     canvas.width = 2048
     canvas.height = 1024
     const ctx2 = canvas.getContext('2d')
+
+    const tex = new THREE.CanvasTexture(canvas)
+    tex.colorSpace = THREE.SRGBColorSpace
+    tex.needsUpdate = true
+
     if (ctx2) {
-      ctx2.clearRect(0, 0, canvas.width, canvas.height)
-      ctx2.fillStyle = '#ffffff'
-      ctx2.fillRect(0, 0, canvas.width, canvas.height)
-
-
-      ctx2.strokeStyle = 'rgba(0,0,0,0.22)'
-      ctx2.lineWidth = 14
-      ctx2.strokeRect(18, 18, canvas.width - 36, canvas.height - 36)
-
       const padX = 90
       const padY = 86
       const midW = Math.floor(canvas.width * 0.34)
@@ -98,28 +94,19 @@ export function buildLobbyRoom(ctx, lobby) {
         }
       }
 
-      function drawWikipediaWatermark() {
+      function drawIconWatermark(img) {
+        if (!img || !img.naturalWidth || !img.naturalHeight) return
+
         const cx = canvas.width / 2
         const cy = canvas.height / 2
-        const r = Math.min(midW, canvas.height) * 0.38
+        const maxSize = Math.min(midW, canvas.height) * 0.76
+        const scale = Math.min(maxSize / img.naturalWidth, maxSize / img.naturalHeight)
+        const w = img.naturalWidth * scale
+        const h = img.naturalHeight * scale
 
         ctx2.save()
-        ctx2.globalAlpha = 0.5
-        ctx2.lineWidth = Math.max(10, Math.floor(canvas.width * 0.006))
-        ctx2.strokeStyle = 'rgba(0,0,0,0.35)'
-        ctx2.fillStyle = 'rgba(0, 0, 0, 0.37)'
-
-        ctx2.beginPath()
-        ctx2.arc(cx, cy, r, 0, Math.PI * 2)
-        ctx2.fill()
-        ctx2.stroke()
-
-        ctx2.textAlign = 'center'
-        ctx2.textBaseline = 'middle'
-        const fontPx = Math.max(120, Math.floor(r * 0.95))
-        ctx2.font = `900 ${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
-        ctx2.fillStyle = 'rgba(0,0,0,0.25)'
-        ctx2.fillText('W', cx, cy)
+        ctx2.globalAlpha = 0.25
+        ctx2.drawImage(img, cx - w / 2, cy - h / 2, w, h)
         ctx2.restore()
       }
 
@@ -169,16 +156,35 @@ export function buildLobbyRoom(ctx, lobby) {
         }
       }
 
-      drawList(padX, '←←←←', leftItems, { align: 'left' })
-      drawList(canvas.width - padX, '→→→→', rightItems, { align: 'right' })
+      function renderBoard({ watermarkImg } = {}) {
+        ctx2.clearRect(0, 0, canvas.width, canvas.height)
+        ctx2.fillStyle = '#ffffff'
+        ctx2.fillRect(0, 0, canvas.width, canvas.height)
 
-      drawWikipediaWatermark()
-      drawWelcome()
+        ctx2.strokeStyle = 'rgba(0,0,0,0.22)'
+        ctx2.lineWidth = 14
+        ctx2.strokeRect(18, 18, canvas.width - 36, canvas.height - 36)
+
+        drawList(padX, '←←←←', leftItems, { align: 'left' })
+        drawList(canvas.width - padX, '→→→→', rightItems, { align: 'right' })
+        drawIconWatermark(watermarkImg)
+        drawWelcome()
+      }
+
+      renderBoard()
+
+      const baseUrl = import.meta.env.BASE_URL || '/'
+      const fallbackIconUrl = baseUrl.endsWith('/') ? `${baseUrl}icon.png` : `${baseUrl}/icon.png`
+      const iconUrl = document.querySelector('link[rel~="icon"]')?.href || fallbackIconUrl
+
+      const watermarkImg = new Image()
+      watermarkImg.decoding = 'async'
+      watermarkImg.onload = () => {
+        renderBoard({ watermarkImg })
+        tex.needsUpdate = true
+      }
+      watermarkImg.src = iconUrl
     }
-
-    const tex = new THREE.CanvasTexture(canvas)
-    tex.colorSpace = THREE.SRGBColorSpace
-    tex.needsUpdate = true
 
     const boardDepth = 0.08
     const boardGroup = new THREE.Group()

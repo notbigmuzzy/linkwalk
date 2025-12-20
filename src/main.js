@@ -73,20 +73,20 @@ overlayEl.addEventListener('keydown', (e) => {
 
 const LANGUAGE_PERSIST_KEY = 'linkwalk:language:v1'
 
-const LOBBY_CATEGORIES_EN = ['Culture', 'Geography', 'Animals', 'History', 'Nature', 'Humanities', 'Philosophy', 'Cosmology', 'Society', 'Technology', 'Music', 'Painting']
-const LOBBY_CATEGORIES_SR = ['Култура', 'Географија', 'Животиње', 'Историја', 'Природа', 'Хуманистичке науке', 'Филозофија', 'Космологија', 'Друштво', 'Технологија', 'Музика', 'Сликарство']
-const LOBBY_CATEGORIES_RU = ['Культура', 'География', 'Животные', 'История', 'Природа', 'Гуманитарные науки', 'Философия', 'Космология', 'Общество', 'Технологии', 'Музыка', 'Живопись']
-const LOBBY_CATEGORIES_FR = ['Culture', 'Géographie', 'Animaux', 'Histoire', 'Nature', 'Sciences humaines', 'Philosophie', 'Cosmologie', 'Société', 'Technologie', 'Musique', 'Peinture']
-const LOBBY_CATEGORIES_ZH = ['文化', '地理', '动物', '历史', '自然', '人文', '哲学', '宇宙学', '社会', '科技', '音乐', '绘画']
-const LOBBY_CATEGORIES_PL = ['Kultura', 'Geografia', 'Zwierzęta', 'Historia', 'Przyroda', 'Nauki humanistyczne', 'Filozofia', 'Kosmologia', 'Społeczeństwo', 'Technologia', 'Muzyka', 'Malarstwo']
-const LOBBY_CATEGORIES_JA = ['文化', '地理', '動物', '歴史', '自然', '人文科学', '哲学', '宇宙論', '社会', 'テクノロジー', '音楽', '絵画']
-const LOBBY_CATEGORIES_DE = ['Kultur', 'Geografie', 'Tiere', 'Geschichte', 'Natur', 'Geisteswissenschaften', 'Philosophie', 'Kosmologie', 'Gesellschaft', 'Technologie', 'Musik', 'Malerei']
-const LOBBY_CATEGORIES_ES = ['Cultura', 'Geografía', 'Animales', 'Historia', 'Naturaleza', 'Humanidades', 'Filosofía', 'Cosmología', 'Sociedad', 'Tecnología', 'Música', 'Pintura']
-const LOBBY_CATEGORIES_IT = ['Cultura', 'Geografia', 'Animali', 'Storia', 'Natura', 'Smanistiche', 'Filosofia', 'Cosmologia', 'Società', 'Tecnologia', 'Musica', 'Pittura']
-const LOBBY_CATEGORIES_PT = ['Cultura', 'Geografia', 'Animais', 'História', 'Natureza', 'Humanidades', 'Filosofia', 'Cosmologia', 'Sociedade', 'Tecnologia', 'Música', 'Pintura']
-const LOBBY_CATEGORIES_CEB = ['Kultura', 'Heograpiya', 'Mga Mananap', 'Kasaysayan', 'Kinaiyahan', 'Humanidades', 'Pilosopiya', 'Kosmolohiya', 'Sosyedad', 'Teknolohiya', 'Musika', 'Pamintal']
-const LOBBY_CATEGORIES_SV = ['Kultur', 'Geografi', 'Djur', 'Historia', 'Natur', 'Humaniora', 'Filosofi', 'Kosmologi', 'Samhälle', 'Teknik', 'Musik', 'Måleri']
-const LOBBY_CATEGORIES_NL = ['Cultuur', 'Geografie', 'Dieren', 'Geschiedenis', 'Natuur', 'Geesteswetenschappen', 'Filosofie', 'Kosmologie', 'Samenleving', 'Technologie', 'Muziek', 'Schilderkunst']
+const LOBBY_CATEGORIES_EN = ['Culture', 'Geography', 'Animals', 'History', 'Nature', 'England', 'Philosophy', 'Cosmology', 'Society', 'Technology', 'Music', 'Painting']
+const LOBBY_CATEGORIES_SR = ['Култура', 'Географија', 'Животиње', 'Историја', 'Природа', 'Србија', 'Филозофија', 'Космологија', 'Друштво', 'Технологија', 'Музика', 'Сликарство']
+const LOBBY_CATEGORIES_RU = ['Культура', 'География', 'Животные', 'История', 'Природа', 'Russia', 'Философия', 'Космология', 'Общество', 'Технологии', 'Музыка', 'Живопись']
+const LOBBY_CATEGORIES_FR = ['Culture', 'Géographie', 'Animaux', 'Histoire', 'Nature', 'France', 'Philosophie', 'Cosmologie', 'Société', 'Technologie', 'Musique', 'Peinture']
+const LOBBY_CATEGORIES_ZH = ['文化', '地理', '动物', '历史', '自然', '中华人民共和国', '哲学', '宇宙学', '社会', '科技', '音乐', '绘画']
+const LOBBY_CATEGORIES_PL = ['Kultura', 'Geografia', 'Zwierzęta', 'Historia', 'Przyroda', 'Polska', 'Filozofia', 'Kosmologia', 'Społeczeństwo', 'Technologia', 'Muzyka', 'Malarstwo']
+const LOBBY_CATEGORIES_JA = ['文化', '地理', '動物', '歴史', '自然', '日本国', '哲学', '宇宙論', '社会', 'テクノロジー', '音楽', '絵画']
+const LOBBY_CATEGORIES_DE = ['Kultur', 'Geografie', 'Tiere', 'Geschichte', 'Natur', 'Deutschland', 'Philosophie', 'Kosmologie', 'Gesellschaft', 'Technologie', 'Musik', 'Malerei']
+const LOBBY_CATEGORIES_ES = ['Cultura', 'Geografía', 'Animales', 'Historia', 'Naturaleza', 'España', 'Filosofía', 'Cosmología', 'Sociedad', 'Tecnología', 'Música', 'Pintura']
+const LOBBY_CATEGORIES_IT = ['Cultura', 'Geografia', 'Animali', 'Storia', 'Natura', 'Italia', 'Filosofia', 'Cosmologia', 'Società', 'Tecnologia', 'Musica', 'Pittura']
+const LOBBY_CATEGORIES_PT = ['Cultura', 'Geografia', 'Animais', 'História', 'Natureza', 'Portugal', 'Filosofia', 'Cosmologia', 'Sociedade', 'Tecnologia', 'Música', 'Pintura']
+const LOBBY_CATEGORIES_CEB = ['Kultura', 'Heograpiya', 'Mga Mananap', 'Kasaysayan', 'Kinaiyahan', 'Pilipinas', 'Pilosopiya', 'Kosmolohiya', 'Sosyedad', 'Teknolohiya', 'Musika', 'Pamintal']
+const LOBBY_CATEGORIES_SV = ['Kultur', 'Geografi', 'Djur', 'Historia', 'Natur', 'Sverige', 'Filosofi', 'Kosmologi', 'Samhälle', 'Teknik', 'Musik', 'Måleri']
+const LOBBY_CATEGORIES_NL = ['Cultuur', 'Geografie', 'Dieren', 'Geschiedenis', 'Natuur', 'Nederland', 'Filosofie', 'Kosmologie', 'Samenleving', 'Technologie', 'Muziek', 'Schilderkunst']
 
 function lobbyCategoriesForLanguage(lang) {
   	const code = String(lang || '').trim().toLowerCase()
