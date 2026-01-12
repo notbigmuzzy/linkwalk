@@ -680,6 +680,152 @@ export function buildLobbyRoom(ctx, lobby) {
     d: 0.2,
   })
 
+  // Add guard rails
+  {
+    const railMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2f, roughness: 0.6, metalness: 0.4 })
+    disposables.push(railMat)
+    
+    const railHeight = 1.0
+    const railThickness = 0.05
+    const postRadius = 0.04
+    const postSpacing = 1.2
+    
+    function addRailing({ startX, startZ, startY, endX, endZ, endY, name }) {
+      const rail = new THREE.Group()
+      rail.name = name
+      group.add(rail)
+      
+      const dx = endX - startX
+      const dz = endZ - startZ
+      const dy = endY - startY
+      const railLength = Math.sqrt(dx * dx + dz * dz)
+      const railLength3D = Math.sqrt(dx * dx + dz * dz + dy * dy)
+      const angleY = Math.atan2(dz, dx)
+      const angleZ = Math.atan2(dy, railLength)
+      
+      // Top rail
+      const topRailGeo = new THREE.CylinderGeometry(railThickness, railThickness, railLength3D, 12)
+      const topRail = new THREE.Mesh(topRailGeo, railMat)
+      topRail.rotation.z = Math.PI / 2 + angleZ
+      topRail.rotation.y = angleY
+      topRail.position.set((startX + endX) / 2, (startY + endY) / 2 + railHeight, (startZ + endZ) / 2)
+      rail.add(topRail)
+      disposables.push(topRailGeo)
+      
+      // Mid rail
+      const midRailGeo = new THREE.CylinderGeometry(railThickness * 0.8, railThickness * 0.8, railLength3D, 12)
+      const midRail = new THREE.Mesh(midRailGeo, railMat)
+      midRail.rotation.z = Math.PI / 2 + angleZ
+      midRail.rotation.y = angleY
+      midRail.position.set((startX + endX) / 2, (startY + endY) / 2 + railHeight * 0.5, (startZ + endZ) / 2)
+      rail.add(midRail)
+      disposables.push(midRailGeo)
+      
+      // Posts
+      const postCount = Math.max(2, Math.ceil(railLength / postSpacing))
+      const postGeo = new THREE.CylinderGeometry(postRadius, postRadius, railHeight, 12)
+      disposables.push(postGeo)
+      
+      for (let i = 0; i < postCount; i++) {
+        const t = i / (postCount - 1)
+        const post = new THREE.Mesh(postGeo, railMat)
+        const postY = startY + dy * t
+        post.position.set(
+          startX + dx * t,
+          postY + railHeight / 2,
+          startZ + dz * t
+        )
+        rail.add(post)
+      }
+    }
+    
+    // East platform front edge (facing center)
+    const eastEdgeX = centerWidth / 2
+    addRailing({
+      startX: eastEdgeX,
+      startZ: -stairGapHalfWidth,
+      startY: platformHeight,
+      endX: eastEdgeX,
+      endZ: -length / 2 + 1.0,
+      endY: platformHeight,
+      name: 'railing-east-north',
+    })
+    
+    addRailing({
+      startX: eastEdgeX,
+      startZ: stairGapHalfWidth,
+      startY: platformHeight,
+      endX: eastEdgeX,
+      endZ: length / 2 - 1.0,
+      endY: platformHeight,
+      name: 'railing-east-south',
+    })
+    
+    // West platform front edge (facing center)
+    const westEdgeX = -centerWidth / 2
+    addRailing({
+      startX: westEdgeX,
+      startZ: -stairGapHalfWidth,
+      startY: platformHeight,
+      endX: westEdgeX,
+      endZ: -length / 2 + 1.0,
+      endY: platformHeight,
+      name: 'railing-west-north',
+    })
+    
+    addRailing({
+      startX: westEdgeX,
+      startZ: stairGapHalfWidth,
+      startY: platformHeight,
+      endX: westEdgeX,
+      endZ: length / 2 - 1.0,
+      endY: platformHeight,
+      name: 'railing-west-south',
+    })
+    
+    // East stairs railings - sloping from ground to platform
+    addRailing({
+      startX: eastStairStartX - totalStairsDepth,
+      startZ: -stepWidth / 2,
+      startY: 0,
+      endX: eastStairStartX,
+      endZ: -stepWidth / 2,
+      endY: platformHeight,
+      name: 'railing-east-stair-north',
+    })
+    
+    addRailing({
+      startX: eastStairStartX - totalStairsDepth,
+      startZ: stepWidth / 2,
+      startY: 0,
+      endX: eastStairStartX,
+      endZ: stepWidth / 2,
+      endY: platformHeight,
+      name: 'railing-east-stair-south',
+    })
+    
+    // West stairs railings - sloping from ground to platform
+    addRailing({
+      startX: westStairStartX + totalStairsDepth,
+      startZ: -stepWidth / 2,
+      startY: 0,
+      endX: westStairStartX,
+      endZ: -stepWidth / 2,
+      endY: platformHeight,
+      name: 'railing-west-stair-north',
+    })
+    
+    addRailing({
+      startX: westStairStartX + totalStairsDepth,
+      startZ: stepWidth / 2,
+      startY: 0,
+      endX: westStairStartX,
+      endZ: stepWidth / 2,
+      endY: platformHeight,
+      name: 'railing-west-stair-south',
+    })
+  }
+
   group.add(markers)
 
   return {
