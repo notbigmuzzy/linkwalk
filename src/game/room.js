@@ -55,33 +55,83 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
   const ceilingLightDistance = Math.max(width, length) * 2.2
   const ceilingLightDecay = 1.6
 
-  const y = height - 0.25
-  const x = width * 0.35
-  const z = length * 0.35
+  // Adjust lighting for lobby split-level design
+  if (mode === 'lobby') {
+    const platformHeight = 1.4
+    const upperCeilingHeight = height + 1.6
+    const platformWidth = 4.0
+    const centerWidth = width - 2 * platformWidth
+    
+    // Central area lights (lower)
+    const y1 = height - 0.25
+    const lightC1 = new THREE.PointLight(ceilingLightColor, ceilingLightIntensity, ceilingLightDistance, ceilingLightDecay)
+    lightC1.position.set(0, y1, -length * 0.25)
+    group.add(lightC1)
+    
+    const lightC2 = new THREE.PointLight(ceilingLightColor, ceilingLightIntensity, ceilingLightDistance, ceilingLightDecay)
+    lightC2.position.set(0, y1, length * 0.25)
+    group.add(lightC2)
+    
+    // East platform lights (higher)
+    const y2 = upperCeilingHeight - 0.25
+    const xEast = centerWidth / 2 + platformWidth / 2
+    
+    const lightE1 = new THREE.PointLight(ceilingLightColor, ceilingLightIntensity * 1.1, ceilingLightDistance, ceilingLightDecay)
+    lightE1.position.set(xEast, y2, -length * 0.3)
+    group.add(lightE1)
+    
+    const lightE2 = new THREE.PointLight(ceilingLightColor, ceilingLightIntensity * 1.1, ceilingLightDistance, ceilingLightDecay)
+    lightE2.position.set(xEast, y2, 0)
+    group.add(lightE2)
+    
+    const lightE3 = new THREE.PointLight(ceilingLightColor, ceilingLightIntensity * 1.1, ceilingLightDistance, ceilingLightDecay)
+    lightE3.position.set(xEast, y2, length * 0.3)
+    group.add(lightE3)
+    
+    // West platform lights (higher)
+    const xWest = -(centerWidth / 2 + platformWidth / 2)
+    
+    const lightW1 = new THREE.PointLight(ceilingLightColor, ceilingLightIntensity * 1.1, ceilingLightDistance, ceilingLightDecay)
+    lightW1.position.set(xWest, y2, -length * 0.3)
+    group.add(lightW1)
+    
+    const lightW2 = new THREE.PointLight(ceilingLightColor, ceilingLightIntensity * 1.1, ceilingLightDistance, ceilingLightDecay)
+    lightW2.position.set(xWest, y2, 0)
+    group.add(lightW2)
+    
+    const lightW3 = new THREE.PointLight(ceilingLightColor, ceilingLightIntensity * 1.1, ceilingLightDistance, ceilingLightDecay)
+    lightW3.position.set(xWest, y2, length * 0.3)
+    group.add(lightW3)
+  } else {
+    // Standard grid lighting for gallery mode
+    const y = height - 0.25
+    const x = width * 0.35
+    const z = length * 0.35
 
-  const lightTL = new THREE.PointLight(ceilingLightColor, ceilingLightIntensity, ceilingLightDistance, ceilingLightDecay)
-  lightTL.position.set(-x, y, -z)
-  group.add(lightTL)
+    const lightTL = new THREE.PointLight(ceilingLightColor, ceilingLightIntensity, ceilingLightDistance, ceilingLightDecay)
+    lightTL.position.set(-x, y, -z)
+    group.add(lightTL)
 
-  const lightTR = new THREE.PointLight(ceilingLightColor, ceilingLightIntensity, ceilingLightDistance, ceilingLightDecay)
-  lightTR.position.set(x, y, -z)
-  group.add(lightTR)
+    const lightTR = new THREE.PointLight(ceilingLightColor, ceilingLightIntensity, ceilingLightDistance, ceilingLightDecay)
+    lightTR.position.set(x, y, -z)
+    group.add(lightTR)
 
-  const lightBL = new THREE.PointLight(ceilingLightColor, ceilingLightIntensity, ceilingLightDistance, ceilingLightDecay)
-  lightBL.position.set(-x, y, z)
-  group.add(lightBL)
+    const lightBL = new THREE.PointLight(ceilingLightColor, ceilingLightIntensity, ceilingLightDistance, ceilingLightDecay)
+    lightBL.position.set(-x, y, z)
+    group.add(lightBL)
 
-  const lightBR = new THREE.PointLight(ceilingLightColor, ceilingLightIntensity, ceilingLightDistance, ceilingLightDecay)
-  lightBR.position.set(x, y, z)
-  group.add(lightBR)
+    const lightBR = new THREE.PointLight(ceilingLightColor, ceilingLightIntensity, ceilingLightDistance, ceilingLightDecay)
+    lightBR.position.set(x, y, z)
+    group.add(lightBR)
 
-  const lightML = new THREE.PointLight(ceilingLightColor, ceilingLightIntensity, ceilingLightDistance, ceilingLightDecay)
-  lightML.position.set(-x, y, 0)
-  group.add(lightML)
+    const lightML = new THREE.PointLight(ceilingLightColor, ceilingLightIntensity, ceilingLightDistance, ceilingLightDecay)
+    lightML.position.set(-x, y, 0)
+    group.add(lightML)
 
-  const lightMR = new THREE.PointLight(ceilingLightColor, ceilingLightIntensity, ceilingLightDistance, ceilingLightDecay)
-  lightMR.position.set(x, y, 0)
-  group.add(lightMR)
+    const lightMR = new THREE.PointLight(ceilingLightColor, ceilingLightIntensity, ceilingLightDistance, ceilingLightDecay)
+    lightMR.position.set(x, y, 0)
+    group.add(lightMR)
+  }
 
   const {
     floorWoodMap,
@@ -110,35 +160,223 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
   })
   disposables.push(panelMarbleBackMat)
 
-  const floorGeo = new THREE.PlaneGeometry(width, length)
-  const floorMat = new THREE.MeshStandardMaterial({
-	color: mode === 'lobby' ? palette.floor : 0xffffff,
-    map: floorWoodMap,
-    bumpMap: floorWoodBump,
-    bumpScale: 0.05,
-    roughness: 0.42,
-    metalness: 0.0,
-  })
-  const floor = new THREE.Mesh(floorGeo, floorMat)
-  floor.rotation.x = -Math.PI / 2
-  floor.position.y = 0
-  group.add(floor)
-  disposables.push(floorGeo, floorMat)
+  // For lobby mode, create split-level geometry
+  if (mode === 'lobby') {
+    const platformHeight = 1.4
+    const upperCeilingHeight = height + 1.6
+    const platformWidth = 4.0  // Fixed width for elevated platforms
+    const centerWidth = width - 2 * platformWidth  // Back to using all remaining width
+    
+    const floorMat = new THREE.MeshStandardMaterial({
+      color: palette.floor,
+      map: floorWoodMap,
+      bumpMap: floorWoodBump,
+      bumpScale: 0.05,
+      roughness: 0.42,
+      metalness: 0.0,
+    })
+    disposables.push(floorMat)
+    
+    // Central ground floor
+    const centralFloorGeo = new THREE.PlaneGeometry(centerWidth, length)
+    const centralFloor = new THREE.Mesh(centralFloorGeo, floorMat)
+    centralFloor.rotation.x = -Math.PI / 2
+    centralFloor.position.y = 0
+    centralFloor.name = 'central-floor'
+    group.add(centralFloor)
+    disposables.push(centralFloorGeo)
+    
+    // East elevated platform floor
+    const eastFloorGeo = new THREE.PlaneGeometry(platformWidth, length)
+    const eastFloor = new THREE.Mesh(eastFloorGeo, floorMat)
+    eastFloor.rotation.x = -Math.PI / 2
+    eastFloor.position.set(centerWidth / 2 + platformWidth / 2, platformHeight + 0.001, 0)  // Slight offset to prevent z-fighting
+    eastFloor.name = 'east-platform-floor'
+    group.add(eastFloor)
+    disposables.push(eastFloorGeo)
+    
+    // West elevated platform floor
+    const westFloorGeo = new THREE.PlaneGeometry(platformWidth, length)
+    const westFloor = new THREE.Mesh(westFloorGeo, floorMat)
+    westFloor.rotation.x = -Math.PI / 2
+    westFloor.position.set(-(centerWidth / 2 + platformWidth / 2), platformHeight + 0.001, 0)  // Slight offset to prevent z-fighting
+    westFloor.name = 'west-platform-floor'
+    group.add(westFloor)
+    disposables.push(westFloorGeo)
+    
+    // Platform faces (vertical walls) - use wallMat for textures
+    const platformFaceMat = new THREE.MeshStandardMaterial({
+      color: palette.wall,
+      map: wallStuccoMap,
+      bumpMap: wallStuccoBump,
+      bumpScale: 0.09,
+      roughness: 0.92,
+      metalness: 0.0,
+    })
+    disposables.push(platformFaceMat)
+    
+    // East platform face (inner edge)
+    const eastFaceGeo = new THREE.BoxGeometry(wallThickness, platformHeight, length)
+    const eastFace = new THREE.Mesh(eastFaceGeo, platformFaceMat)
+    eastFace.position.set(centerWidth / 2, platformHeight / 2, 0)
+    eastFace.name = 'east-platform-face'
+    group.add(eastFace)
+    disposables.push(eastFaceGeo)
+    
+    // West platform face (inner edge)
+    const westFaceGeo = new THREE.BoxGeometry(wallThickness, platformHeight, length)
+    const westFace = new THREE.Mesh(westFaceGeo, platformFaceMat)
+    westFace.position.set(-centerWidth / 2, platformHeight / 2, 0)
+    westFace.name = 'west-platform-face'
+    group.add(westFace)
+    disposables.push(westFaceGeo)
+    
+    // Ceilings - central lower, sides higher
+    const ceilingMat = new THREE.MeshStandardMaterial({
+      color: palette.ceiling,
+      map: ceilingStuccoMap,
+      bumpMap: ceilingStuccoBump,
+      bumpScale: 0.14,
+      roughness: 0.94,
+      metalness: 0.0,
+    })
+    disposables.push(ceilingMat)
+    
+    // Central ceiling (same height as platforms)
+    const centralCeilingGeo = new THREE.PlaneGeometry(centerWidth, length)
+    const centralCeiling = new THREE.Mesh(centralCeilingGeo, ceilingMat)
+    centralCeiling.rotation.x = Math.PI / 2
+    centralCeiling.position.y = upperCeilingHeight
+    centralCeiling.name = 'central-ceiling'
+    group.add(centralCeiling)
+    disposables.push(centralCeilingGeo)
+    
+    // East platform ceiling (higher)
+    const eastCeilingGeo = new THREE.PlaneGeometry(platformWidth, length)
+    const eastCeiling = new THREE.Mesh(eastCeilingGeo, ceilingMat)
+    eastCeiling.rotation.x = Math.PI / 2
+    eastCeiling.position.set(centerWidth / 2 + platformWidth / 2, upperCeilingHeight, 0)
+    eastCeiling.name = 'east-platform-ceiling'
+    group.add(eastCeiling)
+    disposables.push(eastCeilingGeo)
+    
+    // West platform ceiling (higher)
+    const westCeilingGeo = new THREE.PlaneGeometry(platformWidth, length)
+    const westCeiling = new THREE.Mesh(westCeilingGeo, ceilingMat)
+    westCeiling.rotation.x = Math.PI / 2
+    westCeiling.position.set(-(centerWidth / 2 + platformWidth / 2), upperCeilingHeight, 0)
+    westCeiling.name = 'west-platform-ceiling'
+    group.add(westCeiling)
+    disposables.push(westCeilingGeo)
+    
+    // No ceiling step faces needed since all ceilings are at same height
+    
+    // Add stairs on both sides - build as individual steps
+    // Stairs should be BETWEEN central floor and platform, not under platform
+    const stepCount = 7
+    const stepHeight = platformHeight / stepCount
+    const stepDepth = 0.35
+    const stepWidth = length * 0.35
+    const stepThickness = 0.1
+    const totalStairsDepth = stepCount * stepDepth
+    
+    const stepMat = new THREE.MeshStandardMaterial({
+      color: palette.floor,
+      map: floorWoodMap,
+      bumpMap: floorWoodBump,
+      bumpScale: 0.05,
+      roughness: 0.42,
+      metalness: 0.0,
+    })
+    disposables.push(stepMat)
+    
+    // East stairs - positioned BEFORE the platform starts
+    const eastStairGroup = new THREE.Group()
+    eastStairGroup.name = 'east-stairs'
+    group.add(eastStairGroup)
+    
+    // Start stairs at edge of central floor, going outward
+    const eastStairStartX = centerWidth / 2
+    
+    for (let i = 0; i < stepCount; i++) {
+      const stepGeo = new THREE.BoxGeometry(stepDepth, stepThickness, stepWidth)
+      const step = new THREE.Mesh(stepGeo, stepMat)
+      const xPos = eastStairStartX - totalStairsDepth + (i + 0.5) * stepDepth
+      const yPos = (i + 1) * stepHeight - stepThickness / 2 - 0.001  // Slight offset below platform
+      step.position.set(xPos, yPos, 0)
+      eastStairGroup.add(step)
+      if (i === 0) disposables.push(stepGeo)
+      
+      // Add riser (vertical face)
+      if (i < stepCount - 1) {
+        const riserGeo = new THREE.BoxGeometry(stepThickness, stepHeight, stepWidth)
+        const riser = new THREE.Mesh(riserGeo, platformFaceMat)
+        const riserX = eastStairStartX - totalStairsDepth + (i + 1) * stepDepth - stepThickness / 2
+        const riserY = (i + 1) * stepHeight + stepHeight / 2
+        riser.position.set(riserX, riserY, 0)
+        eastStairGroup.add(riser)
+        if (i === 0) disposables.push(riserGeo)
+      }
+    }
+    
+    // West stairs - positioned BEFORE the platform starts
+    const westStairGroup = new THREE.Group()
+    westStairGroup.name = 'west-stairs'
+    group.add(westStairGroup)
+    
+    const westStairStartX = -centerWidth / 2
+    
+    for (let i = 0; i < stepCount; i++) {
+      const stepGeo = new THREE.BoxGeometry(stepDepth, stepThickness, stepWidth)
+      const step = new THREE.Mesh(stepGeo, stepMat)
+      const xPos = westStairStartX + totalStairsDepth - (i + 0.5) * stepDepth
+      const yPos = (i + 1) * stepHeight - stepThickness / 2 - 0.001  // Slight offset below platform
+      step.position.set(xPos, yPos, 0)
+      westStairGroup.add(step)
+      
+      // Add riser (vertical face)
+      if (i < stepCount - 1) {
+        const riserGeo = new THREE.BoxGeometry(stepThickness, stepHeight, stepWidth)
+        const riser = new THREE.Mesh(riserGeo, platformFaceMat)
+        const riserX = westStairStartX + totalStairsDepth - (i + 1) * stepDepth + stepThickness / 2
+        const riserY = (i + 1) * stepHeight + stepHeight / 2
+        riser.position.set(riserX, riserY, 0)
+        westStairGroup.add(riser)
+      }
+    }
+    
+  } else {
+    // Standard single-level floor and ceiling for gallery mode
+    const floorGeo = new THREE.PlaneGeometry(width, length)
+    const floorMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      map: floorWoodMap,
+      bumpMap: floorWoodBump,
+      bumpScale: 0.05,
+      roughness: 0.42,
+      metalness: 0.0,
+    })
+    const floor = new THREE.Mesh(floorGeo, floorMat)
+    floor.rotation.x = -Math.PI / 2
+    floor.position.y = 0
+    group.add(floor)
+    disposables.push(floorGeo, floorMat)
 
-  const ceilingGeo = new THREE.PlaneGeometry(width, length)
-  const ceilingMat = new THREE.MeshStandardMaterial({
-    color: palette.ceiling,
-    map: ceilingStuccoMap,
-    bumpMap: ceilingStuccoBump,
-    bumpScale: 0.14,
-    roughness: 0.94,
-    metalness: 0.0,
-  })
-  const ceiling = new THREE.Mesh(ceilingGeo, ceilingMat)
-  ceiling.rotation.x = Math.PI / 2
-  ceiling.position.y = height
-  group.add(ceiling)
-  disposables.push(ceilingGeo, ceilingMat)
+    const ceilingGeo = new THREE.PlaneGeometry(width, length)
+    const ceilingMat = new THREE.MeshStandardMaterial({
+      color: palette.ceiling,
+      map: ceilingStuccoMap,
+      bumpMap: ceilingStuccoBump,
+      bumpScale: 0.14,
+      roughness: 0.94,
+      metalness: 0.0,
+    })
+    const ceiling = new THREE.Mesh(ceilingGeo, ceilingMat)
+    ceiling.rotation.x = Math.PI / 2
+    ceiling.position.y = height
+    group.add(ceiling)
+    disposables.push(ceilingGeo, ceilingMat)
+  }
 
   const wallMat = new THREE.MeshStandardMaterial({
 	color: mode === 'lobby' ? palette.wall : 0xffffff,
@@ -148,29 +386,105 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     roughness: 0.92,
     metalness: 0.0,
   })
-  const wallNSGeo = new THREE.BoxGeometry(width, height, wallThickness)
-  const wallEWGeo = new THREE.BoxGeometry(wallThickness, height, length)
-
+  
   const halfW = width / 2
   const halfL = length / 2
 
-  const northWall = new THREE.Mesh(wallNSGeo, wallMat)
-  northWall.position.set(0, height / 2, -halfL)
-  group.add(northWall)
+  if (mode === 'lobby') {
+    // For lobby: create walls with different heights for central and platform areas
+    const platformHeight = 1.4
+    const upperCeilingHeight = height + 1.6
+    const centerWidth = width * 0.45
+    const platformWidth = (width - centerWidth) / 2
+    
+    // North wall - central section (full height)
+    const northCentralGeo = new THREE.BoxGeometry(centerWidth, upperCeilingHeight, wallThickness)
+    const northCentral = new THREE.Mesh(northCentralGeo, wallMat)
+    northCentral.position.set(0, upperCeilingHeight / 2, -halfL)
+    northCentral.name = 'north-wall-central'
+    group.add(northCentral)
+    disposables.push(northCentralGeo)
+    
+    // North wall - east platform section (taller)
+    const northEastGeo = new THREE.BoxGeometry(platformWidth, upperCeilingHeight - platformHeight, wallThickness)
+    const northEast = new THREE.Mesh(northEastGeo, wallMat)
+    northEast.position.set(centerWidth / 2 + platformWidth / 2, platformHeight + (upperCeilingHeight - platformHeight) / 2, -halfL)
+    northEast.name = 'north-wall-east'
+    group.add(northEast)
+    disposables.push(northEastGeo)
+    
+    // North wall - west platform section (taller)
+    const northWestGeo = new THREE.BoxGeometry(platformWidth, upperCeilingHeight - platformHeight, wallThickness)
+    const northWest = new THREE.Mesh(northWestGeo, wallMat)
+    northWest.position.set(-(centerWidth / 2 + platformWidth / 2), platformHeight + (upperCeilingHeight - platformHeight) / 2, -halfL)
+    northWest.name = 'north-wall-west'
+    group.add(northWest)
+    disposables.push(northWestGeo)
+    
+    // South wall - central section (full height)
+    const southCentralGeo = new THREE.BoxGeometry(centerWidth, upperCeilingHeight, wallThickness)
+    const southCentral = new THREE.Mesh(southCentralGeo, wallMat)
+    southCentral.position.set(0, upperCeilingHeight / 2, halfL)
+    southCentral.name = 'south-wall-central'
+    group.add(southCentral)
+    disposables.push(southCentralGeo)
+    
+    // South wall - east platform section (taller)
+    const southEastGeo = new THREE.BoxGeometry(platformWidth, upperCeilingHeight - platformHeight, wallThickness)
+    const southEast = new THREE.Mesh(southEastGeo, wallMat)
+    southEast.position.set(centerWidth / 2 + platformWidth / 2, platformHeight + (upperCeilingHeight - platformHeight) / 2, halfL)
+    southEast.name = 'south-wall-east'
+    group.add(southEast)
+    disposables.push(southEastGeo)
+    
+    // South wall - west platform section (taller)
+    const southWestGeo = new THREE.BoxGeometry(platformWidth, upperCeilingHeight - platformHeight, wallThickness)
+    const southWest = new THREE.Mesh(southWestGeo, wallMat)
+    southWest.position.set(-(centerWidth / 2 + platformWidth / 2), platformHeight + (upperCeilingHeight - platformHeight) / 2, halfL)
+    southWest.name = 'south-wall-west'
+    group.add(southWest)
+    disposables.push(southWestGeo)
+    
+    // East wall - full height
+    const eastWallGeo = new THREE.BoxGeometry(wallThickness, upperCeilingHeight, length)
+    const eastWall = new THREE.Mesh(eastWallGeo, wallMat)
+    eastWall.position.set(halfW, upperCeilingHeight / 2, 0)
+    eastWall.name = 'east-wall'
+    group.add(eastWall)
+    disposables.push(eastWallGeo)
+    
+    // West wall - full height
+    const westWallGeo = new THREE.BoxGeometry(wallThickness, upperCeilingHeight, length)
+    const westWall = new THREE.Mesh(westWallGeo, wallMat)
+    westWall.position.set(-halfW, upperCeilingHeight / 2, 0)
+    westWall.name = 'west-wall'
+    group.add(westWall)
+    disposables.push(westWallGeo)
+  } else {
+    // Standard walls for gallery mode
+    const wallNSGeo = new THREE.BoxGeometry(width, height, wallThickness)
+    const wallEWGeo = new THREE.BoxGeometry(wallThickness, height, length)
 
-  const southWall = new THREE.Mesh(wallNSGeo, wallMat)
-  southWall.position.set(0, height / 2, halfL)
-  group.add(southWall)
+    const northWall = new THREE.Mesh(wallNSGeo, wallMat)
+    northWall.position.set(0, height / 2, -halfL)
+    group.add(northWall)
 
-  const eastWall = new THREE.Mesh(wallEWGeo, wallMat)
-  eastWall.position.set(halfW, height / 2, 0)
-  group.add(eastWall)
+    const southWall = new THREE.Mesh(wallNSGeo, wallMat)
+    southWall.position.set(0, height / 2, halfL)
+    group.add(southWall)
 
-  const westWall = new THREE.Mesh(wallEWGeo, wallMat)
-  westWall.position.set(-halfW, height / 2, 0)
-  group.add(westWall)
+    const eastWall = new THREE.Mesh(wallEWGeo, wallMat)
+    eastWall.position.set(halfW, height / 2, 0)
+    group.add(eastWall)
 
-  disposables.push(wallMat, wallNSGeo, wallEWGeo)
+    const westWall = new THREE.Mesh(wallEWGeo, wallMat)
+    westWall.position.set(-halfW, height / 2, 0)
+    group.add(westWall)
+
+    disposables.push(wallNSGeo, wallEWGeo)
+  }
+
+  disposables.push(wallMat)
 
   const slots = []
   const doors = []
@@ -182,11 +496,37 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
   const surfaceOffset = wallThickness / 2 + 0.02
 
-  const walls = {
-    north: { center: new THREE.Vector3(0, height / 2, -halfL), normal: new THREE.Vector3(0, 0, 1), wallWidth: width, wallHeight: height },
-    south: { center: new THREE.Vector3(0, height / 2, halfL), normal: new THREE.Vector3(0, 0, -1), wallWidth: width, wallHeight: height },
-    east: { center: new THREE.Vector3(halfW, height / 2, 0), normal: new THREE.Vector3(-1, 0, 0), wallWidth: length, wallHeight: height },
-    west: { center: new THREE.Vector3(-halfW, height / 2, 0), normal: new THREE.Vector3(1, 0, 0), wallWidth: length, wallHeight: height },
+  // Define walls configuration - for lobby mode, east/west walls should be on elevated platforms
+  let walls
+  if (mode === 'lobby') {
+    const platformHeight = 1.4
+    const upperCeilingHeight = height + 1.6
+    const platformWidth = 4.0
+    const centerWidth = width - 2 * platformWidth
+    
+    walls = {
+      north: { center: new THREE.Vector3(0, upperCeilingHeight / 2, -halfL), normal: new THREE.Vector3(0, 0, 1), wallWidth: width, wallHeight: upperCeilingHeight },
+      south: { center: new THREE.Vector3(0, upperCeilingHeight / 2, halfL), normal: new THREE.Vector3(0, 0, -1), wallWidth: width, wallHeight: upperCeilingHeight },
+      east: { 
+        center: new THREE.Vector3(halfW, platformHeight + (upperCeilingHeight - platformHeight) / 2, 0), 
+        normal: new THREE.Vector3(-1, 0, 0), 
+        wallWidth: length, 
+        wallHeight: upperCeilingHeight - platformHeight 
+      },
+      west: { 
+        center: new THREE.Vector3(-halfW, platformHeight + (upperCeilingHeight - platformHeight) / 2, 0), 
+        normal: new THREE.Vector3(1, 0, 0), 
+        wallWidth: length, 
+        wallHeight: upperCeilingHeight - platformHeight 
+      },
+    }
+  } else {
+    walls = {
+      north: { center: new THREE.Vector3(0, height / 2, -halfL), normal: new THREE.Vector3(0, 0, 1), wallWidth: width, wallHeight: height },
+      south: { center: new THREE.Vector3(0, height / 2, halfL), normal: new THREE.Vector3(0, 0, -1), wallWidth: width, wallHeight: height },
+      east: { center: new THREE.Vector3(halfW, height / 2, 0), normal: new THREE.Vector3(-1, 0, 0), wallWidth: length, wallHeight: height },
+      west: { center: new THREE.Vector3(-halfW, height / 2, 0), normal: new THREE.Vector3(1, 0, 0), wallWidth: length, wallHeight: height },
+    }
   }
 
   function makeNoPhotoTexture({ size = 512, title = 'NO PHOTO', subtitle = 'No image available' } = {}) {
