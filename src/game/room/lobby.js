@@ -110,7 +110,7 @@ export function buildLobbyRoom(ctx, lobby) {
         const h = img.naturalHeight * scale
 
         ctx2.save()
-        ctx2.globalAlpha = 0.75
+        ctx2.globalAlpha = 1
         ctx2.drawImage(img, cx - w / 2, cy - h / 2, w, h)
         ctx2.restore()
       }
@@ -510,7 +510,9 @@ export function buildLobbyRoom(ctx, lobby) {
     frameGroup.add(matte)
     disposables.push(matteGeo)
     
-    const photoTexture = new THREE.TextureLoader().load('/linkwalk/lobbyphoto.png')
+    const baseUrl = import.meta.env.BASE_URL || '/'
+    const photoUrl = baseUrl.endsWith('/') ? `${baseUrl}lobbyphoto.png` : `${baseUrl}/lobbyphoto.png`
+    const photoTexture = new THREE.TextureLoader().load(photoUrl)
     photoTexture.colorSpace = THREE.SRGBColorSpace
     
     const photoGeo = new THREE.PlaneGeometry(frameW + frameThickness * 2, frameH + frameThickness * 2)
