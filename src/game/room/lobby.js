@@ -64,7 +64,7 @@ export function buildLobbyRoom(ctx, lobby) {
       const itemColor = 'rgba(0,0,0,0.92)'
 
       function drawWelcome() {
-        const lines = ['WELCOME TO', 'VIRTUAL', 'MUSEUM']
+        const lines = []
         const centerX = canvas.width / 2
         const maxWidth = Math.max(260, midW * 0.92)
 
@@ -105,7 +105,7 @@ export function buildLobbyRoom(ctx, lobby) {
         const h = img.naturalHeight * scale
 
         ctx2.save()
-        ctx2.globalAlpha = 0.25
+        ctx2.globalAlpha = 0.75
         ctx2.drawImage(img, cx - w / 2, cy - h / 2, w, h)
         ctx2.restore()
       }
