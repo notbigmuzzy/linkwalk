@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { clamp, roundTo } from '../../misc/helper.js'
+import lobbyPhotoUrl from '../../assets/lobbyphoto.png'
 
 export function buildLobbyRoom(ctx, lobby) {
   const {
@@ -510,9 +511,7 @@ export function buildLobbyRoom(ctx, lobby) {
     frameGroup.add(matte)
     disposables.push(matteGeo)
     
-    const baseUrl = import.meta.env.BASE_URL || '/'
-    const photoUrl = baseUrl.endsWith('/') ? `${baseUrl}lobbyphoto.png` : `${baseUrl}/lobbyphoto.png`
-    const photoTexture = new THREE.TextureLoader().load(photoUrl)
+    const photoTexture = new THREE.TextureLoader().load(lobbyPhotoUrl)
     photoTexture.colorSpace = THREE.SRGBColorSpace
     
     const photoGeo = new THREE.PlaneGeometry(frameW + frameThickness * 2, frameH + frameThickness * 2)
