@@ -1295,19 +1295,12 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     const steps = trail.length ? trail : (fallbackTitle ? [fallbackTitle] : [])
 
     if (steps.length > 0) {
-
-
       const textGapU = 0.65
       const textMargin = 1.6
       const textUsable = Math.max(2.8, length - textMargin * 2)
       const textPanelW = clamp((textUsable - textGapU) / 2, 1.7, 3.4)
       const desiredBoardW = 2 * textPanelW
-
-
       const shrunkBoardW = desiredBoardW * 0.8
-
-
-
       const northDoorW = 1.1
       const cornerMargin = 1.6
       const doorCenterAbs = Math.max(0, halfW - cornerMargin)
@@ -1320,7 +1313,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       const boardDepth = 0.08
 
       const innerNorthZ = -halfL + wallThickness / 2
-
 
       const photoCount = 4
       const photoMargin = 1.75

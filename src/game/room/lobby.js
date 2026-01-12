@@ -332,7 +332,7 @@ export function buildLobbyRoom(ctx, lobby) {
     const legZ = seatD / 2 - 0.18
 
     function addBenchAt(x) {
-      // Determine if bench is on platform or ground floor
+
       const halfCenterWidth = centerWidth / 2
       const isOnPlatform = Math.abs(x) > halfCenterWidth
       const benchY = isOnPlatform ? platformHeight : 0
@@ -391,7 +391,7 @@ export function buildLobbyRoom(ctx, lobby) {
     disposables.push(potGeo, soilGeo, trunkGeo, frondGeo)
 
     function addPlantAt(x) {
-      // Determine if plant is on platform or ground floor
+
       const halfCenterWidth = centerWidth / 2
       const isOnPlatform = Math.abs(x) > halfCenterWidth
       const plantY = isOnPlatform ? platformHeight : 0
@@ -455,6 +455,74 @@ export function buildLobbyRoom(ctx, lobby) {
     addPlantAt(xPlant2)
     addBenchAt(xBench2)
     addPlantAt(xPlant3)
+    
+    const frameW = boardW
+    const frameH = boardH
+    const frameDepth = 0.08
+    const frameThickness = 0.12
+    const frameY = height * 0.7
+    
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1f, roughness: 0.3, metalness: 0.1 })
+    const matteMat = new THREE.MeshStandardMaterial({ color: 0xf5f5f0, roughness: 0.9, metalness: 0.0 })
+    disposables.push(frameMat, matteMat)
+    
+    const frameGroup = new THREE.Group()
+    frameGroup.name = 'photo-frame-south'
+    frameGroup.position.set(0, frameY, innerSouthZ)
+    frameGroup.rotation.y = Math.PI
+    decoSouth.add(frameGroup)
+    
+    const backPanelGeo = new THREE.BoxGeometry(frameW + frameThickness * 2, frameH + frameThickness * 2, frameDepth)
+    const backPanelMat = new THREE.MeshStandardMaterial({ color: 0x0d0d10, roughness: 0.8, metalness: 0.0 })
+    const backPanel = new THREE.Mesh(backPanelGeo, backPanelMat)
+    backPanel.position.set(0, 0, 0)
+    frameGroup.add(backPanel)
+    disposables.push(backPanelGeo, backPanelMat)
+    
+    const topBorderGeo = new THREE.BoxGeometry(frameW + frameThickness * 2, frameThickness, frameDepth)
+    const topBorder = new THREE.Mesh(topBorderGeo, frameMat)
+    topBorder.position.set(0, frameH / 2 + frameThickness / 2, frameDepth / 2 + 0.001)
+    frameGroup.add(topBorder)
+    disposables.push(topBorderGeo)
+    
+    const bottomBorderGeo = new THREE.BoxGeometry(frameW + frameThickness * 2, frameThickness, frameDepth)
+    const bottomBorder = new THREE.Mesh(bottomBorderGeo, frameMat)
+    bottomBorder.position.set(0, -(frameH / 2 + frameThickness / 2), frameDepth / 2 + 0.001)
+    frameGroup.add(bottomBorder)
+    disposables.push(bottomBorderGeo)
+    
+    const leftBorderGeo = new THREE.BoxGeometry(frameThickness, frameH, frameDepth)
+    const leftBorder = new THREE.Mesh(leftBorderGeo, frameMat)
+    leftBorder.position.set(-(frameW / 2 + frameThickness / 2), 0, frameDepth / 2 + 0.001)
+    frameGroup.add(leftBorder)
+    disposables.push(leftBorderGeo)
+    
+    const rightBorderGeo = new THREE.BoxGeometry(frameThickness, frameH, frameDepth)
+    const rightBorder = new THREE.Mesh(rightBorderGeo, frameMat)
+    rightBorder.position.set(frameW / 2 + frameThickness / 2, 0, frameDepth / 2 + 0.001)
+    frameGroup.add(rightBorder)
+    disposables.push(rightBorderGeo)
+    
+    const matteGeo = new THREE.PlaneGeometry(frameW * 0.92, frameH * 0.92)
+    const matte = new THREE.Mesh(matteGeo, matteMat)
+    matte.position.set(0, 0, frameDepth / 2 + 0.002)
+    matte.rotation.y = Math.PI
+    frameGroup.add(matte)
+    disposables.push(matteGeo)
+    
+    const photoTexture = new THREE.TextureLoader().load('/linkwalk/lobbyphoto.png')
+    photoTexture.colorSpace = THREE.SRGBColorSpace
+    
+    const photoGeo = new THREE.PlaneGeometry(frameW + frameThickness * 2, frameH + frameThickness * 2)
+    const photoMat = new THREE.MeshBasicMaterial({ 
+      map: photoTexture,
+      side: THREE.DoubleSide
+    })
+    const photo = new THREE.Mesh(photoGeo, photoMat)
+    photo.position.set(0, 0, frameDepth / 2 + 0.01)
+    photo.rotation.y = Math.PI
+    frameGroup.add(photo)
+    disposables.push(photoGeo, photoMat, photoTexture)
   }
 
   {
@@ -703,7 +771,7 @@ export function buildLobbyRoom(ctx, lobby) {
       const angleY = Math.atan2(dz, dx)
       const angleZ = Math.atan2(dy, railLength)
       
-      // Top rail
+
       const topRailGeo = new THREE.CylinderGeometry(railThickness, railThickness, railLength3D, 12)
       const topRail = new THREE.Mesh(topRailGeo, railMat)
       topRail.rotation.z = Math.PI / 2 + angleZ
@@ -712,7 +780,7 @@ export function buildLobbyRoom(ctx, lobby) {
       rail.add(topRail)
       disposables.push(topRailGeo)
       
-      // Mid rail
+
       const midRailGeo = new THREE.CylinderGeometry(railThickness * 0.8, railThickness * 0.8, railLength3D, 12)
       const midRail = new THREE.Mesh(midRailGeo, railMat)
       midRail.rotation.z = Math.PI / 2 + angleZ
@@ -721,7 +789,7 @@ export function buildLobbyRoom(ctx, lobby) {
       rail.add(midRail)
       disposables.push(midRailGeo)
       
-      // Posts
+
       const postCount = Math.max(2, Math.ceil(railLength / postSpacing))
       const postGeo = new THREE.CylinderGeometry(postRadius, postRadius, railHeight, 12)
       disposables.push(postGeo)
@@ -739,7 +807,6 @@ export function buildLobbyRoom(ctx, lobby) {
       }
     }
     
-    // East platform front edge (facing center)
     const eastEdgeX = centerWidth / 2
     addRailing({
       startX: eastEdgeX,
@@ -761,7 +828,6 @@ export function buildLobbyRoom(ctx, lobby) {
       name: 'railing-east-south',
     })
     
-    // West platform front edge (facing center)
     const westEdgeX = -centerWidth / 2
     addRailing({
       startX: westEdgeX,
@@ -783,7 +849,6 @@ export function buildLobbyRoom(ctx, lobby) {
       name: 'railing-west-south',
     })
     
-    // East stairs railings - sloping from ground to platform
     addRailing({
       startX: eastStairStartX - totalStairsDepth,
       startZ: -stepWidth / 2,
@@ -804,7 +869,6 @@ export function buildLobbyRoom(ctx, lobby) {
       name: 'railing-east-stair-south',
     })
     
-    // West stairs railings - sloping from ground to platform
     addRailing({
       startX: westStairStartX + totalStairsDepth,
       startZ: -stepWidth / 2,
