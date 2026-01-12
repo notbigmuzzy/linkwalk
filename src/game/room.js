@@ -988,7 +988,9 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
         y += 18
         descCtx.font = '500 38px system-ui, -apple-system, Segoe UI, Roboto, Arial'
         descCtx.fillStyle = 'rgba(255,255,255,0.92)'
-        const descLines = wrapText(descCtx, description, descCanvas.width - padX * 2, 6)
+        // Cap to first sentence
+        const firstSentence = description.split('.')[0] + '.'
+        const descLines = wrapText(descCtx, firstSentence, descCanvas.width - padX * 2, 6)
         for (const line of descLines) {
           descCtx.fillText(line, padX, y)
           y += 48
@@ -2117,7 +2119,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
           y += titleSpacing
         }
 
-        const bodyFontSize = twoColumn ? Math.min(20, Math.floor(maxW * 0.02)) : Math.floor(maxW * 0.038)
+        const bodyFontSize = twoColumn ? Math.min(18, Math.floor(maxW * 0.018)) : Math.floor(maxW * 0.038)
         ctx.font = `600 ${bodyFontSize}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
         ctx.fillStyle = 'rgba(255,255,255,0.9)'
 
@@ -2155,7 +2157,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
         if (twoColumn) {
           const columnWidth = (maxWidth - pad) / 2
-          const linesPerColumn = Math.floor((canvas.height - y - pad) / lineHeight)
+          const linesPerColumn = Math.floor((canvas.height - y - pad * 0.5) / lineHeight)
           const maxLinesToShow = linesPerColumn * 2
           
           let i = nextLine
