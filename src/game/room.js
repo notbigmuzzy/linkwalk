@@ -394,8 +394,8 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
     // For lobby: create walls with different heights for central and platform areas
     const platformHeight = 1.4
     const upperCeilingHeight = height + 1.6
-    const centerWidth = width * 0.45
-    const platformWidth = (width - centerWidth) / 2
+    const platformWidth = 4.0
+    const centerWidth = width - 2 * platformWidth
     
     // North wall - central section (full height)
     const northCentralGeo = new THREE.BoxGeometry(centerWidth, upperCeilingHeight, wallThickness)
