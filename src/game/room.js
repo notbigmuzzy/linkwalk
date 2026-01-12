@@ -1663,15 +1663,11 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       const gapU = 0.65
       const margin = 1.6
       const usable = Math.max(2.8, length - margin * 2)
-      const panelW = clamp((usable - gapU) / 2, 1.7, 3.4)
-      const panelH = clamp(height * 0.55, 1.35, 2.05)
+      const panelW = clamp(usable, 3.74, 7.7)
+      const panelH = clamp(height * 0.8, 1.9, 3.0)
       const y = clamp(stdFrameY, panelH / 2 + 0.25, height - panelH / 2 - 0.25)
 
-      const uNeg = -(panelW / 2 + gapU / 2)
-      const uPos = panelW / 2 + gapU / 2
-
-      addSlot({ id: 'west-text-0', wall: 'west', kind: 'frame', w: panelW, h: panelH, y, u: uPos, color: 0xd9d9de, opacity: 1 })
-      addSlot({ id: 'west-text-1', wall: 'west', kind: 'frame', w: panelW, h: panelH, y, u: uNeg, color: 0xd9d9de, opacity: 1 })
+      addSlot({ id: 'west-text-0', wall: 'west', kind: 'frame', w: panelW, h: panelH, y, u: 0, color: 0xd9d9de, opacity: 1 })
     }
   }
 
@@ -2062,7 +2058,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       placeCaptionUnderSlot(slot, label || (safeUrl ? 'Untitled' : 'No photo'))
     }
 
-    function makeWallTextTexture({ size = 1024, title, text, aspect, startLine = 0, withTitle = true } = {}) {
+    function makeWallTextTexture({ size = 1024, title, text, aspect, startLine = 0, withTitle = true, twoColumn = false } = {}) {
       const maxW = typeof size === 'number' && Number.isFinite(size) ? Math.max(512, Math.floor(size)) : 1024
       const a = typeof aspect === 'number' && Number.isFinite(aspect) && aspect > 0 ? aspect : null
 
@@ -2103,7 +2099,8 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
         if (withTitle) {
           ctx.fillStyle = 'rgba(223,255,233,0.96)'
-          ctx.font = `800 ${Math.floor(maxW * 0.072)}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
+          const titleFontSize = twoColumn ? Math.min(52, Math.floor(maxW * 0.052)) : Math.floor(maxW * 0.072)
+          ctx.font = `800 ${titleFontSize}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
           const titleMaxWidth = canvas.width - pad * 1.5
           const ell = '…'
           const twoCharPad = ctx.measureText('MM').width
@@ -2116,10 +2113,11 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
           }
 
           ctx.fillText(titleOut, pad, y)
-          y += Math.floor(maxW * 0.09)
+          const titleSpacing = twoColumn ? Math.min(65, Math.floor(maxW * 0.065)) : Math.floor(maxW * 0.09)
+          y += titleSpacing
         }
 
-        const bodyFontSize = Math.floor(maxW * 0.038)
+        const bodyFontSize = twoColumn ? Math.min(20, Math.floor(maxW * 0.02)) : Math.floor(maxW * 0.038)
         ctx.font = `600 ${bodyFontSize}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
         ctx.fillStyle = 'rgba(255,255,255,0.9)'
 
@@ -2149,31 +2147,75 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
         for (const para of paragraphs) {
           const trimmed = String(para || '').trim()
           if (!trimmed) continue
-          const lines = wrapText(trimmed, maxWidth)
+          const lines = wrapText(trimmed, twoColumn ? (maxWidth - pad) / 2 : maxWidth)
           for (const line of lines) allLines.push(line)
           allLines.push('')
         }
         while (allLines.length > 0 && allLines[allLines.length - 1] === '') allLines.pop()
 
-        let i = nextLine
-        while (i < allLines.length) {
-          const line = allLines[i]
-          if (line) {
-            ctx.fillText(line, pad, y)
-            y += lineHeight
-          } else {
-            y += Math.floor(lineHeight * 0.55)
-          }
-
-          if (y > canvas.height - pad) {
+        if (twoColumn) {
+          const columnWidth = (maxWidth - pad) / 2
+          const linesPerColumn = Math.floor((canvas.height - y - pad) / lineHeight)
+          const maxLinesToShow = linesPerColumn * 2
+          
+          let i = nextLine
+          let leftY = y
+          let rightY = y
+          let currentColumn = 0
+          
+          while (i < allLines.length && i < nextLine + maxLinesToShow) {
+            const line = allLines[i]
+            
+            if (currentColumn === 0) {
+              // Left column
+              if (line) {
+                ctx.fillText(line, pad, leftY)
+                leftY += lineHeight
+              } else {
+                leftY += Math.floor(lineHeight * 0.55)
+              }
+              
+              if (leftY > canvas.height - pad || (i - nextLine) >= linesPerColumn - 1) {
+                currentColumn = 1
+              }
+            } else {
+              // Right column
+              if (line) {
+                ctx.fillText(line, pad + columnWidth + pad, rightY)
+                rightY += lineHeight
+              } else {
+                rightY += Math.floor(lineHeight * 0.55)
+              }
+              
+              if (rightY > canvas.height - pad) {
+                i += 1
+                break
+              }
+            }
+            
             i += 1
-            break
           }
+          nextLine = i
+        } else {
+          let i = nextLine
+          while (i < allLines.length) {
+            const line = allLines[i]
+            if (line) {
+              ctx.fillText(line, pad, y)
+              y += lineHeight
+            } else {
+              y += Math.floor(lineHeight * 0.55)
+            }
 
-          i += 1
+            if (y > canvas.height - pad) {
+              i += 1
+              break
+            }
+
+            i += 1
+          }
+          nextLine = i
         }
-
-        nextLine = i
       }
 
       const tex = new THREE.CanvasTexture(canvas)
@@ -2183,7 +2225,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       return { tex, nextLine }
     }
 
-    function placeTextInSlot(slot, { title, text, startLine = 0, withTitle = true } = {}) {
+    function placeTextInSlot(slot, { title, text, startLine = 0, withTitle = true, twoColumn = false } = {}) {
       if (!slot) return
 
       const baseW = slot.width * 0.96
@@ -2204,7 +2246,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       group.add(mesh)
       disposables.push(geo, mat)
 
-      const { tex, nextLine } = makeWallTextTexture({ size: 1024, title, text, aspect: baseW / baseH, startLine, withTitle })
+      const { tex, nextLine } = makeWallTextTexture({ size: 1024, title, text, aspect: baseW / baseH, startLine, withTitle, twoColumn })
       mat.map = tex
       mat.color.setHex(0xffffff)
       mat.needsUpdate = true
@@ -2233,10 +2275,8 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
       const source = (longExtract || description || '').trim() || 'No additional info available'
 
       const panel0 = slotById('west-text-0')
-      const panel1 = slotById('west-text-1')
 
-      const nextLine = placeTextInSlot(panel0, { title: galleryTitle || 'Wikipedia', text: source, startLine: 0, withTitle: true })
-      placeTextInSlot(panel1, { title: galleryTitle || 'Wikipedia', text: source, startLine: nextLine || 0, withTitle: false })
+      placeTextInSlot(panel0, { title: galleryTitle || 'Wikipedia', text: source, startLine: 0, withTitle: false, twoColumn: true })
     }
   }
 
