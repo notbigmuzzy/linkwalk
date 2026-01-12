@@ -22,6 +22,11 @@ export function buildLobbyRoom(ctx, lobby) {
     addDoor,
   } = ctx
 
+  // Define platform dimensions at the top for use throughout
+  const platformHeight = 1.4
+  const platformWidth = 4.0
+  const centerWidth = width - 2 * platformWidth
+
   const categories =
     Array.isArray(lobby?.categories) && lobby.categories.length > 0
       ? lobby.categories
@@ -255,6 +260,7 @@ export function buildLobbyRoom(ctx, lobby) {
         wall: 'east',
         w: doorW,
         h: doorH,
+        y: -0.1,
         u,
         meta: { category: eastCategory },
       })
@@ -267,6 +273,7 @@ export function buildLobbyRoom(ctx, lobby) {
         wall: 'west',
         w: doorW,
         h: doorH,
+        y: -0.1,
         u,
         meta: { category: westCategory },
       })
@@ -325,9 +332,14 @@ export function buildLobbyRoom(ctx, lobby) {
     const legZ = seatD / 2 - 0.18
 
     function addBenchAt(x) {
+      // Determine if bench is on platform or ground floor
+      const halfCenterWidth = centerWidth / 2
+      const isOnPlatform = Math.abs(x) > halfCenterWidth
+      const benchY = isOnPlatform ? platformHeight : 0
+      
       const b = new THREE.Group()
       b.name = 'bench-south-lobby'
-      b.position.set(x, 0, benchZ)
+      b.position.set(x, benchY, benchZ)
 
       b.rotation.y = Math.PI
       decoSouth.add(b)
@@ -350,7 +362,7 @@ export function buildLobbyRoom(ctx, lobby) {
         }
       }
 
-      obstacles.push({ type: 'box', x, z: benchZ, w: seatW * 0.95, d: seatD * 1.15 })
+      obstacles.push({ type: 'box', x, z: benchZ, y: benchY, w: seatW * 0.95, d: seatD * 1.15 })
     }
 
     const potR = 0.28
@@ -379,9 +391,14 @@ export function buildLobbyRoom(ctx, lobby) {
     disposables.push(potGeo, soilGeo, trunkGeo, frondGeo)
 
     function addPlantAt(x) {
+      // Determine if plant is on platform or ground floor
+      const halfCenterWidth = centerWidth / 2
+      const isOnPlatform = Math.abs(x) > halfCenterWidth
+      const plantY = isOnPlatform ? platformHeight : 0
+      
       const plant = new THREE.Group()
       plant.name = 'plant-south-lobby'
-      plant.position.set(x, 0, plantZ)
+      plant.position.set(x, plantY, plantZ)
       decoSouth.add(plant)
 
       const pot = new THREE.Mesh(potGeo, potMat)
@@ -411,7 +428,7 @@ export function buildLobbyRoom(ctx, lobby) {
         fronds.add(f)
       }
 
-      obstacles.push({ type: 'cylinder', x, z: plantZ, radius: 0.38 })
+      obstacles.push({ type: 'cylinder', x, z: plantZ, y: plantY, radius: 0.38 })
     }
 
     const margin = 1.0
@@ -425,11 +442,11 @@ export function buildLobbyRoom(ctx, lobby) {
 
     const xPlant1 = cursor + plantSpan / 2
     cursor += plantSpan + gap
-    const xBench1 = cursor + benchSpan / 2
+    const xBench1 = cursor + benchSpan / 2 + 2.0  // Move bench toward center
     cursor += benchSpan + gap
     const xPlant2 = cursor + plantSpan / 2
     cursor += plantSpan + gap
-    const xBench2 = cursor + benchSpan / 2
+    const xBench2 = cursor + benchSpan / 2 - 2.0  // Move bench toward center
     cursor += benchSpan + gap
     const xPlant3 = cursor + plantSpan / 2
 
@@ -481,7 +498,7 @@ export function buildLobbyRoom(ctx, lobby) {
     function addCornerPlant({ x, z, name }) {
       const plant = new THREE.Group()
       plant.name = name
-      plant.position.set(x, 0, z)
+      plant.position.set(x, platformHeight, z)  // Raised to platform level
 
       plant.rotation.y = Math.PI
       group.add(plant)
@@ -513,13 +530,155 @@ export function buildLobbyRoom(ctx, lobby) {
         fronds.add(f)
       }
 
-      obstacles.push({ type: 'cylinder', x, z, radius: 0.38 })
+      obstacles.push({ type: 'cylinder', x, z, y: platformHeight, radius: 0.38 })
     }
 
     const z = innerNorthZ + insetZ
     addCornerPlant({ x: innerWestX + insetX, z, name: 'plant-nw-lobby' })
     addCornerPlant({ x: innerEastX - insetX, z, name: 'plant-ne-lobby' })
   }
+
+  // Add collision for elevated platforms and stairs
+  const stepCount = 7
+  const stepDepth = 0.35
+  const stepWidth = length * 0.35
+  const totalStairsDepth = stepCount * stepDepth
+  
+  // East platform top surface - walkable
+  obstacles.push({
+    type: 'floor',
+    x: centerWidth / 2 + platformWidth / 2,
+    y: platformHeight,
+    z: 0,
+    w: platformWidth,
+    d: length,
+  })
+  
+  // East platform walls - block sides but leave gap for stairs
+  const stairGapHalfWidth = stepWidth / 2 + 0.3
+  const northSectionDepth = (length - stairGapHalfWidth * 2) / 2
+  
+  // North section of east platform wall
+  obstacles.push({
+    type: 'box',
+    x: centerWidth / 2,
+    y: platformHeight / 2,
+    z: -(northSectionDepth / 2 + stairGapHalfWidth),
+    w: 0.2,
+    d: northSectionDepth,
+  })
+  
+  // South section of east platform wall
+  obstacles.push({
+    type: 'box',
+    x: centerWidth / 2,
+    y: platformHeight / 2,
+    z: northSectionDepth / 2 + stairGapHalfWidth,
+    w: 0.2,
+    d: northSectionDepth,
+  })
+  
+  // West platform top surface - walkable
+  obstacles.push({
+    type: 'floor',
+    x: -(centerWidth / 2 + platformWidth / 2),
+    y: platformHeight,
+    z: 0,
+    w: platformWidth,
+    d: length,
+  })
+  
+  // North section of west platform wall
+  obstacles.push({
+    type: 'box',
+    x: -centerWidth / 2,
+    y: platformHeight / 2,
+    z: -(northSectionDepth / 2 + stairGapHalfWidth),
+    w: 0.2,
+    d: northSectionDepth,
+  })
+  
+  // South section of west platform wall
+  obstacles.push({
+    type: 'box',
+    x: -centerWidth / 2,
+    y: platformHeight / 2,
+    z: northSectionDepth / 2 + stairGapHalfWidth,
+    w: 0.2,
+    d: northSectionDepth,
+  })
+  
+  // Stair collision - each individual step as floor obstacles (walkable, not blocking)
+  const stepHeight = platformHeight / stepCount
+  const stepThickness = 0.1
+  
+  // East stairs - positioned leading up to platform
+  const eastStairStartX = centerWidth / 2
+  for (let i = 0; i < stepCount; i++) {
+    const xPos = eastStairStartX - totalStairsDepth + (i + 0.5) * stepDepth
+    const yPos = (i + 1) * stepHeight
+    obstacles.push({
+      type: 'floor',  // Special type for walkable surfaces that don't block horizontally
+      x: xPos,
+      y: yPos,
+      z: 0,
+      w: stepDepth,
+      d: stepWidth,
+    })
+  }
+  
+  // East stair side walls
+  obstacles.push({
+    type: 'box',
+    x: eastStairStartX - totalStairsDepth / 2,
+    y: platformHeight / 2,
+    z: -stepWidth / 2,
+    w: totalStairsDepth,
+    d: 0.2,
+  })
+  
+  obstacles.push({
+    type: 'box',
+    x: eastStairStartX - totalStairsDepth / 2,
+    y: platformHeight / 2,
+    z: stepWidth / 2,
+    w: totalStairsDepth,
+    d: 0.2,
+  })
+  
+  // West stairs - positioned leading up to platform
+  const westStairStartX = -centerWidth / 2
+  for (let i = 0; i < stepCount; i++) {
+    const xPos = westStairStartX + totalStairsDepth - (i + 0.5) * stepDepth
+    const yPos = (i + 1) * stepHeight
+    obstacles.push({
+      type: 'floor',  // Special type for walkable surfaces that don't block horizontally
+      x: xPos,
+      y: yPos,
+      z: 0,
+      w: stepDepth,
+      d: stepWidth,
+    })
+  }
+  
+  // West stair side walls
+  obstacles.push({
+    type: 'box',
+    x: westStairStartX + totalStairsDepth / 2,
+    y: platformHeight / 2,
+    z: -stepWidth / 2,
+    w: totalStairsDepth,
+    d: 0.2,
+  })
+  
+  obstacles.push({
+    type: 'box',
+    x: westStairStartX + totalStairsDepth / 2,
+    y: platformHeight / 2,
+    z: stepWidth / 2,
+    w: totalStairsDepth,
+    d: 0.2,
+  })
 
   group.add(markers)
 

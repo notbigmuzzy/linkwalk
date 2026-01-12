@@ -355,7 +355,7 @@ export function startYourEngines({
   }) {
     const wallThickness = 0.2
 
-    let roomWidth = 14
+    let roomWidth = 21  // Reduced from 28 (75% of 28)
     let roomLength = 18
     let roomHeight = 4
 
@@ -698,19 +698,66 @@ export function startYourEngines({
     camera.position.x += moveX * dt
     camera.position.z += moveZ * dt
 
-    velocity.y += gravity * dt
-    if (jumpRequested && grounded) {
-      velocity.y = jumpSpeed
-      grounded = false
+    // Check for elevated floor from obstacles (platforms/stairs) BEFORE applying gravity
+    let floorY = 0
+    const px = camera.position.x
+    const pz = camera.position.z
+    const playerRadius = 0.35
+    const maxStepHeight = 0.5  // Maximum height player can automatically step up
+    
+    for (const o of roomObstacles) {
+      if (!o || (o.type !== 'box' && o.type !== 'floor')) continue
+      const ox = typeof o.x === 'number' ? o.x : 0
+      const oy = typeof o.y === 'number' ? o.y : 0
+      const oz = typeof o.z === 'number' ? o.z : 0
+      const w = typeof o.w === 'number' ? o.w : 0
+      const d = typeof o.d === 'number' ? o.d : 0
+      if (!(w > 0 && d > 0)) continue
+      
+      // Check if player is within horizontal bounds of obstacle
+      const hx = w / 2
+      const hz = d / 2
+      const dx = Math.abs(px - ox)
+      const dz = Math.abs(pz - oz)
+      
+      // For 'floor' type (stairs), use looser bounds. For 'box' type (platforms), use tighter bounds
+      const boundsBuffer = o.type === 'floor' ? playerRadius * 0.2 : -playerRadius * 0.3
+      
+      if (dx < hx + boundsBuffer && dz < hz + boundsBuffer) {
+        // Player is above this obstacle horizontally
+        // Only count it if it's below the player or within step-up range
+        const currentEyeLevel = camera.position.y
+        const obstacleTopY = oy + eyeHeight
+        
+        if (obstacleTopY <= currentEyeLevel + maxStepHeight && oy > floorY) {
+          floorY = oy
+        }
+      }
     }
-    jumpRequested = false
-
-    camera.position.y += velocity.y * dt
-
-    if (camera.position.y <= eyeHeight) {
-      camera.position.y = eyeHeight
+    
+    const targetFloorY = floorY + eyeHeight
+    
+    // Step up automatically if within range
+    if (targetFloorY > camera.position.y && targetFloorY <= camera.position.y + maxStepHeight) {
+      camera.position.y = targetFloorY
       velocity.y = 0
       grounded = true
+    } else {
+      // Normal gravity
+      velocity.y += gravity * dt
+      if (jumpRequested && grounded) {
+        velocity.y = jumpSpeed
+        grounded = false
+      }
+      jumpRequested = false
+
+      camera.position.y += velocity.y * dt
+
+      if (camera.position.y <= targetFloorY) {
+        camera.position.y = targetFloorY
+        velocity.y = 0
+        grounded = true
+      }
     }
 
     const margin = 0.35
