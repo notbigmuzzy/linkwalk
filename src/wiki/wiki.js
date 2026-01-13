@@ -194,13 +194,33 @@ function firstSentences(text, maxSentences = 2) {
 	for (let i = 0; i < n; i += 1) {
 		const rest = s.slice(start)
 		if (!rest) break
-		const m = rest.match(/[.!?](\s+|$)/)
-		if (!m || typeof m.index !== 'number') {
+
+		// Find sentence end, avoiding dots inside parentheses
+		let foundEnd = -1
+		const regex = /[.!?]/g
+		let match
+		while ((match = regex.exec(rest)) !== null) {
+			const dotIndex = match.index
+			const beforeDot = rest.substring(0, dotIndex)
+			const openParens = (beforeDot.match(/\(/g) || []).length
+			const closeParens = (beforeDot.match(/\)/g) || []).length
+
+			// If parentheses are balanced, check if it's a sentence ending
+			if (openParens === closeParens) {
+				const afterDot = rest.substring(dotIndex + 1)
+				if (!afterDot || /^\s/.test(afterDot)) {
+					foundEnd = dotIndex
+					break
+				}
+			}
+		}
+
+		if (foundEnd === -1) {
 			out.push(rest.trim())
 			start = s.length
 			break
 		}
-		const end = start + m.index + 1
+		const end = start + foundEnd + 1
 		out.push(s.slice(start, end).trim())
 		start = end
 		while (start < s.length && /\s/.test(s[start])) start += 1

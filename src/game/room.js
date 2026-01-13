@@ -972,8 +972,7 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 				descCtx.font = '500 38px system-ui, -apple-system, Segoe UI, Roboto, Arial'
 				descCtx.fillStyle = 'rgba(255,255,255,0.92)'
 
-				const firstSentence = description.split('.')[0] + '.'
-				const descLines = wrapText(descCtx, firstSentence, descCanvas.width - padX * 2, 6)
+				const descLines = wrapText(descCtx, description, descCanvas.width - padX * 2, 6)
 				for (const line of descLines) {
 					descCtx.fillText(line, padX, y)
 					y += 48
