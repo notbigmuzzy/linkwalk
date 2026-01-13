@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { clamp, roundTo, configureGalleryTexture } from '../misc/helper.js'
+import { clamp, roundTo, configureGalleryTexture, isSupportedImageUrl } from '../misc/helper.js'
 import { buildLobbyRoom } from './room/lobby.js'
 import { addDoor as addDoorToRoom } from './room/doors.js'
 import { addSlot as addSlotToRoom } from './room/slots.js'
@@ -54,6 +54,14 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 	const ceilingLightIntensity = palette.ceilingLightIntensity
 	const ceilingLightDistance = Math.max(width, length) * 2.2
 	const ceilingLightDecay = 1.6
+
+	// Ensure imagePhotos is defined before use
+	const photos = Array.isArray(gallery.photos)
+		? gallery.photos
+			.map((u) => (typeof u === 'string' ? u.trim() : ''))
+			.filter(Boolean)
+		: [];
+	const imagePhotos = photos.filter(isSupportedImageUrl);
 
 	if (mode === 'lobby') {
 		const platformHeight = 1.4
@@ -1613,7 +1621,8 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 		addGridWallSlots('west')
 	} else {
 		{
-			const count = 4
+			// Only create slots for the number of valid images, and center them
+			const count = Math.max(1, Math.min(4, imagePhotos.length))
 			const margin = 1.75
 			const gapU = 0.5
 			const usable = Math.max(2.8, length - margin * 2)
@@ -1858,32 +1867,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 		})
 		disposables.push(wallBackMat, wallFrameBackMat)
 
-		function isSupportedImageUrl(url) {
-			const raw = typeof url === 'string' ? url.trim() : ''
-			if (!raw) return false
-
-			const blocked = new Set(['ogv', 'oga', 'ogg', 'webm', 'mp4', 'm4v', 'mp3', 'wav', 'flac', 'pdf', 'djvu', 'tif', 'tiff'])
-			const allowed = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg'])
-
-			try {
-				const u = new URL(raw)
-				const file = (u.pathname.split('/').pop() ?? '').split('?')[0]
-				const m = file.match(/\.([a-z0-9]+)$/i)
-				const ext = m?.[1] ? String(m[1]).toLowerCase() : ''
-				if (!ext) return true
-				if (blocked.has(ext)) return false
-				return allowed.has(ext)
-			} catch {
-				const file = raw.split('/').pop() ?? raw
-				const clean = (file.split('?')[0] ?? file).trim()
-				const m = clean.match(/\.([a-z0-9]+)$/i)
-				const ext = m?.[1] ? String(m[1]).toLowerCase() : ''
-				if (!ext) return true
-				if (blocked.has(ext)) return false
-				return allowed.has(ext)
-			}
-		}
-
 		const photos = Array.isArray(gallery.photos)
 			? gallery.photos
 				.map((u) => (typeof u === 'string' ? u.trim() : ''))
@@ -2024,9 +2007,11 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 
 		function placePhotoWithCaption(slot, url) {
 			const safeUrl = isSupportedImageUrl(url) ? url : null
-			placePhotoInSlot(slot, safeUrl, { placeholderTitle: 'NO PHOTO' })
-			const label = labelFromImageUrl(safeUrl)
-			placeCaptionUnderSlot(slot, label || (safeUrl ? 'Untitled' : 'No photo'))
+			if (safeUrl) {
+				placePhotoInSlot(slot, safeUrl, { placeholderTitle: 'NO PHOTO' })
+				const label = labelFromImageUrl(safeUrl)
+				placeCaptionUnderSlot(slot, label || 'Untitled')
+			}
 		}
 
 		function makeWallTextTexture({ size = 1024, title, text, aspect, startLine = 0, withTitle = true, twoColumn = false } = {}) {

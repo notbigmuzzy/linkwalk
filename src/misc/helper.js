@@ -76,3 +76,29 @@ export function seededRand(seed) {
 		return (s >>> 0) / 0xffffffff
 	}
 }
+
+export function isSupportedImageUrl(url) {
+	const raw = typeof url === 'string' ? url.trim() : ''
+	if (!raw) return false
+
+	const blocked = new Set(['ogv', 'oga', 'ogg', 'webm', 'mp4', 'm4v', 'mp3', 'wav', 'flac', 'pdf', 'djvu', 'tif', 'tiff'])
+	const allowed = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg'])
+
+	try {
+		const u = new URL(raw)
+		const file = (u.pathname.split('/').pop() ?? '').split('?')[0]
+		const m = file.match(/\.([a-z0-9]+)$/i)
+		const ext = m?.[1] ? String(m[1]).toLowerCase() : ''
+		if (!ext) return true
+		if (blocked.has(ext)) return false
+		return allowed.has(ext)
+	} catch {
+		const file = raw.split('/').pop() ?? raw
+		const clean = (file.split('?')[0] ?? file).trim()
+		const m = clean.match(/\.([a-z0-9]+)$/i)
+		const ext = m?.[1] ? String(m[1]).toLowerCase() : ''
+		if (!ext) return true
+		if (blocked.has(ext)) return false
+		return allowed.has(ext)
+	}
+}
