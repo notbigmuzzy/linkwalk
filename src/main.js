@@ -2,11 +2,7 @@ import './style.css'
 import { startYourEngines } from './engine/engine.js'
 import { fetchGalleryRoomData, fetchGalleryRoomRelated, fetchWikipediaRandomTitle, setWikipediaLanguage } from './wiki/wiki.js'
 
-const app = document.querySelector('#app')
-if (!app) {
-	throw new Error('Missing #app element')
-}
-
+const app = document.querySelector('#app');
 app.innerHTML = `
   <div id="scene-container">
   	<canvas id="scene" aria-label="3D scene"></canvas>
@@ -71,83 +67,65 @@ overlayEl.addEventListener('keydown', (e) => {
 	if (e.code === 'Enter' || e.code === 'Space') requestPlay()
 })
 
-const LANGUAGE_PERSIST_KEY = 'linkwalk:language:v1'
-
-const LOBBY_CATEGORIES_EN = ['Culture', 'Geography', 'Animals', 'History', 'Nature', 'England', 'Philosophy', 'Cosmology', 'Society', 'Technology', 'Music', 'Painting']
-const LOBBY_CATEGORIES_SR = ['Култура', 'Географија', 'Животиње', 'Историја', 'Природа', 'Србија', 'Филозофија', 'Космологија', 'Друштво', 'Технологија', 'Музика', 'Сликарство']
-const LOBBY_CATEGORIES_RU = ['Культура', 'География', 'Животные', 'История', 'Природа', 'Russia', 'Философия', 'Космология', 'Общество', 'Технологии', 'Музыка', 'Живопись']
-const LOBBY_CATEGORIES_FR = ['Culture', 'Géographie', 'Animaux', 'Histoire', 'Nature', 'France', 'Philosophie', 'Cosmologie', 'Société', 'Technologie', 'Musique', 'Peinture']
-const LOBBY_CATEGORIES_ZH = ['文化', '地理', '动物', '历史', '自然', '中华人民共和国', '哲学', '宇宙学', '社会', '科技', '音乐', '绘画']
-const LOBBY_CATEGORIES_PL = ['Kultura', 'Geografia', 'Zwierzęta', 'Historia', 'Przyroda', 'Polska', 'Filozofia', 'Kosmologia', 'Społeczeństwo', 'Technologia', 'Muzyka', 'Malarstwo']
-const LOBBY_CATEGORIES_JA = ['文化', '地理', '動物', '歴史', '自然', '日本国', '哲学', '宇宙論', '社会', 'テクノロジー', '音楽', '絵画']
-const LOBBY_CATEGORIES_DE = ['Kultur', 'Geografie', 'Tiere', 'Geschichte', 'Natur', 'Deutschland', 'Philosophie', 'Kosmologie', 'Gesellschaft', 'Technologie', 'Musik', 'Malerei']
-const LOBBY_CATEGORIES_ES = ['Cultura', 'Geografía', 'Animales', 'Historia', 'Naturaleza', 'España', 'Filosofía', 'Cosmología', 'Sociedad', 'Tecnología', 'Música', 'Pintura']
-const LOBBY_CATEGORIES_IT = ['Cultura', 'Geografia', 'Animali', 'Storia', 'Natura', 'Italia', 'Filosofia', 'Cosmologia', 'Società', 'Tecnologia', 'Musica', 'Pittura']
-const LOBBY_CATEGORIES_PT = ['Cultura', 'Geografia', 'Animais', 'História', 'Natureza', 'Portugal', 'Filosofia', 'Cosmologia', 'Sociedade', 'Tecnologia', 'Música', 'Pintura']
-const LOBBY_CATEGORIES_CEB = ['Kultura', 'Heograpiya', 'Mga Mananap', 'Kasaysayan', 'Kinaiyahan', 'Pilipinas', 'Pilosopiya', 'Kosmolohiya', 'Sosyedad', 'Teknolohiya', 'Musika', 'Pamintal']
-const LOBBY_CATEGORIES_SV = ['Kultur', 'Geografi', 'Djur', 'Historia', 'Natur', 'Sverige', 'Filosofi', 'Kosmologi', 'Samhälle', 'Teknik', 'Musik', 'Måleri']
-const LOBBY_CATEGORIES_NL = ['Cultuur', 'Geografie', 'Dieren', 'Geschiedenis', 'Natuur', 'Nederland', 'Filosofie', 'Kosmologie', 'Samenleving', 'Technologie', 'Muziek', 'Schilderkunst']
+const language_key_from_local_storage = 'linkwalk:language:v1'
 
 function lobbyCategoriesForLanguage(lang) {
-	const code = String(lang || '').trim().toLowerCase()
-
-	switch (code) {
+	const languageCode = String(lang || '').trim().toLowerCase()
+	switch (languageCode) {
 		case 'en':
-			return LOBBY_CATEGORIES_EN;
+			return ['Culture', 'Geography', 'Animals', 'History', 'Nature', 'England', 'Philosophy', 'Cosmology', 'Society', 'Technology', 'Music', 'Painting'];
 		case 'de':
-			return LOBBY_CATEGORIES_DE;
+			return ['Kultur', 'Geografie', 'Tiere', 'Geschichte', 'Natur', 'Deutschland', 'Philosophie', 'Kosmologie', 'Gesellschaft', 'Technologie', 'Musik', 'Malerei'];
 		case 'es':
-			return LOBBY_CATEGORIES_ES;
+			return ['Cultura', 'Geografía', 'Animales', 'Historia', 'Naturaleza', 'España', 'Filosofía', 'Cosmología', 'Sociedad', 'Tecnología', 'Música', 'Pintura'];
 		case 'fr':
-			return LOBBY_CATEGORIES_FR;
+			return ['Culture', 'Géographie', 'Animaux', 'Histoire', 'Nature', 'France', 'Philosophie', 'Cosmologie', 'Société', 'Technologie', 'Musique', 'Peinture'];
 		case 'it':
-			return LOBBY_CATEGORIES_IT;
+			return ['Cultura', 'Geografia', 'Animali', 'Storia', 'Natura', 'Italia', 'Filosofia', 'Cosmologia', 'Società', 'Tecnologia', 'Musica', 'Pittura'];
 		case 'ja':
-			return LOBBY_CATEGORIES_JA;
+			return ['文化', '地理', '動物', '歴史', '自然', '日本国', '哲学', '宇宙論', '社会', 'テクノロジー', '音楽', '絵画'];
 		case 'pl':
-			return LOBBY_CATEGORIES_PL;
+			return ['Kultura', 'Geografia', 'Zwierzęta', 'Historia', 'Przyroda', 'Polska', 'Filozofia', 'Kosmologia', 'Społeczeństwo', 'Technologia', 'Muzyka', 'Malarstwo'];
 		case 'pt':
-			return LOBBY_CATEGORIES_PT;
+			return ['Cultura', 'Geografia', 'Animais', 'História', 'Natureza', 'Portugal', 'Filosofia', 'Cosmologia', 'Sociedade', 'Tecnologia', 'Música', 'Pintura'];
 		case 'ru':
-			return LOBBY_CATEGORIES_RU;
+			return ['Культура', 'География', 'Животные', 'История', 'Природа', 'Russia', 'Философия', 'Космология', 'Общество', 'Технологии', 'Музыка', 'Живопись'];
 		case 'sr':
-			return LOBBY_CATEGORIES_SR;
+			return ['Култура', 'Географија', 'Животиње', 'Историја', 'Природа', 'Србија', 'Филозофија', 'Космологија', 'Друштво', 'Технологија', 'Музика', 'Сликарство'];
 		case 'zh':
-			return LOBBY_CATEGORIES_ZH;
+			return ['文化', '地理', '动物', '历史', '自然', '中华人民共和国', '哲学', '宇宙学', '社会', '科技', '音乐', '绘画'];
 		case 'ceb':
-			return LOBBY_CATEGORIES_CEB;
+			return ['Kultura', 'Heograpiya', 'Mga Mananap', 'Kasaysayan', 'Kinaiyahan', 'Pilipinas', 'Pilosopiya', 'Kosmolohiya', 'Sosyedad', 'Teknolohiya', 'Musika', 'Pamintal'];
 		case 'sv':
-			return LOBBY_CATEGORIES_SV;
+			return ['Kultur', 'Geografi', 'Djur', 'Historia', 'Natur', 'Sverige', 'Filosofi', 'Kosmologi', 'Samhälle', 'Teknik', 'Musik', 'Måleri'];
 		case 'nl':
-			return LOBBY_CATEGORIES_NL;
+			return ['Cultuur', 'Geografie', 'Dieren', 'Geschiedenis', 'Natuur', 'Nederland', 'Filosofie', 'Kosmologie', 'Samenleving', 'Technologie', 'Muziek', 'Schilderkunst'];
 		default:
-			return LOBBY_CATEGORIES_EN;
+			return ['Culture', 'Geography', 'Animals', 'History', 'Nature', 'England', 'Philosophy', 'Cosmology', 'Society', 'Technology', 'Music', 'Painting'];;
 	}
 }
 
 function loadUrlLanguage() {
 	const raw = new URLSearchParams(window.location.search).get('language')
-	return typeof raw === 'string' ? raw.trim() : ''
+	return raw.trim()
 }
 
 function loadPersistedLanguage() {
 	try {
-		const raw = window?.localStorage?.getItem(LANGUAGE_PERSIST_KEY)
-		return typeof raw === 'string' ? raw.trim() : ''
+		const raw = window.localStorage.getItem(language_key_from_local_storage)
+		return raw.trim()
 	} catch {
 		return ''
 	}
 }
 
 function savePersistedLanguage(lang) {
-	try {
-		if (!window?.localStorage) return
-		window.localStorage.setItem(LANGUAGE_PERSIST_KEY, String(lang || ''))
-	} catch { }
+	window.localStorage.setItem(language_key_from_local_storage, String(lang || ''))
 }
 
 const initialUrlLang = loadUrlLanguage()
 const initialPersistedLang = loadPersistedLanguage()
+
 let activeLanguage = setWikipediaLanguage(initialUrlLang || initialPersistedLang || 'en')
 savePersistedLanguage(activeLanguage)
 
@@ -158,10 +136,16 @@ function syncLanguageFromUrlOrStorage() {
 	if (next !== activeLanguage) {
 		activeLanguage = next
 		savePersistedLanguage(activeLanguage)
-		return { changed: true, value: activeLanguage }
+		return {
+			changed: true,
+			value: activeLanguage
+		}
 	}
 	savePersistedLanguage(activeLanguage)
-	return { changed: false, value: activeLanguage }
+	return {
+		changed: false,
+		value: activeLanguage
+	}
 }
 
 function applyLanguage(nextLang, { persist = true, updateUrl = true, reloadToLobby = false } = {}) {
@@ -187,39 +171,33 @@ const params = new URLSearchParams(window.location.search)
 const initialTitle = params.get('exhibit')
 let engineApi = null
 
-const LOBBY_TITLE = 'Lobby'
+const lobby_title = 'Lobby'
 
 let wikiAbortController = null
 let randomAbortController = null
 let activeNavId = 0
 let activeDoorLabelOverride = null
 
-const TRAIL_PERSIST_KEY = 'linkwalk:trail:v1'
-const TRAIL_PERSIST_MAX = 30
+const trail_key_from_local_storage = 'linkwalk:trail:v1'
+const trail_maximum_length = 30
 
 function loadTrailPersist() {
 	try {
-		if (!window?.localStorage) return []
-		const raw = window.localStorage.getItem(TRAIL_PERSIST_KEY)
-		if (!raw) return []
+		const raw = window.localStorage.getItem(trail_key_from_local_storage)
 		const parsed = JSON.parse(raw)
-		const items = Array.isArray(parsed?.items) ? parsed.items : Array.isArray(parsed) ? parsed : []
+		const items = parsed.items ? parsed.items : parsed
 		return items
-			.map((t) => (typeof t === 'string' ? t.trim() : ''))
+			.map((t) => t.trim() || '')
 			.filter(Boolean)
-			.slice(-TRAIL_PERSIST_MAX)
+			.slice(-trail_maximum_length)
 	} catch {
 		return []
 	}
 }
 
 function saveTrailPersist(trail) {
-	try {
-		if (!window?.localStorage) return
-		const items = Array.isArray(trail) ? trail.slice(-TRAIL_PERSIST_MAX) : []
-		window.localStorage.setItem(TRAIL_PERSIST_KEY, JSON.stringify({ v: 1, items }))
-	} catch {
-	}
+	const items = Array.isArray(trail) ? trail.slice(-trail_maximum_length) : []
+	window.localStorage.setItem(trail_key_from_local_storage, JSON.stringify({ v: 1, items }))
 }
 
 let galleryTrail = loadTrailPersist()
@@ -232,7 +210,7 @@ function pushGalleryTrail(displayTitle) {
 	if (last && last.toLowerCase() === key) return
 
 	galleryTrail = [...galleryTrail, t]
-	if (galleryTrail.length > TRAIL_PERSIST_MAX) galleryTrail = galleryTrail.slice(-TRAIL_PERSIST_MAX)
+	if (galleryTrail.length > trail_maximum_length) galleryTrail = galleryTrail.slice(-trail_maximum_length)
 	saveTrailPersist(galleryTrail)
 }
 
@@ -265,8 +243,6 @@ function setUrlAndState(title, { push = false } = {}) {
 }
 
 function loadAndEnterGallery(title, { pushHistory = false, spawn, updateUrlState = true, loadingDoorId = null } = {}) {
-	if (!title) return
-
 	syncLanguageFromUrlOrStorage()
 
 	if (activeDoorLabelOverride && engineApi && typeof engineApi.setDoorLabelOverride === 'function') {
@@ -320,7 +296,6 @@ function loadAndEnterGallery(title, { pushHistory = false, spawn, updateUrlState
 			const displayTitle = typeof data?.room?.title === 'string' ? data.room.title : title
 			pushGalleryTrail(displayTitle)
 			const trailForBoard = galleryTrail.slice(-3)
-
 			const relatedTitles = pickRelatedTitles(data?.seeAlso)
 
 			if (updateUrlState) {
@@ -344,7 +319,6 @@ function loadAndEnterGallery(title, { pushHistory = false, spawn, updateUrlState
 				})
 			}
 
-			// Fetch and populate related titles in the background so room load isn't blocked.
 			fetchGalleryRoomRelated(displayTitle, { signal: wikiAbortController.signal })
 				.then((items) => {
 					if (navId !== activeNavId) return
@@ -363,7 +337,6 @@ function loadAndEnterGallery(title, { pushHistory = false, spawn, updateUrlState
 				})
 				.catch((err) => {
 					if (err && err.code === 'aborted') return
-					// Related is best-effort; ignore failures.
 				})
 		})
 		.catch((err) => {
@@ -387,7 +360,7 @@ function enterlobby({ push = false } = {}) {
 	}
 	activeNavId += 1
 
-	pushGalleryTrail(LOBBY_TITLE)
+	pushGalleryTrail(lobby_title)
 
 	if (activeDoorLabelOverride && engineApi && typeof engineApi.setDoorLabelOverride === 'function') {
 		engineApi.setDoorLabelOverride(activeDoorLabelOverride.doorId, '')
@@ -396,7 +369,14 @@ function enterlobby({ push = false } = {}) {
 
 	setUrlAndState(null, { push })
 	if (engineApi && typeof engineApi.setRoom === 'function') {
-		engineApi.setRoom({ roomMode: 'lobby', lobbyCategories: lobbyCategoriesForLanguage(activeLanguage), spawn: { type: 'fromWall', wall: 'south' } })
+		engineApi.setRoom({
+			roomMode: 'lobby',
+			lobbyCategories: lobbyCategoriesForLanguage(activeLanguage),
+			spawn: {
+				type: 'fromWall',
+				wall: 'south'
+			}
+		})
 	}
 	setLoading(false)
 }
@@ -479,15 +459,11 @@ engineApi = startYourEngines({
 			enterlobby({ push: true })
 			return
 		}
-
-		if (door && typeof door.id === 'string') {
-			console.info(`[linkwalk] Door clicked: ${door.id}`)
-		}
 	},
 })
 
 if (!initialTitle) {
-	pushGalleryTrail(LOBBY_TITLE)
+	pushGalleryTrail(lobby_title)
 }
 
 setUrlAndState(initialTitle ? initialTitle : null, { push: false })

@@ -1,14 +1,14 @@
-const DEFAULT_WIKI_LANG = 'en'
-const DEFAULT_TIMEOUT_MS = 8000
-const GALLERY_PERSIST_KEY_PREFIX = 'linkwalk:galleryCache:v2'
-const GALLERY_PERSIST_MAX = 80
-const GALLERY_PERSIST_TTL_MS = 24 * 60 * 60 * 1000
-let wikiLang = DEFAULT_WIKI_LANG
+const default_wiki_language = 'en'
+const default_timeout = 8000
+const gallery_persist_key = 'linkwalk:galleryCache:v2'
+const gallery_persist_max = 80
+const gallery_persist_ttl = 24 * 60 * 60 * 1000
+let wikiLang = default_wiki_language
 
 function normalizeWikiLang(lang) {
 	const raw = typeof lang === 'string' ? lang.trim().toLowerCase() : ''
-	if (!raw) return DEFAULT_WIKI_LANG
-	if (!/^[a-z0-9-]{1,20}$/.test(raw)) return DEFAULT_WIKI_LANG
+	if (!raw) return default_wiki_language
+	if (!/^[a-z0-9-]{1,20}$/.test(raw)) return default_wiki_language
 	return raw
 }
 
@@ -42,7 +42,7 @@ function wikiCachePartitionKey() {
 }
 
 function galleryPersistKey() {
-	return `${GALLERY_PERSIST_KEY_PREFIX}:${wikiCachePartitionKey()}`
+	return `${gallery_persist_key}:${wikiCachePartitionKey()}`
 }
 
 function safeNow() {
@@ -52,7 +52,7 @@ function safeNow() {
 function loadGalleryPersistCache(storageKey) {
 	try {
 		if (typeof window === 'undefined' || !window.localStorage) return new Map()
-		const key = typeof storageKey === 'string' && storageKey ? storageKey : GALLERY_PERSIST_KEY_PREFIX
+		const key = typeof storageKey === 'string' && storageKey ? storageKey : gallery_persist_key
 		const raw = window.localStorage.getItem(key)
 		if (!raw) return new Map()
 		const parsed = JSON.parse(raw)
@@ -65,7 +65,7 @@ function loadGalleryPersistCache(storageKey) {
 			const ts = typeof e?.t === 'number' ? e.t : 0
 			const val = e?.v
 			if (!key || !val) continue
-			if (!(ts > 0) || now - ts > GALLERY_PERSIST_TTL_MS) continue
+			if (!(ts > 0) || now - ts > gallery_persist_ttl) continue
 			map.set(key, { t: ts, v: val })
 		}
 		return map
@@ -77,14 +77,14 @@ function loadGalleryPersistCache(storageKey) {
 function saveGalleryPersistCache(storageKey, map) {
 	try {
 		if (typeof window === 'undefined' || !window.localStorage) return
-		const key = typeof storageKey === 'string' && storageKey ? storageKey : GALLERY_PERSIST_KEY_PREFIX
+		const key = typeof storageKey === 'string' && storageKey ? storageKey : gallery_persist_key
 		const items = []
 		for (const [k, entry] of map.entries()) {
 			if (!k || !entry?.v) continue
 			items.push({ k, t: entry.t, v: entry.v })
 		}
 		items.sort((a, b) => (b.t || 0) - (a.t || 0))
-		if (items.length > GALLERY_PERSIST_MAX) items.length = GALLERY_PERSIST_MAX
+		if (items.length > gallery_persist_max) items.length = gallery_persist_max
 		window.localStorage.setItem(key, JSON.stringify({ v: 1, entries: items }))
 	} catch {
 
@@ -119,7 +119,7 @@ function toWikiTitle(title) {
 async function fetchJsonWithTimeout(url, { signal } = {}) {
 	const controller = new AbortController()
 	const detach = attachAbortSignal(signal, controller)
-	const timeoutId = window.setTimeout(() => controller.abort(new Error('timeout')), DEFAULT_TIMEOUT_MS)
+	const timeoutId = window.setTimeout(() => controller.abort(new Error('timeout')), default_timeout)
 
 	let res
 	try {
@@ -172,7 +172,7 @@ async function fetchJsonWithTimeout(url, { signal } = {}) {
 }
 
 function buildActionApiUrl(params) {
-	const langParams = wikiLang && wikiLang !== DEFAULT_WIKI_LANG ? { uselang: wikiLang } : {}
+	const langParams = wikiLang && wikiLang !== default_wiki_language ? { uselang: wikiLang } : {}
 	const search = new URLSearchParams({
 		format: 'json',
 		formatversion: '2',
@@ -442,25 +442,6 @@ export function normalizeWikipediaRelated(raw) {
 			return { title, extract, thumbnailUrl, pageUrl }
 		})
 		.filter((p) => p.title)
-}
-
-function normalizeActionImageInfo(raw, { maxImages = 4 } = {}) {
-	const pages = Array.isArray(raw?.query?.pages) ? raw.query.pages : []
-	const out = []
-	const seen = new Set()
-
-	for (const p of pages) {
-		const info = Array.isArray(p?.imageinfo) ? p.imageinfo[0] : null
-		const url = typeof info?.url === 'string' ? info.url : null
-		if (!url) continue
-		if (seen.has(url)) continue
-		if (url.toLowerCase().endsWith('.svg')) continue
-		seen.add(url)
-		out.push(url)
-		if (out.length >= maxImages) break
-	}
-
-	return out
 }
 
 function normalizeActionMediaInfo(raw, { maxImages = 6, maxVideos = 2 } = {}) {
