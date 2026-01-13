@@ -931,10 +931,35 @@ export async function fetchGalleryRoomData(title, opts = {}) {
 	const baseFromPersist = persisted && persisted.v ? persisted.v : null
 
 	let base = cachedBase || baseFromPersist
+
+	if (base) {
+		const urlsToCheck = []
+		if (base.mainThumbnailUrl) urlsToCheck.push(base.mainThumbnailUrl)
+		if (Array.isArray(base.photos)) urlsToCheck.push(...base.photos)
+
+		if (urlsToCheck.length > 0) {
+			try {
+				const filtered = await filterImagesBySize(urlsToCheck, 10 * 1024 * 1024)
+				const filteredSet = new Set(filtered)
+
+				if (base.mainThumbnailUrl && !filteredSet.has(base.mainThumbnailUrl)) {
+					base = { ...base, mainThumbnailUrl: null }
+				}
+				if (Array.isArray(base.photos)) {
+					const filteredPhotos = base.photos.filter(url => filteredSet.has(url))
+					if (filteredPhotos.length !== base.photos.length) {
+						base = { ...base, photos: filteredPhotos }
+					}
+				}
+			} catch (err) {
+				console.warn('[linkwalk] Failed to filter cached images', err)
+			}
+		}
+	}
+
 	if (!base) {
 		const [pageBundle, media] = await Promise.all([
 			fetchWikipediaPageBundle(normalizedTitle, { ...opts, maxChars: 6000, thumbSize: 640 }),
-
 			fetchWikipediaMedia(normalizedTitle, { ...opts, maxImages: 6, maxVideos: 2 }),
 		])
 
@@ -953,17 +978,25 @@ export async function fetchGalleryRoomData(title, opts = {}) {
 		}
 
 		let photos = Array.isArray(media?.images) ? media.images : []
-		if (photos.length > 0) {
+		let mainThumbnailUrl = room.thumbnailUrl
+		const urlsToCheck = [...photos]
+		if (mainThumbnailUrl) urlsToCheck.push(mainThumbnailUrl)
+
+		if (urlsToCheck.length > 0) {
 			try {
-				const { filterImagesBySize } = await import('./wiki.js')
-				photos = await filterImagesBySize(photos, 10 * 1024 * 1024)
+				const filtered = await filterImagesBySize(urlsToCheck, 10 * 1024 * 1024)
+				const filteredSet = new Set(filtered)
+				photos = photos.filter(url => filteredSet.has(url))
+				if (mainThumbnailUrl && !filteredSet.has(mainThumbnailUrl)) {
+					mainThumbnailUrl = null
+				}
 			} catch (err) {
 				console.warn('[linkwalk] Failed to filter large Wikipedia images', err)
 			}
 		}
 
+		mainThumbnailUrl = mainThumbnailUrl || (Array.isArray(photos) && typeof photos[0] === 'string' ? photos[0] : null)
 		const videos = Array.isArray(media?.videos) ? media.videos : []
-		const mainThumbnailUrl = room.thumbnailUrl || (Array.isArray(photos) && typeof photos[0] === 'string' ? photos[0] : null)
 
 		function canonicalImageKey(url) {
 			if (typeof url !== 'string') return ''
