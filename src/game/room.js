@@ -1619,10 +1619,8 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 		addGridWallSlots('west')
 	} else {
 		if (imagePhotos.length === 0) {
-			// Add decorative plant-bench-plant on east wall when no images
 			const innerEastX = halfW - wallThickness / 2
 			const decoEastZ = 0
-
 			const decoEast = new THREE.Group()
 			decoEast.name = 'deco-east'
 			group.add(decoEast)
@@ -1731,7 +1729,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 			obstacles.push({ type: 'cylinder', x: innerEastX - 0.42, z: -seatW * 0.28, radius: 0.5 })
 			obstacles.push({ type: 'cylinder', x: innerEastX - 0.42, z: seatW * 0.28, radius: 0.5 })
 		} else {
-			// Only create slots for the number of valid images, and center them
 			const count = Math.max(1, Math.min(4, imagePhotos.length))
 			const margin = 1.75
 			const gapU = 0.5
@@ -1756,7 +1753,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 				addSlot({ id: `east-photo-${i}`, wall: 'east', kind: 'frame', w: photoW, h: photoH, y, u, color: 0xd9d9de, opacity: 1 })
 			}
 
-			// Add plants beside images when there are 1 or 2 images
 			if (count === 1 || count === 2) {
 				const innerEastX = halfW - wallThickness / 2
 				const decoEast = new THREE.Group()
