@@ -107,20 +107,23 @@ function lobbyCategoriesForLanguage(lang) {
 
 function loadUrlLanguage() {
 	const raw = new URLSearchParams(window.location.search).get('language')
-	return raw.trim()
+	return typeof raw === 'string' ? raw.trim() : ''
 }
 
 function loadPersistedLanguage() {
 	try {
-		const raw = window.localStorage.getItem(language_key_from_local_storage)
-		return raw.trim()
+		const raw = window?.localStorage?.getItem(LANGUAGE_PERSIST_KEY)
+		return typeof raw === 'string' ? raw.trim() : ''
 	} catch {
 		return ''
 	}
 }
 
 function savePersistedLanguage(lang) {
-	window.localStorage.setItem(language_key_from_local_storage, String(lang || ''))
+	try {
+		if (!window?.localStorage) return
+		window.localStorage.setItem(LANGUAGE_PERSIST_KEY, String(lang || ''))
+	} catch { }
 }
 
 const initialUrlLang = loadUrlLanguage()
