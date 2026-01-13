@@ -83,7 +83,6 @@ export function startYourEngines({
 		const jobs = Array.isArray(room?.deferredTextureLoads) ? room.deferredTextureLoads : []
 		if (jobs.length === 0) return
 
-		// Small delay between images to avoid hitching from decode/upload spikes.
 		const staggerMs = 90
 
 		for (const job of jobs) {
@@ -93,7 +92,7 @@ export function startYourEngines({
 			const url = typeof job?.url === 'string' ? job.url.trim() : ''
 			if (!url) continue
 
-			// Yield so the renderer can present a frame between loads.
+
 			await new Promise((r) => window.requestAnimationFrame(r))
 			if (token !== deferredTextureLoadToken || currentRoom !== room) return
 
@@ -178,13 +177,11 @@ export function startYourEngines({
 	function holdObject(obj) {
 		if (!obj) return
 
-		// Toggle: clicking the currently-held object drops it.
 		if (held && held.obj === obj) {
 			releaseHeld()
 			return
 		}
 
-		// Holding something else? Drop first.
 		if (held) releaseHeld()
 
 		const originalParent = obj.parent
@@ -200,7 +197,6 @@ export function startYourEngines({
 		obj.quaternion.identity()
 		obj.scale.copy(originalScale)
 
-		// Render held item on top of the scene (avoid visual intersection/occlusion).
 		obj.renderOrder = 9999
 		forEachMaterial(obj, (mat, child) => {
 			if (!originalMaterialState.has(mat)) {
@@ -221,7 +217,6 @@ export function startYourEngines({
 			mat.needsUpdate = true
 		})
 
-		// Center and scale so the object is as large as possible while fully visible.
 		holdAnchor.updateWorldMatrix(true, true)
 		obj.updateWorldMatrix(true, true)
 
@@ -230,13 +225,11 @@ export function startYourEngines({
 		const centerWorld = new THREE.Vector3()
 		box.getSize(size)
 
-		// Recenter the object so its bbox center sits at the holdAnchor origin.
 		box.getCenter(centerWorld)
 		const centerInHold = holdAnchor.worldToLocal(centerWorld.clone())
 		obj.position.sub(centerInHold)
 		obj.updateWorldMatrix(true, true)
 
-		// Place it centered on camera. Keep enough distance to avoid near-plane clipping.
 		const baseDistance = Math.max(0.35, (camera.near ?? 0.1) + 0.15)
 		const depthPad = (size.z || 0) * 0.5
 		const distance = Math.max(baseDistance, (camera.near ?? 0.1) + 0.1 + depthPad)
@@ -249,7 +242,6 @@ export function startYourEngines({
 		const safeW = (size.x || 1e-6)
 		const safeH = (size.y || 1e-6)
 
-		// Add a pixel margin around the held object.
 		const marginPx = 50
 		const vw = canvas.clientWidth || 0
 		const vh = canvas.clientHeight || 0
@@ -261,7 +253,6 @@ export function startYourEngines({
 			obj.scale.copy(originalScale).multiplyScalar(scaleToFit)
 		}
 
-		// Recenter after scaling so it stays perfectly centered.
 		obj.updateWorldMatrix(true, true)
 		box.setFromObject(obj)
 		box.getCenter(centerWorld)
@@ -355,39 +346,26 @@ export function startYourEngines({
 	}) {
 		const wallThickness = 0.2
 
-		let roomWidth = 21  // Reduced from 28 (75% of 28)
+		let roomWidth = 21
 		let roomLength = 18
 		let roomHeight = 4
 
 		if (mode === 'lobby') {
-			// Lobby doors are placed along the east and west walls, spaced along the
-			// north↔south axis (roomLength). Size the lobby so there is enough span
-			// for roughly half the categories per side, plus comfortable margins.
 			const catCount = Array.isArray(categories) ? categories.length : 0
 			const doorsPerSide = Math.max(1, Math.ceil(catCount / 2))
 
-			// Keep in sync with lobby door layout in src/game/room/lobby.js
 			const doorW = 1.25
 			const gapU = 1.1
-			// Extra run-length added to BOTH the north and south ends.
 			const extraEachSide = 2.0
 
 			const spanNeeded = doorsPerSide * doorW + Math.max(0, doorsPerSide - 1) * gapU
-			roomLength = roundTo(spanNeeded + extraEachSide * 2, 0.25)
-
-			// Small safety minimum to avoid a cramped lobby when there are very few doors.
-			roomLength = Math.max(roomLength, 10)
+			roomLength = roundTo(spanNeeded + extraEachSide * 3, 0.25)
 		} else {
 			const seed = hashStringToUint32(String(seedTitle))
 			const rand = mulberry32(seed)
 
-			roomWidth = roundTo(randRange(rand, 10, 18), 0.25)
-			roomLength = roundTo(randRange(rand, 10, 18), 0.25) + 2
-
-			// Minimum length so the gallery west-wall text panels and the corner
-			// see-also doors have comfortable spacing along the south↔north axis.
-			roomLength = Math.max(roomLength, 14)
-			roomHeight = roundTo(randRange(rand, 4, 4), 0.1)
+			roomWidth = roundTo(randRange(rand, 12, 18), 0.25) // west-east
+			roomLength = roundTo(randRange(rand, 14, 16), 0.25) // south-north
 		}
 
 		const nextRoom = buildRoom({
@@ -413,7 +391,7 @@ export function startYourEngines({
 		})
 
 		if (currentRoom) {
-			// Ensure we don't keep a held object across room swaps.
+
 			if (held) releaseHeld()
 			scene.remove(currentRoom.group)
 			disposeMany(currentRoom.disposables)
@@ -422,7 +400,6 @@ export function startYourEngines({
 		currentRoom = nextRoom
 		scene.add(currentRoom.group)
 
-		// Start staggered texture loading for the new room; cancel any prior runs.
 		deferredTextureLoadToken += 1
 		void runDeferredTextureLoads(currentRoom, deferredTextureLoadToken)
 
@@ -591,7 +568,6 @@ export function startYourEngines({
 			if (d > interactMaxDistance) return
 		}
 
-		// If it (or a parent) has an explicit click handler, run it.
 		{
 			let cur = hitObj
 			while (cur) {
@@ -635,7 +611,6 @@ export function startYourEngines({
 			}
 		}
 
-		// If it (or a parent) is marked pickable, hold it.
 		{
 			let cur = hitObj
 			while (cur) {
@@ -652,8 +627,6 @@ export function startYourEngines({
 
 		const door = doorById.get(doorId) ?? { id: doorId }
 
-		// Some doors (e.g. gallery see-also placeholders) exist before their targets are populated.
-		// Ignore clicks until a navigation target is set.
 		if (!doorHasTriggerTarget(door)) return
 
 		if (typeof onDoorTrigger === 'function') {
@@ -698,7 +671,6 @@ export function startYourEngines({
 		camera.position.x += moveX * dt
 		camera.position.z += moveZ * dt
 
-		// Check for elevated floor from obstacles (platforms/stairs) BEFORE applying gravity
 		let floorY = 0
 		const px = camera.position.x
 		const pz = camera.position.z
@@ -714,18 +686,18 @@ export function startYourEngines({
 			const d = typeof o.d === 'number' ? o.d : 0
 			if (!(w > 0 && d > 0)) continue
 
-			// Check if player is within horizontal bounds of obstacle
+
 			const hx = w / 2
 			const hz = d / 2
 			const dx = Math.abs(px - ox)
 			const dz = Math.abs(pz - oz)
 
-			// For 'floor' type (stairs), use looser bounds. For 'box' type (platforms), use tighter bounds
+
 			const boundsBuffer = o.type === 'floor' ? playerRadius * 0.2 : -playerRadius * 0.3
 
 			if (dx < hx + boundsBuffer && dz < hz + boundsBuffer) {
-				// Player is above this obstacle horizontally
-				// Only count it if it's below the player or within step-up range
+
+
 				const currentEyeLevel = camera.position.y
 				const obstacleTopY = oy + eyeHeight
 
@@ -737,13 +709,12 @@ export function startYourEngines({
 
 		const targetFloorY = floorY + eyeHeight
 
-		// Step up automatically if within range
 		if (targetFloorY > camera.position.y && targetFloorY <= camera.position.y + maxStepHeight) {
 			camera.position.y = targetFloorY
 			velocity.y = 0
 			grounded = true
 		} else {
-			// Normal gravity
+
 			velocity.y += gravity * dt
 			if (jumpRequested && grounded) {
 				velocity.y = jumpSpeed
@@ -869,7 +840,6 @@ export function startYourEngines({
 
 		updatePlayer(dt)
 
-		// Swap the center "pointer" style when aiming at something clickable.
 		setBodyClickableCursor(computeIsAimingAtClickable())
 
 		resize()
@@ -895,7 +865,7 @@ export function startYourEngines({
 			try {
 				Object.assign(door, patch)
 			} catch {
-				// ignore
+
 			}
 		},
 		setDoorLabelOverride(doorId, text) {

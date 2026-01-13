@@ -17,7 +17,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 	switch (mode) {
 		case 'lobby':
 			palette = {
-
 				floor: 0xfff1c8,
 				ceiling: 0xe9fbff,
 				wall: 0xcfeaff,
@@ -340,7 +339,6 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 		}
 
 	} else {
-
 		const floorGeo = new THREE.PlaneGeometry(width, length)
 		const floorMat = new THREE.MeshStandardMaterial({
 			color: 0xffffff,
@@ -1620,7 +1618,119 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 		addGridWallSlots('east')
 		addGridWallSlots('west')
 	} else {
-		{
+		if (imagePhotos.length === 0) {
+			// Add decorative plant-bench-plant on east wall when no images
+			const innerEastX = halfW - wallThickness / 2
+			const decoEastZ = 0
+
+			const decoEast = new THREE.Group()
+			decoEast.name = 'deco-east'
+			group.add(decoEast)
+
+			const woodMat = new THREE.MeshStandardMaterial({
+				color: 0xffffff,
+				map: benchWoodMap,
+				bumpMap: benchWoodBump,
+				bumpScale: 0.045,
+				roughness: 0.58,
+				metalness: 0.0,
+			})
+			const metalMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.7, metalness: 0.05 })
+			const potMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.95, metalness: 0.0 })
+			const leafMat = new THREE.MeshStandardMaterial({ color: 0x2f6f4e, roughness: 0.85, metalness: 0.0, side: THREE.DoubleSide })
+			disposables.push(woodMat, metalMat, potMat, leafMat)
+
+			const bench = new THREE.Group()
+			bench.name = 'bench-east'
+			bench.position.set(innerEastX - 0.42, 0, decoEastZ)
+			bench.rotation.y = -Math.PI / 2
+			decoEast.add(bench)
+
+			const seatW = 2.6
+			const seatD = 0.55
+			const seatH = 0.12
+			const seatY = 0.46
+
+			const seatGeo = new THREE.BoxGeometry(seatW, seatH, seatD)
+			const seat = new THREE.Mesh(seatGeo, woodMat)
+			seat.position.set(0, seatY, 0)
+			bench.add(seat)
+			disposables.push(seatGeo)
+
+			const backW = seatW
+			const backH = 0.55
+			const backD = 0.08
+			const backGeo = new THREE.BoxGeometry(backW, backH, backD)
+			const back = new THREE.Mesh(backGeo, woodMat)
+			back.position.set(0, seatY + backH / 2 - 0.02, -(seatD / 2 - backD / 2))
+			bench.add(back)
+			disposables.push(backGeo)
+
+			const legW = 0.08
+			const legD = 0.08
+			const legH = seatY - seatH / 2
+			const legGeo = new THREE.BoxGeometry(legW, legH, legD)
+			disposables.push(legGeo)
+
+			function addLegEast(x, z) {
+				const leg = new THREE.Mesh(legGeo, metalMat)
+				leg.position.set(x, legH / 2, z)
+				bench.add(leg)
+			}
+
+			const legX = seatW / 2 - 0.18
+			const legZ = seatD / 2 - 0.18
+			addLegEast(-legX, -legZ)
+			addLegEast(legX, -legZ)
+			addLegEast(-legX, legZ)
+			addLegEast(legX, legZ)
+
+			const potRTop = 0.19
+			const potRBottom = 0.24
+			const potH = 0.34
+			const potGeo = new THREE.CylinderGeometry(potRTop, potRBottom, potH, 14, 1)
+			const soilGeo = new THREE.CylinderGeometry(potRTop * 0.92, potRTop * 0.92, 0.06, 14, 1)
+			const leafGeo = new THREE.PlaneGeometry(0.38, 0.7)
+			disposables.push(potGeo, soilGeo, leafGeo)
+
+			function addPlantEast(z) {
+				const plant = new THREE.Group()
+				plant.name = 'plant-east'
+				plant.position.set(innerEastX - 0.38, 0, z)
+				decoEast.add(plant)
+
+				const pot = new THREE.Mesh(potGeo, potMat)
+				pot.position.set(0, potH / 2, 0)
+				plant.add(pot)
+
+				const soil = new THREE.Mesh(soilGeo, potMat)
+				soil.position.set(0, potH - 0.02, 0)
+				plant.add(soil)
+
+				const leaves = new THREE.Group()
+				leaves.position.set(0, potH + 0.05, 0)
+				plant.add(leaves)
+
+				const leafCount = 10
+				for (let i = 0; i < leafCount; i += 1) {
+					const leaf = new THREE.Mesh(leafGeo, leafMat)
+					const a = (i / leafCount) * Math.PI * 2
+					leaf.rotation.y = a
+					leaf.rotation.x = -0.25 - Math.random() * 0.25
+					leaf.position.set(0, 0.25 + Math.random() * 0.12, 0)
+					leaves.add(leaf)
+				}
+
+				obstacles.push({ type: 'cylinder', x: innerEastX - 0.38, z, radius: 0.38 })
+			}
+
+			const plantZ = seatW / 2 + 0.7
+			addPlantEast(-plantZ)
+			addPlantEast(plantZ)
+
+			obstacles.push({ type: 'cylinder', x: innerEastX - 0.42, z: -seatW * 0.28, radius: 0.5 })
+			obstacles.push({ type: 'cylinder', x: innerEastX - 0.42, z: seatW * 0.28, radius: 0.5 })
+		} else {
 			// Only create slots for the number of valid images, and center them
 			const count = Math.max(1, Math.min(4, imagePhotos.length))
 			const margin = 1.75
@@ -1644,6 +1754,64 @@ export function buildRoom({ width, length, height, wallThickness = 0.2, mode = '
 			for (let i = 0; i < count; i += 1) {
 				const u = uStart + i * (photoW + gapU)
 				addSlot({ id: `east-photo-${i}`, wall: 'east', kind: 'frame', w: photoW, h: photoH, y, u, color: 0xd9d9de, opacity: 1 })
+			}
+
+			// Add plants beside images when there are 1 or 2 images
+			if (count === 1 || count === 2) {
+				const innerEastX = halfW - wallThickness / 2
+				const decoEast = new THREE.Group()
+				decoEast.name = 'deco-east-plants'
+				group.add(decoEast)
+
+				const potMat = new THREE.MeshStandardMaterial({ color: 0x0d1015, roughness: 0.95, metalness: 0.0 })
+				const leafMat = new THREE.MeshStandardMaterial({ color: 0x2f6f4e, roughness: 0.85, metalness: 0.0, side: THREE.DoubleSide })
+				disposables.push(potMat, leafMat)
+
+				const potRTop = 0.19
+				const potRBottom = 0.24
+				const potH = 0.34
+				const potGeo = new THREE.CylinderGeometry(potRTop, potRBottom, potH, 14, 1)
+				const soilGeo = new THREE.CylinderGeometry(potRTop * 0.92, potRTop * 0.92, 0.06, 14, 1)
+				const leafGeo = new THREE.PlaneGeometry(0.38, 0.7)
+				disposables.push(potGeo, soilGeo, leafGeo)
+
+				function addPlantBesidePhoto(z) {
+					const plant = new THREE.Group()
+					plant.name = 'plant-beside-photo'
+					plant.position.set(innerEastX - 0.38, 0, z)
+					decoEast.add(plant)
+
+					const pot = new THREE.Mesh(potGeo, potMat)
+					pot.position.set(0, potH / 2, 0)
+					plant.add(pot)
+
+					const soil = new THREE.Mesh(soilGeo, potMat)
+					soil.position.set(0, potH - 0.02, 0)
+					plant.add(soil)
+
+					const leaves = new THREE.Group()
+					leaves.position.set(0, potH + 0.05, 0)
+					plant.add(leaves)
+
+					const leafCount = 10
+					for (let i = 0; i < leafCount; i += 1) {
+						const leaf = new THREE.Mesh(leafGeo, leafMat)
+						const a = (i / leafCount) * Math.PI * 2
+						leaf.rotation.y = a
+						leaf.rotation.x = -0.25 - Math.random() * 0.25
+						leaf.position.set(0, 0.25 + Math.random() * 0.12, 0)
+						leaves.add(leaf)
+					}
+
+					obstacles.push({ type: 'cylinder', x: innerEastX - 0.38, z, radius: 0.38 })
+				}
+
+				const plantGap = 1.2
+				const leftPlantZ = uStart - photoW / 2 - plantGap
+				const rightPlantZ = uStart + (count - 1) * (photoW + gapU) + photoW / 2 + plantGap
+
+				addPlantBesidePhoto(leftPlantZ)
+				addPlantBesidePhoto(rightPlantZ)
 			}
 		}
 
