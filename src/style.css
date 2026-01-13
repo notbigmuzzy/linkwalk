@@ -19,7 +19,7 @@ canvas {
 }
 
 canvas:focus {
-		outline: none;
+	outline: none;
 }
 
 #app {
@@ -282,6 +282,7 @@ canvas:focus {
 	from {
 		transform: rotate(0deg);
 	}
+
 	to {
 		transform: rotate(360deg);
 	}

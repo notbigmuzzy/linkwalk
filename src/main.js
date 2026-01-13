@@ -4,7 +4,7 @@ import { fetchGalleryRoomData, fetchGalleryRoomRelated, fetchWikipediaRandomTitl
 
 const app = document.querySelector('#app')
 if (!app) {
-  throw new Error('Missing #app element')
+	throw new Error('Missing #app element')
 }
 
 app.innerHTML = `
@@ -63,12 +63,12 @@ const crosshairEl = document.querySelector('#crosshair')
 const languageSelectEl = document.querySelector('#language-select')
 
 function requestPlay() {
-  canvas.requestPointerLock()
+	canvas.requestPointerLock()
 }
 
 overlayEl.addEventListener('click', requestPlay)
 overlayEl.addEventListener('keydown', (e) => {
-  if (e.code === 'Enter' || e.code === 'Space') requestPlay()
+	if (e.code === 'Enter' || e.code === 'Space') requestPlay()
 })
 
 const LANGUAGE_PERSIST_KEY = 'linkwalk:language:v1'
@@ -89,61 +89,61 @@ const LOBBY_CATEGORIES_SV = ['Kultur', 'Geografi', 'Djur', 'Historia', 'Natur', 
 const LOBBY_CATEGORIES_NL = ['Cultuur', 'Geografie', 'Dieren', 'Geschiedenis', 'Natuur', 'Nederland', 'Filosofie', 'Kosmologie', 'Samenleving', 'Technologie', 'Muziek', 'Schilderkunst']
 
 function lobbyCategoriesForLanguage(lang) {
-  	const code = String(lang || '').trim().toLowerCase()
+	const code = String(lang || '').trim().toLowerCase()
 
 	switch (code) {
-	case 'en':
-		return LOBBY_CATEGORIES_EN;
-	case 'de':
-		return LOBBY_CATEGORIES_DE;
-	case 'es':
-		return LOBBY_CATEGORIES_ES;
-	case 'fr':
-		return LOBBY_CATEGORIES_FR;
-	case 'it':
-		return LOBBY_CATEGORIES_IT;
-	case 'ja':
-		return LOBBY_CATEGORIES_JA;
-	case 'pl':
-		return LOBBY_CATEGORIES_PL;
-	case 'pt':
-		return LOBBY_CATEGORIES_PT;
-	case 'ru':
-		return LOBBY_CATEGORIES_RU;
-	case 'sr':
-		return LOBBY_CATEGORIES_SR;
-	case 'zh':
-		return LOBBY_CATEGORIES_ZH;
-	case 'ceb':
-		return LOBBY_CATEGORIES_CEB;
-	case 'sv':
-		return LOBBY_CATEGORIES_SV;
-	case 'nl':
-		return LOBBY_CATEGORIES_NL;
-	default:
-		return LOBBY_CATEGORIES_EN;
+		case 'en':
+			return LOBBY_CATEGORIES_EN;
+		case 'de':
+			return LOBBY_CATEGORIES_DE;
+		case 'es':
+			return LOBBY_CATEGORIES_ES;
+		case 'fr':
+			return LOBBY_CATEGORIES_FR;
+		case 'it':
+			return LOBBY_CATEGORIES_IT;
+		case 'ja':
+			return LOBBY_CATEGORIES_JA;
+		case 'pl':
+			return LOBBY_CATEGORIES_PL;
+		case 'pt':
+			return LOBBY_CATEGORIES_PT;
+		case 'ru':
+			return LOBBY_CATEGORIES_RU;
+		case 'sr':
+			return LOBBY_CATEGORIES_SR;
+		case 'zh':
+			return LOBBY_CATEGORIES_ZH;
+		case 'ceb':
+			return LOBBY_CATEGORIES_CEB;
+		case 'sv':
+			return LOBBY_CATEGORIES_SV;
+		case 'nl':
+			return LOBBY_CATEGORIES_NL;
+		default:
+			return LOBBY_CATEGORIES_EN;
 	}
 }
 
 function loadUrlLanguage() {
-  const raw = new URLSearchParams(window.location.search).get('language')
-  return typeof raw === 'string' ? raw.trim() : ''
+	const raw = new URLSearchParams(window.location.search).get('language')
+	return typeof raw === 'string' ? raw.trim() : ''
 }
 
 function loadPersistedLanguage() {
-  try {
-    const raw = window?.localStorage?.getItem(LANGUAGE_PERSIST_KEY)
-    return typeof raw === 'string' ? raw.trim() : ''
-  } catch {
-    return ''
-  }
+	try {
+		const raw = window?.localStorage?.getItem(LANGUAGE_PERSIST_KEY)
+		return typeof raw === 'string' ? raw.trim() : ''
+	} catch {
+		return ''
+	}
 }
 
 function savePersistedLanguage(lang) {
-  try {
-    if (!window?.localStorage) return
-    window.localStorage.setItem(LANGUAGE_PERSIST_KEY, String(lang || ''))
-  } catch {}
+	try {
+		if (!window?.localStorage) return
+		window.localStorage.setItem(LANGUAGE_PERSIST_KEY, String(lang || ''))
+	} catch { }
 }
 
 const initialUrlLang = loadUrlLanguage()
@@ -152,35 +152,35 @@ let activeLanguage = setWikipediaLanguage(initialUrlLang || initialPersistedLang
 savePersistedLanguage(activeLanguage)
 
 function syncLanguageFromUrlOrStorage() {
-  const urlLang = loadUrlLanguage()
-  const persistedLang = loadPersistedLanguage()
-  const next = setWikipediaLanguage(urlLang || persistedLang || 'en')
-  if (next !== activeLanguage) {
-    activeLanguage = next
-    savePersistedLanguage(activeLanguage)
-    return { changed: true, value: activeLanguage }
-  }
-  savePersistedLanguage(activeLanguage)
-  return { changed: false, value: activeLanguage }
+	const urlLang = loadUrlLanguage()
+	const persistedLang = loadPersistedLanguage()
+	const next = setWikipediaLanguage(urlLang || persistedLang || 'en')
+	if (next !== activeLanguage) {
+		activeLanguage = next
+		savePersistedLanguage(activeLanguage)
+		return { changed: true, value: activeLanguage }
+	}
+	savePersistedLanguage(activeLanguage)
+	return { changed: false, value: activeLanguage }
 }
 
 function applyLanguage(nextLang, { persist = true, updateUrl = true, reloadToLobby = false } = {}) {
-  const normalized = setWikipediaLanguage(nextLang)
-  activeLanguage = normalized
-  if (persist) savePersistedLanguage(activeLanguage)
+	const normalized = setWikipediaLanguage(nextLang)
+	activeLanguage = normalized
+	if (persist) savePersistedLanguage(activeLanguage)
 
-  if (updateUrl) {
-    setUrlAndState(null, { push: false })
-  }
+	if (updateUrl) {
+		setUrlAndState(null, { push: false })
+	}
 
-  if (reloadToLobby) {
-    window.location.reload()
-  }
+	if (reloadToLobby) {
+		window.location.reload()
+	}
 }
 
 languageSelectEl.value = activeLanguage
 languageSelectEl.addEventListener('change', () => {
-  applyLanguage(languageSelectEl.value, { persist: true, updateUrl: true, reloadToLobby: true })
+	applyLanguage(languageSelectEl.value, { persist: true, updateUrl: true, reloadToLobby: true })
 })
 
 const params = new URLSearchParams(window.location.search)
@@ -198,331 +198,331 @@ const TRAIL_PERSIST_KEY = 'linkwalk:trail:v1'
 const TRAIL_PERSIST_MAX = 30
 
 function loadTrailPersist() {
-  try {
-    if (!window?.localStorage) return []
-    const raw = window.localStorage.getItem(TRAIL_PERSIST_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw)
-    const items = Array.isArray(parsed?.items) ? parsed.items : Array.isArray(parsed) ? parsed : []
-    return items
-      .map((t) => (typeof t === 'string' ? t.trim() : ''))
-      .filter(Boolean)
-      .slice(-TRAIL_PERSIST_MAX)
-  } catch {
-    return []
-  }
+	try {
+		if (!window?.localStorage) return []
+		const raw = window.localStorage.getItem(TRAIL_PERSIST_KEY)
+		if (!raw) return []
+		const parsed = JSON.parse(raw)
+		const items = Array.isArray(parsed?.items) ? parsed.items : Array.isArray(parsed) ? parsed : []
+		return items
+			.map((t) => (typeof t === 'string' ? t.trim() : ''))
+			.filter(Boolean)
+			.slice(-TRAIL_PERSIST_MAX)
+	} catch {
+		return []
+	}
 }
 
 function saveTrailPersist(trail) {
-  try {
-    if (!window?.localStorage) return
-    const items = Array.isArray(trail) ? trail.slice(-TRAIL_PERSIST_MAX) : []
-    window.localStorage.setItem(TRAIL_PERSIST_KEY, JSON.stringify({ v: 1, items }))
-  } catch {
-  }
+	try {
+		if (!window?.localStorage) return
+		const items = Array.isArray(trail) ? trail.slice(-TRAIL_PERSIST_MAX) : []
+		window.localStorage.setItem(TRAIL_PERSIST_KEY, JSON.stringify({ v: 1, items }))
+	} catch {
+	}
 }
 
 let galleryTrail = loadTrailPersist()
 
 function pushGalleryTrail(displayTitle) {
-  const t = typeof displayTitle === 'string' ? displayTitle.trim() : ''
-  if (!t) return
-  const key = t.toLowerCase()
-  const last = galleryTrail.length ? String(galleryTrail[galleryTrail.length - 1] || '') : ''
-  if (last && last.toLowerCase() === key) return
+	const t = typeof displayTitle === 'string' ? displayTitle.trim() : ''
+	if (!t) return
+	const key = t.toLowerCase()
+	const last = galleryTrail.length ? String(galleryTrail[galleryTrail.length - 1] || '') : ''
+	if (last && last.toLowerCase() === key) return
 
-  galleryTrail = [...galleryTrail, t]
-  if (galleryTrail.length > TRAIL_PERSIST_MAX) galleryTrail = galleryTrail.slice(-TRAIL_PERSIST_MAX)
-  saveTrailPersist(galleryTrail)
+	galleryTrail = [...galleryTrail, t]
+	if (galleryTrail.length > TRAIL_PERSIST_MAX) galleryTrail = galleryTrail.slice(-TRAIL_PERSIST_MAX)
+	saveTrailPersist(galleryTrail)
 }
 
 function setLoading(loading) {
-  crosshairEl.classList.toggle('loading', Boolean(loading))
-  if (engineApi && typeof engineApi.setInteractionLocked === 'function') {
-    engineApi.setInteractionLocked(Boolean(loading))
-  }
+	crosshairEl.classList.toggle('loading', Boolean(loading))
+	if (engineApi && typeof engineApi.setInteractionLocked === 'function') {
+		engineApi.setInteractionLocked(Boolean(loading))
+	}
 }
 
 let historyIndex = 0
 
 function setUrlAndState(title, { push = false } = {}) {
-  const nextParams = new URLSearchParams(window.location.search)
-  nextParams.set('language', activeLanguage)
-  if (title) nextParams.set('exhibit', title)
-  else nextParams.delete('exhibit')
+	const nextParams = new URLSearchParams(window.location.search)
+	nextParams.set('language', activeLanguage)
+	if (title) nextParams.set('exhibit', title)
+	else nextParams.delete('exhibit')
 
-  const q = nextParams.toString()
-  const url = q ? `${window.location.pathname}?${q}` : window.location.pathname
-  const nextState = { linkwalk: true, idx: historyIndex, title: title || null }
+	const q = nextParams.toString()
+	const url = q ? `${window.location.pathname}?${q}` : window.location.pathname
+	const nextState = { linkwalk: true, idx: historyIndex, title: title || null }
 
-  if (push) {
-    historyIndex += 1
-    nextState.idx = historyIndex
-    window.history.pushState(nextState, '', url)
-  } else {
-    window.history.replaceState(nextState, '', url)
-  }
+	if (push) {
+		historyIndex += 1
+		nextState.idx = historyIndex
+		window.history.pushState(nextState, '', url)
+	} else {
+		window.history.replaceState(nextState, '', url)
+	}
 }
 
 function loadAndEnterGallery(title, { pushHistory = false, spawn, updateUrlState = true, loadingDoorId = null } = {}) {
-  if (!title) return
+	if (!title) return
 
-  syncLanguageFromUrlOrStorage()
+	syncLanguageFromUrlOrStorage()
 
-  if (activeDoorLabelOverride && engineApi && typeof engineApi.setDoorLabelOverride === 'function') {
-    engineApi.setDoorLabelOverride(activeDoorLabelOverride.doorId, '')
-    activeDoorLabelOverride = null
-  }
+	if (activeDoorLabelOverride && engineApi && typeof engineApi.setDoorLabelOverride === 'function') {
+		engineApi.setDoorLabelOverride(activeDoorLabelOverride.doorId, '')
+		activeDoorLabelOverride = null
+	}
 
-  if (wikiAbortController) wikiAbortController.abort()
-  wikiAbortController = new AbortController()
-  const navId = (activeNavId += 1)
+	if (wikiAbortController) wikiAbortController.abort()
+	wikiAbortController = new AbortController()
+	const navId = (activeNavId += 1)
 
-  setLoading(true)
+	setLoading(true)
 
-  const doorId = typeof loadingDoorId === 'string' ? loadingDoorId : ''
-  if (doorId && engineApi && typeof engineApi.setDoorLabelOverride === 'function') {
-    engineApi.setDoorLabelOverride(doorId, 'Loading...')
-    activeDoorLabelOverride = { doorId, navId }
-  }
+	const doorId = typeof loadingDoorId === 'string' ? loadingDoorId : ''
+	if (doorId && engineApi && typeof engineApi.setDoorLabelOverride === 'function') {
+		engineApi.setDoorLabelOverride(doorId, 'Loading...')
+		activeDoorLabelOverride = { doorId, navId }
+	}
 
-  fetchGalleryRoomData(title, { signal: wikiAbortController.signal })
-    .then((data) => {
-      if (navId !== activeNavId) return
+	fetchGalleryRoomData(title, { signal: wikiAbortController.signal })
+		.then((data) => {
+			if (navId !== activeNavId) return
 
-      function pickRelatedTitles(items) {
-        const pool = Array.isArray(items)
-          ? items
-              .map((p) => (p && typeof p.title === 'string' ? p.title : ''))
-              .map((t) => t.trim())
-              .filter(Boolean)
-          : []
+			function pickRelatedTitles(items) {
+				const pool = Array.isArray(items)
+					? items
+						.map((p) => (p && typeof p.title === 'string' ? p.title : ''))
+						.map((t) => t.trim())
+						.filter(Boolean)
+					: []
 
-        const seen = new Set()
-        const uniquePool = []
-        for (const t of pool) {
-          const k = t.toLowerCase()
-          if (seen.has(k)) continue
-          seen.add(k)
-          uniquePool.push(t)
-        }
+				const seen = new Set()
+				const uniquePool = []
+				for (const t of pool) {
+					const k = t.toLowerCase()
+					if (seen.has(k)) continue
+					seen.add(k)
+					uniquePool.push(t)
+				}
 
-        for (let i = uniquePool.length - 1; i > 0; i -= 1) {
-          const j = Math.floor(Math.random() * (i + 1))
-          const tmp = uniquePool[i]
-          uniquePool[i] = uniquePool[j]
-          uniquePool[j] = tmp
-        }
+				for (let i = uniquePool.length - 1; i > 0; i -= 1) {
+					const j = Math.floor(Math.random() * (i + 1))
+					const tmp = uniquePool[i]
+					uniquePool[i] = uniquePool[j]
+					uniquePool[j] = tmp
+				}
 
-        return uniquePool.slice(0, 6)
-      }
+				return uniquePool.slice(0, 6)
+			}
 
-      const displayTitle = typeof data?.room?.title === 'string' ? data.room.title : title
-      pushGalleryTrail(displayTitle)
-      const trailForBoard = galleryTrail.slice(-3)
+			const displayTitle = typeof data?.room?.title === 'string' ? data.room.title : title
+			pushGalleryTrail(displayTitle)
+			const trailForBoard = galleryTrail.slice(-3)
 
-      const relatedTitles = pickRelatedTitles(data?.seeAlso)
+			const relatedTitles = pickRelatedTitles(data?.seeAlso)
 
-      if (updateUrlState) {
-        setUrlAndState(title, { push: Boolean(pushHistory) })
-      }
+			if (updateUrlState) {
+				setUrlAndState(title, { push: Boolean(pushHistory) })
+			}
 
-      if (engineApi && typeof engineApi.setRoom === 'function') {
-        engineApi.setRoom({
-          roomMode: 'gallery',
-          roomSeedTitle: title,
-          galleryEntryWall: 'south',
-          galleryRelatedTitles: relatedTitles,
-          galleryTitle: displayTitle,
-          galleryDescription: typeof data?.room?.extract === 'string' ? data.room.extract : '',
-          galleryMainThumbnailUrl: typeof data?.mainThumbnailUrl === 'string' ? data.mainThumbnailUrl : null,
-          galleryPhotos: Array.isArray(data?.photos) ? data.photos : [],
-          galleryVideoUrl: typeof data?.videoUrl === 'string' ? data.videoUrl : null,
-          galleryLongExtract: typeof data?.longExtract === 'string' ? data.longExtract : '',
-          galleryTrail: trailForBoard,
-          spawn,
-        })
-      }
+			if (engineApi && typeof engineApi.setRoom === 'function') {
+				engineApi.setRoom({
+					roomMode: 'gallery',
+					roomSeedTitle: title,
+					galleryEntryWall: 'south',
+					galleryRelatedTitles: relatedTitles,
+					galleryTitle: displayTitle,
+					galleryDescription: typeof data?.room?.extract === 'string' ? data.room.extract : '',
+					galleryMainThumbnailUrl: typeof data?.mainThumbnailUrl === 'string' ? data.mainThumbnailUrl : null,
+					galleryPhotos: Array.isArray(data?.photos) ? data.photos : [],
+					galleryVideoUrl: typeof data?.videoUrl === 'string' ? data.videoUrl : null,
+					galleryLongExtract: typeof data?.longExtract === 'string' ? data.longExtract : '',
+					galleryTrail: trailForBoard,
+					spawn,
+				})
+			}
 
-      // Fetch and populate related titles in the background so room load isn't blocked.
-      fetchGalleryRoomRelated(displayTitle, { signal: wikiAbortController.signal })
-        .then((items) => {
-          if (navId !== activeNavId) return
+			// Fetch and populate related titles in the background so room load isn't blocked.
+			fetchGalleryRoomRelated(displayTitle, { signal: wikiAbortController.signal })
+				.then((items) => {
+					if (navId !== activeNavId) return
 
-          const titles = pickRelatedTitles(items)
-          if (!engineApi) return
-          if (typeof engineApi.setDoorMeta !== 'function' || typeof engineApi.setDoorLabelOverride !== 'function') return
+					const titles = pickRelatedTitles(items)
+					if (!engineApi) return
+					if (typeof engineApi.setDoorMeta !== 'function' || typeof engineApi.setDoorLabelOverride !== 'function') return
 
-          for (let i = 0; i < 6; i += 1) {
-            const doorId = `seealso-${i}`
-            const t = typeof titles[i] === 'string' ? titles[i].trim() : ''
-            if (!t) continue
-            engineApi.setDoorMeta(doorId, { articleTitle: t })
-            engineApi.setDoorLabelOverride(doorId, t)
-          }
-        })
-        .catch((err) => {
-          if (err && err.code === 'aborted') return
-          // Related is best-effort; ignore failures.
-        })
-    })
-    .catch((err) => {
-      if (err && err.code === 'aborted') return
-      console.warn('[linkwalk] Wiki fetch failed', err)
-    })
-    .finally(() => {
-      if (navId !== activeNavId) return
-      if (activeDoorLabelOverride && activeDoorLabelOverride.navId === navId && engineApi && typeof engineApi.setDoorLabelOverride === 'function') {
-        engineApi.setDoorLabelOverride(activeDoorLabelOverride.doorId, '')
-        activeDoorLabelOverride = null
-      }
-      setLoading(false)
-    })
+					for (let i = 0; i < 6; i += 1) {
+						const doorId = `seealso-${i}`
+						const t = typeof titles[i] === 'string' ? titles[i].trim() : ''
+						if (!t) continue
+						engineApi.setDoorMeta(doorId, { articleTitle: t })
+						engineApi.setDoorLabelOverride(doorId, t)
+					}
+				})
+				.catch((err) => {
+					if (err && err.code === 'aborted') return
+					// Related is best-effort; ignore failures.
+				})
+		})
+		.catch((err) => {
+			if (err && err.code === 'aborted') return
+			console.warn('[linkwalk] Wiki fetch failed', err)
+		})
+		.finally(() => {
+			if (navId !== activeNavId) return
+			if (activeDoorLabelOverride && activeDoorLabelOverride.navId === navId && engineApi && typeof engineApi.setDoorLabelOverride === 'function') {
+				engineApi.setDoorLabelOverride(activeDoorLabelOverride.doorId, '')
+				activeDoorLabelOverride = null
+			}
+			setLoading(false)
+		})
 }
 
 function enterlobby({ push = false } = {}) {
-  if (wikiAbortController) {
-    wikiAbortController.abort()
-    wikiAbortController = null
-  }
-  activeNavId += 1
+	if (wikiAbortController) {
+		wikiAbortController.abort()
+		wikiAbortController = null
+	}
+	activeNavId += 1
 
-  pushGalleryTrail(LOBBY_TITLE)
+	pushGalleryTrail(LOBBY_TITLE)
 
-  if (activeDoorLabelOverride && engineApi && typeof engineApi.setDoorLabelOverride === 'function') {
-    engineApi.setDoorLabelOverride(activeDoorLabelOverride.doorId, '')
-    activeDoorLabelOverride = null
-  }
+	if (activeDoorLabelOverride && engineApi && typeof engineApi.setDoorLabelOverride === 'function') {
+		engineApi.setDoorLabelOverride(activeDoorLabelOverride.doorId, '')
+		activeDoorLabelOverride = null
+	}
 
-  setUrlAndState(null, { push })
-  if (engineApi && typeof engineApi.setRoom === 'function') {
-    engineApi.setRoom({ roomMode: 'lobby', lobbyCategories: lobbyCategoriesForLanguage(activeLanguage), spawn: { type: 'fromWall', wall: 'south' } })
-  }
-  setLoading(false)
+	setUrlAndState(null, { push })
+	if (engineApi && typeof engineApi.setRoom === 'function') {
+		engineApi.setRoom({ roomMode: 'lobby', lobbyCategories: lobbyCategoriesForLanguage(activeLanguage), spawn: { type: 'fromWall', wall: 'south' } })
+	}
+	setLoading(false)
 }
 
 function goBackInApp() {
-  setLoading(true)
-  if (historyIndex > 0) {
-    window.history.back()
-    return
-  }
-  enterlobby({ push: false })
-  setLoading(false)
+	setLoading(true)
+	if (historyIndex > 0) {
+		window.history.back()
+		return
+	}
+	enterlobby({ push: false })
+	setLoading(false)
 }
 
 function requestRandomExhibit() {
-  if (randomAbortController) {
-    randomAbortController.abort()
-    randomAbortController = null
-  }
+	if (randomAbortController) {
+		randomAbortController.abort()
+		randomAbortController = null
+	}
 
-  setLoading(true)
-  randomAbortController = new AbortController()
-  const signal = randomAbortController.signal
+	setLoading(true)
+	randomAbortController = new AbortController()
+	const signal = randomAbortController.signal
 
-  fetchWikipediaRandomTitle({ signal, allow_disambiguation: false })
-    .then((title) => {
-      if (signal.aborted) return
-      loadAndEnterGallery(title, {
-        pushHistory: true,
-        spawn: { type: 'fromWall', wall: 'south' },
-      })
-    })
-    .catch((err) => {
-      if (err && err.code === 'aborted') return
-      console.warn('[linkwalk] Random exhibit failed', err)
-      setLoading(false)
-    })
+	fetchWikipediaRandomTitle({ signal, allow_disambiguation: false })
+		.then((title) => {
+			if (signal.aborted) return
+			loadAndEnterGallery(title, {
+				pushHistory: true,
+				spawn: { type: 'fromWall', wall: 'south' },
+			})
+		})
+		.catch((err) => {
+			if (err && err.code === 'aborted') return
+			console.warn('[linkwalk] Random exhibit failed', err)
+			setLoading(false)
+		})
 }
 
 engineApi = startYourEngines({
-  canvas,
-  roomSeedTitle: initialTitle ?? 'Lobby',
-  roomMode: initialTitle ? 'gallery' : 'lobby',
-  roomSpawn: { type: 'fromWall', wall: 'south' },
-  lobbyCategories: lobbyCategoriesForLanguage(activeLanguage),
-  onRandomExhibitRequested: requestRandomExhibit,
-  onGoLobbyRequested() {
-    enterlobby({ push: false })
-  },
-  onPointerLockChange(locked) {
-    overlayEl.hidden = locked
-    document.body.classList.toggle('locked', locked)
-  },
-  onDoorTrigger(door) {
-    if (door && typeof door.category === 'string' && door.category.length > 0) {
-      loadAndEnterGallery(door.category, {
-        pushHistory: true,
-        spawn: { type: 'fromWall', wall: 'south' },
-        loadingDoorId: typeof door.id === 'string' ? door.id : null,
-      })
-      return
-    }
+	canvas,
+	roomSeedTitle: initialTitle ?? 'Lobby',
+	roomMode: initialTitle ? 'gallery' : 'lobby',
+	roomSpawn: { type: 'fromWall', wall: 'south' },
+	lobbyCategories: lobbyCategoriesForLanguage(activeLanguage),
+	onRandomExhibitRequested: requestRandomExhibit,
+	onGoLobbyRequested() {
+		enterlobby({ push: false })
+	},
+	onPointerLockChange(locked) {
+		overlayEl.hidden = locked
+		document.body.classList.toggle('locked', locked)
+	},
+	onDoorTrigger(door) {
+		if (door && typeof door.category === 'string' && door.category.length > 0) {
+			loadAndEnterGallery(door.category, {
+				pushHistory: true,
+				spawn: { type: 'fromWall', wall: 'south' },
+				loadingDoorId: typeof door.id === 'string' ? door.id : null,
+			})
+			return
+		}
 
-    if (door && typeof door.articleTitle === 'string' && door.articleTitle.trim().length > 0) {
-      const title = door.articleTitle.trim()
-      loadAndEnterGallery(title, {
-        pushHistory: true,
-        spawn: { type: 'fromWall', wall: 'south' },
-        loadingDoorId: typeof door.id === 'string' ? door.id : null,
-      })
-      return
-    }
+		if (door && typeof door.articleTitle === 'string' && door.articleTitle.trim().length > 0) {
+			const title = door.articleTitle.trim()
+			loadAndEnterGallery(title, {
+				pushHistory: true,
+				spawn: { type: 'fromWall', wall: 'south' },
+				loadingDoorId: typeof door.id === 'string' ? door.id : null,
+			})
+			return
+		}
 
-    if (door && door.target === 'back') {
-      goBackInApp()
-      return
-    }
+		if (door && door.target === 'back') {
+			goBackInApp()
+			return
+		}
 
-    if (door && door.target === 'lobby') {
-      enterlobby({ push: true })
-      return
-    }
+		if (door && door.target === 'lobby') {
+			enterlobby({ push: true })
+			return
+		}
 
-    if (door && typeof door.id === 'string') {
-      console.info(`[linkwalk] Door clicked: ${door.id}`)
-    }
-  },
+		if (door && typeof door.id === 'string') {
+			console.info(`[linkwalk] Door clicked: ${door.id}`)
+		}
+	},
 })
 
 if (!initialTitle) {
-  pushGalleryTrail(LOBBY_TITLE)
+	pushGalleryTrail(LOBBY_TITLE)
 }
 
 setUrlAndState(initialTitle ? initialTitle : null, { push: false })
 
 window.addEventListener('popstate', (e) => {
-  const { changed } = syncLanguageFromUrlOrStorage()
+	const { changed } = syncLanguageFromUrlOrStorage()
 
-  const st = e?.state
-  if (st && st.linkwalk && typeof st.idx === 'number') {
-    historyIndex = st.idx
-  }
+	const st = e?.state
+	if (st && st.linkwalk && typeof st.idx === 'number') {
+		historyIndex = st.idx
+	}
 
-  const p = new URLSearchParams(window.location.search)
-  const title = p.get('exhibit')
+	const p = new URLSearchParams(window.location.search)
+	const title = p.get('exhibit')
 
-  if (title) {
-    loadAndEnterGallery(title, {
-      pushHistory: false,
-      updateUrlState: false,
-      spawn: { type: 'fromWall', wall: 'south' },
-    })
-    return
-  }
+	if (title) {
+		loadAndEnterGallery(title, {
+			pushHistory: false,
+			updateUrlState: false,
+			spawn: { type: 'fromWall', wall: 'south' },
+		})
+		return
+	}
 
-  if (changed && engineApi && typeof engineApi.setRoom === 'function') {
-    engineApi.setRoom({ roomMode: 'lobby', lobbyCategories: lobbyCategoriesForLanguage(activeLanguage) })
-  }
-  enterlobby({ push: false })
-  setLoading(false)
+	if (changed && engineApi && typeof engineApi.setRoom === 'function') {
+		engineApi.setRoom({ roomMode: 'lobby', lobbyCategories: lobbyCategoriesForLanguage(activeLanguage) })
+	}
+	enterlobby({ push: false })
+	setLoading(false)
 })
 
 if (initialTitle) {
-  loadAndEnterGallery(initialTitle, {
-    pushHistory: false,
-    updateUrlState: false,
-    spawn: { type: 'fromWall', wall: 'south' },
-  })
+	loadAndEnterGallery(initialTitle, {
+		pushHistory: false,
+		updateUrlState: false,
+		spawn: { type: 'fromWall', wall: 'south' },
+	})
 }
