@@ -1,5 +1,8 @@
 const DEFAULT_WIKI_LANG = 'en'
-
+const DEFAULT_TIMEOUT_MS = 8000
+const GALLERY_PERSIST_KEY_PREFIX = 'linkwalk:galleryCache:v2'
+const GALLERY_PERSIST_MAX = 80
+const GALLERY_PERSIST_TTL_MS = 24 * 60 * 60 * 1000
 let wikiLang = DEFAULT_WIKI_LANG
 
 function normalizeWikiLang(lang) {
@@ -33,11 +36,6 @@ function wikiSummaryEndpoint() {
 function wikiActionApi() {
 	return `${wikiHost()}/w/api.php`
 }
-
-const DEFAULT_TIMEOUT_MS = 8000
-const GALLERY_PERSIST_KEY_PREFIX = 'linkwalk:galleryCache:v2'
-const GALLERY_PERSIST_MAX = 80
-const GALLERY_PERSIST_TTL_MS = 24 * 60 * 60 * 1000
 
 function wikiCachePartitionKey() {
 	return wikiLang
@@ -1017,5 +1015,4 @@ export async function fetchGalleryRoomData(title, opts = {}) {
 
 fetchGalleryRoomData._cache = null
 fetchGalleryRoomData._persist = null
-
 fetchGalleryRoomRelated._relatedCache = null
