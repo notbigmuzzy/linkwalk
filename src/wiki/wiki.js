@@ -502,6 +502,21 @@ function normalizeActionMediaInfo(raw, { maxImages = 6, maxVideos = 2 } = {}) {
 	return { images, videos }
 }
 
+export async function filterImagesBySize(urls, maxBytes = 10 * 1024 * 1024) {
+	async function check(url) {
+		try {
+			const res = await fetch(url, { method: 'HEAD' })
+			const len = res.headers.get('content-length')
+			if (len && parseInt(len, 10) > maxBytes) return false
+			return true
+		} catch {
+			return false
+		}
+	}
+	const results = await Promise.all(urls.map(check))
+	return urls.filter((_, i) => results[i])
+}
+
 async function fetchWikipediaMedia(title, { signal, maxImages = 6, maxVideos = 2 } = {}) {
 	const normalizedTitle = toWikiTitle(title)
 	if (!normalizedTitle) {
@@ -937,9 +952,17 @@ export async function fetchGalleryRoomData(title, opts = {}) {
 			})
 		}
 
-		const photos = Array.isArray(media?.images) ? media.images : []
-		const videos = Array.isArray(media?.videos) ? media.videos : []
+		let photos = Array.isArray(media?.images) ? media.images : []
+		if (photos.length > 0) {
+			try {
+				const { filterImagesBySize } = await import('./wiki.js')
+				photos = await filterImagesBySize(photos, 10 * 1024 * 1024)
+			} catch (err) {
+				console.warn('[linkwalk] Failed to filter large Wikipedia images', err)
+			}
+		}
 
+		const videos = Array.isArray(media?.videos) ? media.videos : []
 		const mainThumbnailUrl = room.thumbnailUrl || (Array.isArray(photos) && typeof photos[0] === 'string' ? photos[0] : null)
 
 		function canonicalImageKey(url) {
